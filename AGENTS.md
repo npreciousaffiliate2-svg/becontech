@@ -39,6 +39,7 @@
     - Platform must be strictly verified across 375px (mobile), 768px (tablet), 1024px, and 1440px (desktop).
     - No horizontal scrolling, no text squeezing, no broken badge wraps, and viewport zooming strictly disabled (`maximum-scale=1.0, user-scalable=no`).
 12. **Deterministic Calculations:** Money stored as integer kobo (`NGN`). CGPA/GPA computations follow exact frozen vectors.
+13. **Mandatory Custom Dropdowns:** NEVER use native HTML `<select>`. Every dropdown on the platform, across all modules, tables, filters, forms, and modals, MUST use the custom `Select` component from `@campusone/ui` with viewport auto-positioning.
 
 ---
 

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   Card,
   Button,
@@ -21,8 +22,21 @@ import { useApp } from '../context/AppContext.tsx';
 export const AnalyticsView: React.FC = () => {
   const { isDense } = useApp();
   const { showToast } = useToast();
-  const [activeTab, setActiveTab] = useState<'enrollment' | 'financial' | 'academic' | 'clinical'>('enrollment');
-  const [timeRange, setTimeRange] = useState<'current' | '3years' | 'all'>('current');
+  const { tab: routeTab } = useParams();
+  const navigate = useNavigate();
+
+  // Industry-standard page routing
+  const activeTab = routeTab === 'fees' ? 'financial' : (routeTab || 'enrollment');
+
+  const handleTabChange = (tabId: string) => {
+    if (tabId === 'enrollment') {
+      navigate('/analytics');
+    } else if (tabId === 'financial') {
+      navigate('/analytics/fees');
+    } else {
+      navigate(`/analytics/${tabId}`);
+    }
+  };
 
   // Academic Pass Rate by Department
   const passRateData = [
@@ -61,7 +75,7 @@ export const AnalyticsView: React.FC = () => {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Institutional Analytics</h1>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Analytics</h1>
           <p className="text-sm text-slate-500 mt-0.5">
             College intelligence, multi-year enrollment growth, financial recovery, and board pass rates.
           </p>
@@ -85,7 +99,7 @@ export const AnalyticsView: React.FC = () => {
       </div>
 
       {/* 4 Core Performance KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white rounded-[4px] border border-slate-200 p-5 shadow-sm">
           <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Student Retention Rate</span>
           <div className="flex items-baseline justify-between mt-2">
@@ -132,7 +146,7 @@ export const AnalyticsView: React.FC = () => {
           { id: 'clinical', label: 'Clinical Posting Compliance' },
         ]}
         activeTab={activeTab}
-        onChange={(id: any) => setActiveTab(id)}
+        onChange={handleTabChange}
       />
 
       {/* Tab 1: Enrollment & Demographics */}
@@ -202,31 +216,35 @@ export const AnalyticsView: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 2: Fee Recovery */}
+      {/* Tab 2: Financial Fee Recovery */}
       {activeTab === 'financial' && (
-        <Card header={<span className="font-bold text-slate-900">Fee Recovery Efficiency by Academic Level</span>}>
-          <div className="space-y-4 text-xs">
-            {feeRecoveryData.map((f, i) => (
-              <div key={i} className="p-3 bg-slate-50 rounded-[4px] border border-slate-200 space-y-2">
-                <div className="flex justify-between items-center font-bold">
-                  <span className="text-slate-900">{f.level}</span>
-                  <span className="text-[#0F7640]">{f.collected} of {f.billed} ({f.recoveryRate}%)</span>
-                </div>
-                <div className="w-full h-2.5 bg-slate-200 rounded-[3px] overflow-hidden">
-                  <div
-                    style={{ width: `${f.recoveryRate}%` }}
-                    className={`h-full ${f.recoveryRate >= 75 ? 'bg-[#107C41]' : 'bg-amber-500'}`}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
+        <Card header={<span className="font-bold text-slate-900">Tuition Recovery Efficiency by Cohort</span>}>
+          <Table
+            columns={[
+              { key: 'level', header: 'Student Level', render: (r: any) => <span className="font-bold text-slate-900">{r.level}</span> },
+              { key: 'billed', header: 'Total Billed', align: 'right' as const, render: (r: any) => <span className="font-semibold text-slate-700">{r.billed}</span> },
+              { key: 'collected', header: 'Total Settled', align: 'right' as const, render: (r: any) => <span className="font-bold text-[#0F7640]">{r.collected}</span> },
+              {
+                key: 'recoveryRate',
+                header: 'Recovery Rate',
+                align: 'right' as const,
+                render: (r: any) => (
+                  <Badge variant={r.recoveryRate >= 75 ? 'success' : 'warning'}>
+                    {r.recoveryRate}%
+                  </Badge>
+                ),
+              },
+            ]}
+            data={feeRecoveryData}
+            keyExtractor={(r) => r.level}
+            isDense={isDense}
+          />
         </Card>
       )}
 
       {/* Tab 3: Academic Pass Rates */}
       {activeTab === 'academic' && (
-        <Card header={<span className="font-bold text-slate-900">Departmental Examination Pass Rates (Harmattan Diet)</span>}>
+        <Card header={<span className="font-bold text-slate-900">Departmental Exam Pass Rates & Quality</span>}>
           <Table
             columns={passRateColumns}
             data={passRateData}
@@ -236,40 +254,43 @@ export const AnalyticsView: React.FC = () => {
         </Card>
       )}
 
-      {/* Tab 4: Clinical Posting Compliance */}
+      {/* Tab 4: Clinical Compliance */}
       {activeTab === 'clinical' && (
-        <Card header={<span className="font-bold text-slate-900">Hospital Posting Site Allocations</span>}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-            <div className="p-3 bg-slate-50 rounded-[4px] border border-slate-200 flex justify-between items-center">
-              <div>
-                <p className="font-bold text-slate-900">University College Hospital (UCH) Ibadan</p>
-                <span className="text-slate-500">220 Students Allocated • Teaching Hospital</span>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card header={<span className="font-bold text-slate-900">General Hospital Asaba</span>}>
+            <div className="space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Posted Trainees</span>
+                <span className="font-bold text-slate-900">220 CHEW / MLT</span>
               </div>
-              <Badge variant="success">100% Cleared</Badge>
-            </div>
-            <div className="p-3 bg-slate-50 rounded-[4px] border border-slate-200 flex justify-between items-center">
-              <div>
-                <p className="font-bold text-slate-900">State Specialist Hospital Ring Road</p>
-                <span className="text-slate-500">180 Students Allocated • General Hospital</span>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Logbook Completion</span>
+                <span className="font-bold text-[#0F7640]">98.2% Verified</span>
               </div>
-              <Badge variant="success">100% Cleared</Badge>
-            </div>
-            <div className="p-3 bg-slate-50 rounded-[4px] border border-slate-200 flex justify-between items-center">
-              <div>
-                <p className="font-bold text-slate-900">Primary Health Care Centre Ido</p>
-                <span className="text-slate-500">140 Students Allocated • Comprehensive PHC</span>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Hospital Preceptor Evaluation</span>
+                <Badge variant="success">Excellent</Badge>
               </div>
-              <Badge variant="success">100% Cleared</Badge>
             </div>
-            <div className="p-3 bg-slate-50 rounded-[4px] border border-slate-200 flex justify-between items-center">
-              <div>
-                <p className="font-bold text-slate-900">General Hospital Oyo Town</p>
-                <span className="text-slate-500">100 Students Allocated • General Hospital</span>
+          </Card>
+
+          <Card header={<span className="font-bold text-slate-900">State Specialist Hospital Moniya</span>}>
+            <div className="space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Posted Trainees</span>
+                <span className="font-bold text-slate-900">180 Pharmacy Tech / HIM</span>
               </div>
-              <Badge variant="success">100% Cleared</Badge>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Logbook Completion</span>
+                <span className="font-bold text-[#0F7640]">95.6% Verified</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Hospital Preceptor Evaluation</span>
+                <Badge variant="success">High Compliance</Badge>
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+        </div>
       )}
     </div>
   );

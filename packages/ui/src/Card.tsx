@@ -22,8 +22,12 @@ export const Card: React.FC<CardProps> = ({
       {...props}
     >
       {header && (
-        <div className="border-b border-slate-100 px-4 py-3 flex items-center justify-between">
-          {header}
+        <div className="border-b border-slate-100 px-4 py-3 flex items-center justify-between gap-3 w-full">
+          {typeof header === 'string' ? (
+            <h3 className="font-bold text-slate-900 text-sm">{header}</h3>
+          ) : (
+            <div className="w-full min-w-0">{header}</div>
+          )}
         </div>
       )}
       <div className="p-4">{children}</div>

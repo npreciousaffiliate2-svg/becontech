@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext.tsx';
 import {
   Card,
@@ -21,21 +21,23 @@ import { AuditEventRecord } from '@campusone/contracts';
 export const AdminView: React.FC = () => {
   const { auditLogs, isDense } = useApp();
   const { showToast } = useToast();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { tab: routeTab } = useParams();
+  const navigate = useNavigate();
 
-  const tabParam = searchParams.get('tab') as 'audit' | 'rbac' | 'tenant' | 'security' | null;
-  const [activeTab, setActiveTab] = useState<'audit' | 'rbac' | 'tenant' | 'security'>(tabParam || 'audit');
+  // Industry-standard page routing
+  const activeTab = (routeTab === 'permissions' ? 'rbac' : routeTab === 'school' ? 'tenant' : (routeTab || 'audit')) as 'audit' | 'rbac' | 'tenant' | 'security';
   const [selectedAuditLog, setSelectedAuditLog] = useState<AuditEventRecord | null>(null);
 
-  useEffect(() => {
-    if (tabParam) {
-      setActiveTab(tabParam);
-    }
-  }, [tabParam]);
-
   const handleTabChange = (id: string) => {
-    setActiveTab(id as any);
-    setSearchParams({ tab: id });
+    if (id === 'audit') {
+      navigate('/settings');
+    } else if (id === 'rbac') {
+      navigate('/settings/permissions');
+    } else if (id === 'tenant') {
+      navigate('/settings/school');
+    } else {
+      navigate(`/settings/${id}`);
+    }
   };
 
   const auditColumns = [
@@ -84,7 +86,7 @@ export const AdminView: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Platform Administration</h1>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Settings</h1>
           <p className="text-sm text-slate-500 mt-0.5">
             System activity history, staff permissions, and school configurations
           </p>

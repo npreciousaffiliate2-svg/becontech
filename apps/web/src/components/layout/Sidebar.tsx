@@ -82,14 +82,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       items: [
         { name: 'Overview', path: '/', icon: <LayoutDashboard size={19} /> },
         {
-          name: 'Analytics & Insights',
+          name: 'Analytics',
           path: '/analytics',
           icon: <BarChart3 size={19} />,
           subItems: [
-            { name: 'Enrollment & Growth', path: '/analytics?tab=enrollment' },
-            { name: 'Fee Recovery', path: '/analytics?tab=financial' },
-            { name: 'Academic Pass Rates', path: '/analytics?tab=academic' },
-            { name: 'Clinical Compliance', path: '/analytics?tab=clinical' },
+            { name: 'Enrollment & Growth', path: '/analytics' },
+            { name: 'Fee Recovery', path: '/analytics/fees' },
+            { name: 'Academic Pass Rates', path: '/analytics/academic' },
+            { name: 'Clinical Compliance', path: '/analytics/clinical' },
           ],
         },
       ],
@@ -98,15 +98,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
       group: 'Academics & Students',
       items: [
         {
-          name: 'Academic Departments',
+          name: 'Departments',
           path: '/departments',
           icon: <Building2 size={19} />,
           subItems: [
-            { name: 'Department Directory', path: '/departments?tab=directory' },
-            { name: 'Accredited Programmes', path: '/departments?tab=programmes' },
-            { name: 'Heads of Department', path: '/departments?tab=hods' },
-            { name: 'Faculty Roster', path: '/departments?tab=faculty' },
-            { name: 'Curriculum & Courses', path: '/departments?tab=courses' },
+            { name: 'Department Directory', path: '/departments' },
+            { name: 'Accredited Programmes', path: '/departments/programmes' },
+            { name: 'Heads of Department', path: '/departments/hods' },
+            { name: 'Faculty Roster', path: '/departments/faculty' },
+            { name: 'Curriculum & Courses', path: '/departments/courses' },
           ],
         },
         {
@@ -114,19 +114,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
           path: '/admissions',
           icon: <UserPlus size={19} />,
           subItems: [
-            { name: 'All Applications', path: '/admissions?tab=applications' },
-            { name: 'Screening & Tests', path: '/admissions?tab=screening' },
-            { name: 'Admission Lists', path: '/admissions?tab=admission_lists' },
+            { name: 'All Applications', path: '/admissions' },
+            { name: 'Screening & Tests', path: '/admissions/screening' },
+            { name: 'Admission Lists', path: '/admissions/lists' },
+            { name: 'Accepted & Enrolled', path: '/admissions/enrolled' },
           ],
         },
         {
-          name: 'Students (SIS)',
+          name: 'Students',
           path: '/students',
           icon: <Users size={19} />,
           subItems: [
-            { name: 'Student Directory', path: '/students?tab=directory' },
-            { name: 'Status Lifecycle', path: '/students?tab=lifecycle' },
-            { name: 'Student ID Cards', path: '/students?tab=id_cards' },
+            { name: 'Student Directory', path: '/students' },
+            { name: 'Status Lifecycle', path: '/students/lifecycle' },
+            { name: 'Student ID Cards', path: '/students/id-cards' },
           ],
         },
         {
@@ -134,10 +135,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           path: '/academics',
           icon: <GraduationCap size={19} />,
           subItems: [
-            { name: 'Score Entry Grid', path: '/academics?tab=scores' },
-            { name: 'Broadsheets', path: '/academics?tab=broadsheet' },
-            { name: 'Transcripts', path: '/academics?tab=transcript' },
-            { name: 'Curriculum & Courses', path: '/academics?tab=curriculum' },
+            { name: 'Score Entry Grid', path: '/academics/scores' },
+            { name: 'Broadsheets', path: '/academics/broadsheet' },
+            { name: 'Transcripts', path: '/academics/transcript' },
+            { name: 'Curriculum & Courses', path: '/academics/curriculum' },
           ],
         },
         {
@@ -145,8 +146,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           path: '/attendance',
           icon: <CalendarCheck size={19} />,
           subItems: [
-            { name: 'Daily Class Register', path: '/attendance?tab=register' },
-            { name: 'Exam Clearance', path: '/attendance?tab=eligibility' },
+            { name: 'Daily Class Register', path: '/attendance/register' },
+            { name: 'Exam Clearance', path: '/attendance/eligibility' },
           ],
         },
         {
@@ -154,18 +155,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
           path: '/postings',
           icon: <Stethoscope size={19} />,
           subItems: [
-            { name: 'Hospital Allocations', path: '/postings?tab=allocations' },
-            { name: 'Training Hospitals', path: '/postings?tab=sites' },
-            { name: 'Final Clearance', path: '/postings?tab=clearance' },
+            { name: 'Hospital Allocations', path: '/postings/allocations' },
+            { name: 'Training Hospitals', path: '/postings/sites' },
+            { name: 'Final Clearance', path: '/postings/clearance' },
           ],
         },
         {
-          name: 'E-Learning (LMS)',
+          name: 'E-Learning',
           path: '/learning',
           icon: <BookOpen size={19} />,
           subItems: [
-            { name: 'Course Materials', path: '/learning?tab=materials' },
-            { name: 'Practice Tests', path: '/learning?tab=cbt' },
+            { name: 'Course Materials', path: '/learning/materials' },
+            { name: 'Practice Tests', path: '/learning/cbt' },
           ],
         },
       ],
@@ -178,10 +179,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           path: '/bursary',
           icon: <CreditCard size={19} />,
           subItems: [
-            { name: 'Student Master Ledger', path: '/bursary?tab=ledger' },
-            { name: 'Payment Receipts', path: '/bursary?tab=receipts' },
-            { name: 'Fee Structures', path: '/bursary?tab=structure' },
-            { name: 'Overdue Debts', path: '/bursary?tab=debtors' },
+            { name: 'Student Master Ledger', path: '/bursary/ledger' },
+            { name: 'Payment Receipts', path: '/bursary/receipts' },
+            { name: 'Fee Structures', path: '/bursary/structure' },
+            { name: 'Overdue Debts', path: '/bursary/debtors' },
           ],
         },
         {
@@ -189,9 +190,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
           path: '/staff',
           icon: <Briefcase size={19} />,
           subItems: [
-            { name: 'Staff Directory', path: '/staff?tab=directory' },
-            { name: 'Monthly Salaries', path: '/staff?tab=payroll' },
-            { name: 'Staff Leaves', path: '/staff?tab=leave' },
+            { name: 'Staff Directory', path: '/staff/directory' },
+            { name: 'Monthly Salaries', path: '/staff/payroll' },
+            { name: 'Staff Leaves', path: '/staff/leave' },
           ],
         },
         { name: 'Hostels', path: '/hostels', icon: <Building2 size={19} /> },
@@ -204,14 +205,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { name: 'Reports & Accreditation', path: '/reports', icon: <FileCheck size={19} /> },
         { name: 'Messages & Notices', path: '/messages', icon: <MessageSquare size={19} /> },
         {
-          name: 'Platform Admin',
-          path: '/admin',
+          name: 'Settings',
+          path: '/settings',
           icon: <ShieldAlert size={19} />,
           subItems: [
-            { name: 'Activity History', path: '/admin?tab=audit' },
-            { name: 'User Permissions', path: '/admin?tab=rbac' },
-            { name: 'School Settings', path: '/admin?tab=tenant' },
-            { name: 'Security & 2FA', path: '/admin?tab=security' },
+            { name: 'Activity History', path: '/settings/audit' },
+            { name: 'User Permissions', path: '/settings/permissions' },
+            { name: 'School Settings', path: '/settings/school' },
+            { name: 'Security & 2FA', path: '/settings/security' },
           ],
         },
       ],
@@ -345,8 +346,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         <div className="py-1 space-y-0.5">
                           {item.subItems!.map((sub) => {
                             const isSubActive =
-                              location.pathname + location.search === sub.path ||
-                              (location.search === '' && sub.path.includes('tab=') && sub.path.endsWith(item.subItems![0].path.split('?')[1]));
+                              location.pathname === sub.path ||
+                              (location.pathname + location.search === sub.path) ||
+                              (sub.path === item.path && location.pathname === item.path);
 
                             return (
                               <NavLink

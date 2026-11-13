@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import React, { useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext.tsx';
 import {
   Card,
@@ -57,21 +57,21 @@ const Barcode: React.FC<{ value: string; className?: string }> = ({ value, class
 
 export const StudentsView: React.FC = () => {
   const { isDense } = useApp();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { tab: routeTab } = useParams();
+  const navigate = useNavigate();
 
-  const tabParam = searchParams.get('tab') as 'directory' | 'lifecycle' | 'id_cards' | null;
-  const [activeTab, setActiveTab] = useState<'directory' | 'lifecycle' | 'id_cards'>(tabParam || 'directory');
+  // Industry-standard page routing
+  const activeTab = routeTab === 'id-cards' ? 'id_cards' : (routeTab || 'directory');
   const [selectedIdCard, setSelectedIdCard] = useState<Student | null>(null);
 
-  useEffect(() => {
-    if (tabParam) {
-      setActiveTab(tabParam);
-    }
-  }, [tabParam]);
-
   const handleTabChange = (id: string) => {
-    setActiveTab(id as any);
-    setSearchParams({ tab: id });
+    if (id === 'directory') {
+      navigate('/students');
+    } else if (id === 'id_cards') {
+      navigate('/students/id-cards');
+    } else {
+      navigate(`/students/${id}`);
+    }
   };
 
   const [students, setStudents] = useState<Student[]>([
@@ -149,7 +149,7 @@ export const StudentsView: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Student Information System</h1>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Students</h1>
           <p className="text-sm text-slate-500 mt-0.5">
             Student records, status changes, and student ID cards
           </p>

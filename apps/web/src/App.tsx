@@ -38,20 +38,33 @@ export const App: React.FC = () => {
             <Route element={<AppLayout />}>
               <Route path="/" element={<DashboardView />} />
               <Route path="/departments" element={<DepartmentsView />} />
+              <Route path="/departments/:tab" element={<DepartmentsView />} />
               <Route path="/admissions" element={<AdmissionsView />} />
+              <Route path="/admissions/:tab" element={<AdmissionsView />} />
               <Route path="/students" element={<StudentsView />} />
+              <Route path="/students/:tab" element={<StudentsView />} />
               <Route path="/bursary" element={<BursaryView />} />
+              <Route path="/bursary/:tab" element={<BursaryView />} />
               <Route path="/academics" element={<AcademicsView />} />
+              <Route path="/academics/:tab" element={<AcademicsView />} />
               <Route path="/attendance" element={<AttendanceView />} />
+              <Route path="/attendance/:tab" element={<AttendanceView />} />
               <Route path="/postings" element={<ClinicalPostingsView />} />
+              <Route path="/postings/:tab" element={<ClinicalPostingsView />} />
               <Route path="/learning" element={<LearningView />} />
+              <Route path="/learning/:tab" element={<LearningView />} />
               <Route path="/staff" element={<StaffView />} />
+              <Route path="/staff/:tab" element={<StaffView />} />
               <Route path="/hostels" element={<HostelsView />} />
               <Route path="/timetable" element={<TimetableView />} />
               <Route path="/analytics" element={<AnalyticsView />} />
+              <Route path="/analytics/:tab" element={<AnalyticsView />} />
               <Route path="/reports" element={<ReportsView />} />
               <Route path="/messages" element={<CommunicationsView />} />
-              <Route path="/admin" element={<AdminView />} />
+              <Route path="/settings" element={<AdminView />} />
+              <Route path="/settings/:tab" element={<AdminView />} />
+              <Route path="/admin" element={<Navigate to="/settings" replace />} />
+              <Route path="/admin/:tab" element={<Navigate to="/settings" replace />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Routes>

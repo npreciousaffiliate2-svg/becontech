@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   Card,
   Button,
@@ -90,27 +90,18 @@ interface Department {
 export const DepartmentsView: React.FC = () => {
   const { isDense } = useApp();
   const { showToast } = useToast();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { tab: routeTab } = useParams();
+  const navigate = useNavigate();
 
-  // Tab state synced with URL search params
-  const tabFromUrl = searchParams.get('tab') as
-    | 'directory'
-    | 'programmes'
-    | 'hods'
-    | 'faculty'
-    | 'courses'
-    | null;
-  const [activeTab, setActiveTab] = useState<string>(tabFromUrl || 'directory');
-
-  useEffect(() => {
-    if (tabFromUrl && tabFromUrl !== activeTab) {
-      setActiveTab(tabFromUrl);
-    }
-  }, [tabFromUrl]);
+  // Clean industry-standard page routing (/departments, /departments/programmes, /departments/hods, etc.)
+  const activeTab = routeTab || 'directory';
 
   const handleTabChange = (tabId: string) => {
-    setActiveTab(tabId);
-    setSearchParams({ tab: tabId });
+    if (tabId === 'directory') {
+      navigate('/departments');
+    } else {
+      navigate(`/departments/${tabId}`);
+    }
   };
 
   // Search & Filter State
@@ -605,7 +596,7 @@ export const DepartmentsView: React.FC = () => {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Academic Departments</h1>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Departments</h1>
           <p className="text-sm text-slate-500 mt-0.5">
             Institutional departments, accredited training programmes, statutory board quotas, and faculty appointments.
           </p>
@@ -673,7 +664,7 @@ export const DepartmentsView: React.FC = () => {
       {/* ─── TAB 1: Department Directory ─── */}
       {activeTab === 'directory' && (
         <div className="space-y-4">
-          {/* Search & Filter Bar */}
+          {/* Search & Custom UI Filter Bar */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3 rounded-[4px] border border-slate-200 shadow-sm">
             <div className="relative w-full sm:w-72">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -687,26 +678,28 @@ export const DepartmentsView: React.FC = () => {
             </div>
             <div className="flex items-center gap-2 w-full sm:w-auto">
               <span className="text-xs text-slate-500 font-medium shrink-0">Regulatory Board:</span>
-              <select
-                value={selectedBoardFilter}
-                onChange={(e) => setSelectedBoardFilter(e.target.value)}
-                className="text-xs bg-slate-50 border border-slate-300 rounded-[4px] px-2.5 py-1.5 font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
-              >
-                <option value="ALL">All Statutory Boards</option>
-                <option value="CHPRBN">CHPRBN (Community Health)</option>
-                <option value="MLSCN">MLSCN (Medical Laboratory)</option>
-                <option value="PCN">PCN (Pharmacy)</option>
-                <option value="HRORBN">HRORBN (Health Records)</option>
-                <option value="EHORECON">EHORECON (Environmental)</option>
-              </select>
+              <div className="w-56 shrink-0">
+                <Select
+                  options={[
+                    { value: 'ALL', label: 'All Statutory Boards' },
+                    { value: 'CHPRBN', label: 'CHPRBN (Community Health)' },
+                    { value: 'MLSCN', label: 'MLSCN (Medical Lab)' },
+                    { value: 'PCN', label: 'PCN (Pharmacy)' },
+                    { value: 'HRORBN', label: 'HRORBN (Health Records)' },
+                    { value: 'EHORECON', label: 'EHORECON (Environmental)' },
+                  ]}
+                  value={selectedBoardFilter}
+                  onChange={(val) => setSelectedBoardFilter(val)}
+                />
+              </div>
             </div>
           </div>
 
           <Card
             header={
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-2">
                 <span className="font-bold text-slate-900">Health Science Academic Departments</span>
-                <span className="text-xs text-slate-500 font-medium">
+                <span className="text-xs text-slate-500 font-medium shrink-0">
                   Showing {filteredDepartments.length} of {departments.length} departments
                 </span>
               </div>
@@ -836,11 +829,12 @@ export const DepartmentsView: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                {/* Fixed Action Buttons: Balanced flex-1 and shrink-0 so Details is NEVER squashed */}
+                <div className="pt-3 border-t border-slate-100 flex items-center gap-2">
                   <Button
                     size="sm"
                     variant="secondary"
-                    className="w-full"
+                    className="flex-1"
                     onClick={() => {
                       setHodFormDeptCode(d.code);
                       setIsReassignHODOpen(true);
@@ -851,6 +845,7 @@ export const DepartmentsView: React.FC = () => {
                   <Button
                     size="sm"
                     variant="ghost"
+                    className="shrink-0 px-3"
                     onClick={() => setSelectedDept(d)}
                   >
                     Details
@@ -866,9 +861,9 @@ export const DepartmentsView: React.FC = () => {
       {activeTab === 'faculty' && (
         <Card
           header={
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-2">
               <span className="font-bold text-slate-900">Academic Faculty Roster</span>
-              <span className="text-xs text-slate-500 font-medium">
+              <span className="text-xs text-slate-500 font-medium shrink-0">
                 {facultyMembers.length} active lecturers & clinical tutors
               </span>
             </div>
@@ -954,9 +949,9 @@ export const DepartmentsView: React.FC = () => {
       {activeTab === 'courses' && (
         <Card
           header={
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-2">
               <span className="font-bold text-slate-900">Curriculum Course Offerings</span>
-              <span className="text-xs text-slate-500 font-medium">
+              <span className="text-xs text-slate-500 font-medium shrink-0">
                 {allCourses.length} accredited department courses
               </span>
             </div>
@@ -1030,7 +1025,7 @@ export const DepartmentsView: React.FC = () => {
         description="Comprehensive statutory registry, accredited programmes, and departmental leadership."
         size="lg"
         footer={
-          <div className="flex items-center justify-between w-full">
+          <div className="flex flex-col sm:flex-row items-center justify-between w-full gap-2">
             <span className="text-xs text-slate-500 font-medium">
               Accredited by {selectedDept?.regulatoryBodyFull}
             </span>
@@ -1083,7 +1078,7 @@ export const DepartmentsView: React.FC = () => {
               <span className="font-bold text-slate-900 text-xs uppercase tracking-wider block">
                 Departmental Leadership
               </span>
-              <div className="p-3 bg-white border border-slate-200 rounded-[4px] flex items-center justify-between">
+              <div className="p-3 bg-white border border-slate-200 rounded-[4px] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <h4 className="font-bold text-slate-900 text-sm">{selectedDept.hod}</h4>
                   <p className="text-xs text-slate-500">{selectedDept.hodTitle}</p>
@@ -1091,7 +1086,7 @@ export const DepartmentsView: React.FC = () => {
                     {selectedDept.hodEmail} • {selectedDept.hodPhone}
                   </p>
                 </div>
-                <div className="text-right">
+                <div className="text-left sm:text-right">
                   <span className="text-[11px] text-slate-400 block">Office Location</span>
                   <span className="font-semibold text-slate-800 text-xs">{selectedDept.office}</span>
                 </div>
@@ -1126,7 +1121,7 @@ export const DepartmentsView: React.FC = () => {
               <span className="font-bold text-slate-900 text-xs uppercase tracking-wider block">
                 Harmattan Semester Courses
               </span>
-              <div className="border border-slate-200 rounded-[4px] overflow-hidden">
+              <div className="border border-slate-200 rounded-[4px] overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold">
                     <tr>
@@ -1153,11 +1148,11 @@ export const DepartmentsView: React.FC = () => {
         )}
       </Modal>
 
-      {/* ─── MODAL 2: Register New Department ─── */}
+      {/* ─── MODAL 2: Register New Department (Strict Custom UI Select) ─── */}
       <Modal
         isOpen={isAddDeptOpen}
         onClose={() => setIsAddDeptOpen(false)}
-        title="Register Academic Department"
+        title="Register Department"
         description="Establish a new health training department in the institutional college registry."
         size="md"
         footer={
@@ -1180,7 +1175,7 @@ export const DepartmentsView: React.FC = () => {
             required
           />
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
               label="Department Code"
               placeholder="e.g. DHS"
@@ -1188,39 +1183,35 @@ export const DepartmentsView: React.FC = () => {
               onChange={(e) => setNewDeptForm({ ...newDeptForm, code: e.target.value.toUpperCase() })}
               required
             />
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-700 block">Regulatory Board</label>
-              <select
-                value={newDeptForm.regulatoryBody}
-                onChange={(e) => setNewDeptForm({ ...newDeptForm, regulatoryBody: e.target.value })}
-                className="w-full text-xs bg-white border border-slate-300 rounded-[4px] px-3 py-2 font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
-              >
-                <option value="CHPRBN">CHPRBN (Community Health)</option>
-                <option value="MLSCN">MLSCN (Medical Laboratory)</option>
-                <option value="PCN">PCN (Pharmacy)</option>
-                <option value="HRORBN">HRORBN (Health Records)</option>
-                <option value="EHORECON">EHORECON (Environmental)</option>
-                <option value="DHRB">DHRB (Dental Health)</option>
-              </select>
-            </div>
+            <Select
+              label="Regulatory Board"
+              options={[
+                { value: 'CHPRBN', label: 'CHPRBN (Community Health)' },
+                { value: 'MLSCN', label: 'MLSCN (Medical Laboratory)' },
+                { value: 'PCN', label: 'PCN (Pharmacy)' },
+                { value: 'HRORBN', label: 'HRORBN (Health Records)' },
+                { value: 'EHORECON', label: 'EHORECON (Environmental)' },
+                { value: 'DHRB', label: 'DHRB (Dental Health)' },
+              ]}
+              value={newDeptForm.regulatoryBody}
+              onChange={(val) => setNewDeptForm({ ...newDeptForm, regulatoryBody: val })}
+            />
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-700 block">Title</label>
-              <select
-                value={newDeptForm.hodTitle}
-                onChange={(e) => setNewDeptForm({ ...newDeptForm, hodTitle: e.target.value })}
-                className="w-full text-xs bg-white border border-slate-300 rounded-[4px] px-2 py-2 font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
-              >
-                <option value="Dr.">Dr.</option>
-                <option value="Pharm.">Pharm.</option>
-                <option value="Sanitarian">Sanitarian</option>
-                <option value="Mr.">Mr.</option>
-                <option value="Mrs.">Mrs.</option>
-              </select>
-            </div>
-            <div className="col-span-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <Select
+              label="Title"
+              options={[
+                { value: 'Dr.', label: 'Dr.' },
+                { value: 'Pharm.', label: 'Pharm.' },
+                { value: 'Sanitarian', label: 'Sanitarian' },
+                { value: 'Mr.', label: 'Mr.' },
+                { value: 'Mrs.', label: 'Mrs.' },
+              ]}
+              value={newDeptForm.hodTitle}
+              onChange={(val) => setNewDeptForm({ ...newDeptForm, hodTitle: val })}
+            />
+            <div className="sm:col-span-2">
               <Input
                 label="Appointed HOD Name"
                 placeholder="e.g. Samuel Adeleke"
@@ -1231,7 +1222,7 @@ export const DepartmentsView: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
               label="Approved Student Quota"
               type="number"
@@ -1257,7 +1248,7 @@ export const DepartmentsView: React.FC = () => {
         </form>
       </Modal>
 
-      {/* ─── MODAL 3: Reassign / Appoint HOD ─── */}
+      {/* ─── MODAL 3: Reassign / Appoint HOD (Strict Custom UI Select) ─── */}
       <Modal
         isOpen={isReassignHODOpen}
         onClose={() => setIsReassignHODOpen(false)}
@@ -1276,37 +1267,31 @@ export const DepartmentsView: React.FC = () => {
         }
       >
         <form onSubmit={handleReassignHOD} className="space-y-3.5 text-xs">
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-700 block">Select Department</label>
-            <select
-              value={hodFormDeptCode}
-              onChange={(e) => setHodFormDeptCode(e.target.value)}
-              className="w-full text-xs bg-white border border-slate-300 rounded-[4px] px-3 py-2 font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
-            >
-              {departments.map((d) => (
-                <option key={d.code} value={d.code}>
-                  {d.name} ({d.code}) - Current: {d.hod}
-                </option>
-              ))}
-            </select>
-          </div>
+          <Select
+            label="Select Department"
+            options={departments.map((d) => ({
+              value: d.code,
+              label: `${d.name} (${d.code})`,
+              description: `Current: ${d.hod}`,
+            }))}
+            value={hodFormDeptCode}
+            onChange={(val) => setHodFormDeptCode(val)}
+          />
 
-          <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-700 block">Title</label>
-              <select
-                value={reassignForm.newHodTitle}
-                onChange={(e) => setReassignForm({ ...reassignForm, newHodTitle: e.target.value })}
-                className="w-full text-xs bg-white border border-slate-300 rounded-[4px] px-2 py-2 font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
-              >
-                <option value="Dr.">Dr.</option>
-                <option value="Pharm.">Pharm.</option>
-                <option value="Sanitarian">Sanitarian</option>
-                <option value="Mr.">Mr.</option>
-                <option value="Mrs.">Mrs.</option>
-              </select>
-            </div>
-            <div className="col-span-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <Select
+              label="Title"
+              options={[
+                { value: 'Dr.', label: 'Dr.' },
+                { value: 'Pharm.', label: 'Pharm.' },
+                { value: 'Sanitarian', label: 'Sanitarian' },
+                { value: 'Mr.', label: 'Mr.' },
+                { value: 'Mrs.', label: 'Mrs.' },
+              ]}
+              value={reassignForm.newHodTitle}
+              onChange={(val) => setReassignForm({ ...reassignForm, newHodTitle: val })}
+            />
+            <div className="sm:col-span-2">
               <Input
                 label="New Appointed HOD Full Name"
                 placeholder="e.g. Victoria Olusola"
@@ -1317,7 +1302,7 @@ export const DepartmentsView: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
               label="Effective Appointment Date"
               type="date"

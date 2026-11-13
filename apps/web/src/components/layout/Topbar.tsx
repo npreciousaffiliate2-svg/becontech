@@ -113,24 +113,28 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
 
   // ─── Dynamic Breadcrumbs Computation (Xiroly Style) ───
   const getBreadcrumbs = () => {
-    const path = location.pathname;
+    const pathSegments = location.pathname.split('/').filter(Boolean);
+    const basePath = '/' + (pathSegments[0] || '');
+    const subRoute = pathSegments[1];
     const searchParams = new URLSearchParams(location.search);
-    const tab = searchParams.get('tab');
+    const tabKey = subRoute || searchParams.get('tab');
 
     const crumbs: { label: string; path?: string }[] = [];
 
-    if (path === '/') {
+    if (location.pathname === '/') {
       crumbs.push({ label: 'Overview' });
       return crumbs;
     }
 
     const routeMap: Record<string, { module: string; tabs: Record<string, string> }> = {
       '/departments': {
-        module: 'Academic Departments',
+        module: 'Departments',
         tabs: {
           directory: 'Department Directory',
           programmes: 'Accredited Programmes',
           hods: 'Heads of Department',
+          faculty: 'Faculty Roster',
+          courses: 'Curriculum & Courses',
         },
       },
       '/admissions': {
@@ -138,14 +142,17 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
         tabs: {
           applications: 'All Applications',
           screening: 'Screening & Tests',
+          lists: 'Admission Lists',
           admission_lists: 'Admission Lists',
+          enrolled: 'Accepted & Enrolled',
         },
       },
       '/students': {
-        module: 'Students (SIS)',
+        module: 'Students',
         tabs: {
           directory: 'Student Directory',
           lifecycle: 'Status Lifecycle',
+          'id-cards': 'Student ID Cards',
           id_cards: 'Student ID Cards',
         },
       },
@@ -174,10 +181,10 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
         },
       },
       '/learning': {
-        module: 'E-Learning (LMS)',
+        module: 'E-Learning',
         tabs: {
           materials: 'Course Materials',
-          cbt: 'CBT Practice Tests',
+          cbt: 'Practice Tests',
         },
       },
       '/bursary': {
@@ -198,29 +205,43 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
         },
       },
       '/hostels': {
-        module: 'Hostels & Lodging',
+        module: 'Hostels',
         tabs: {},
       },
       '/timetable': {
-        module: 'Timetables',
+        module: 'Timetable',
         tabs: {},
       },
-      '/admin': {
-        module: 'Platform Administration',
+      '/analytics': {
+        module: 'Analytics',
+        tabs: {
+          enrollment: 'Enrollment & Growth',
+          fees: 'Fee Recovery',
+          financial: 'Fee Recovery',
+          academic: 'Academic Pass Rates',
+          clinical: 'Clinical Compliance',
+        },
+      },
+      '/settings': {
+        module: 'Settings',
         tabs: {
           audit: 'Activity History',
+          permissions: 'User Permissions',
           rbac: 'User Permissions',
+          school: 'School Settings',
           tenant: 'School Settings',
           security: 'Security & 2FA',
         },
       },
-      '/analytics': {
-        module: 'Institutional Analytics',
+      '/admin': {
+        module: 'Settings',
         tabs: {
-          enrollment: 'Enrollment & Demographics',
-          financial: 'Fee Recovery',
-          academic: 'Academic Pass Rates',
-          clinical: 'Clinical Compliance',
+          audit: 'Activity History',
+          permissions: 'User Permissions',
+          rbac: 'User Permissions',
+          school: 'School Settings',
+          tenant: 'School Settings',
+          security: 'Security & 2FA',
         },
       },
       '/reports': {
@@ -233,14 +254,14 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
       },
     };
 
-    const currentRoute = routeMap[path];
+    const currentRoute = routeMap[basePath];
     if (currentRoute) {
-      crumbs.push({ label: currentRoute.module, path: tab ? path : undefined });
-      if (tab && currentRoute.tabs[tab]) {
-        crumbs.push({ label: currentRoute.tabs[tab] });
+      crumbs.push({ label: currentRoute.module, path: tabKey ? basePath : undefined });
+      if (tabKey && currentRoute.tabs[tabKey]) {
+        crumbs.push({ label: currentRoute.tabs[tabKey] });
       }
     } else {
-      crumbs.push({ label: path.replace('/', '').toUpperCase() });
+      crumbs.push({ label: basePath.replace('/', '').toUpperCase() });
     }
 
     return crumbs;
