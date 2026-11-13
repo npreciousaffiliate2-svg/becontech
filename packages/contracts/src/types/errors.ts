@@ -1,0 +1,27 @@
+export interface ProblemDetails {
+  type: string;
+  title: string;
+  status: number;
+  detail: string;
+  instance?: string;
+  code: string;
+  invalidParams?: Array<{
+    name: string;
+    reason: string;
+  }>;
+}
+
+export const ERROR_CODES = {
+  UNAUTHORIZED: 'AUTH_001',
+  FORBIDDEN: 'AUTH_002',
+  INVALID_TOKEN: 'AUTH_003',
+  SELF_APPROVAL_FORBIDDEN: 'RULE_P1_SELF_APPROVAL',
+  FINANCIAL_WRITE_UNAUTHORIZED: 'RULE_P2_FIN_WRITE_REQUIRED',
+  GRADE_LOCKED: 'RULE_P3_GRADE_LOCKED',
+  SPONSOR_UNAUTHORIZED_WARD: 'RULE_P4_SPONSOR_WARD_MISMATCH',
+  DEBTOR_RESTRICTION: 'FIN_DEBTOR_RESTRICTED',
+  ATTENDANCE_INELIGIBLE: 'ATT_INSUFFICIENT_PERCENTAGE',
+  VALIDATION_ERROR: 'VAL_001',
+  NOT_FOUND: 'NOT_FOUND_001',
+  IDEMPOTENCY_CONFLICT: 'IDEMPOTENCY_001',
+} as const;

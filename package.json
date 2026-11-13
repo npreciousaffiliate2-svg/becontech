@@ -1,0 +1,27 @@
+{
+  "name": "campusone-root",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CampusOne School Management Platform for Health Training Institutions",
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "services/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=@campusone/web",
+    "build": "npm run build --workspaces --if-present",
+    "test": "node packages/contracts/test/golden_vectors.test.mjs",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "keywords": [
+    "school-management",
+    "health-technology",
+    "campusone",
+    "react",
+    "typescript"
+  ],
+  "author": "Checker Web Services",
+  "license": "UNLICENSED"
+}
