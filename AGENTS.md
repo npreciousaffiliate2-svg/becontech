@@ -40,6 +40,8 @@
     - No horizontal scrolling, no text squeezing, no broken badge wraps, and viewport zooming strictly disabled (`maximum-scale=1.0, user-scalable=no`).
 12. **Deterministic Calculations:** Money stored as integer kobo (`NGN`). CGPA/GPA computations follow exact frozen vectors.
 13. **Mandatory Custom Dropdowns:** NEVER use native HTML `<select>`. Every dropdown on the platform, across all modules, tables, filters, forms, and modals, MUST use the custom `Select` component from `@campusone/ui` with viewport auto-positioning.
+14. **Strict No Mono Fonts Rule:** NEVER use `font-mono` or monospace fonts anywhere on the platform (including codes, IDs, receipts, numbers, hashes, barcodes, tables, or modals). Use Inter font (`font-sans`) exclusively across the entire application.
+15. **Refined Shadows (Zero Blurry Spill):** Shadows must be clean, tight, crisp, and subtle (`shadow-sm` or `0 1px 2px 0 rgba(0, 0, 0, 0.05)`). Never use diffuse, muddy, or wide-spill drop shadows.
 
 ---
 

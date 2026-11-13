@@ -128,6 +128,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             { name: 'Student Directory', path: '/students' },
             { name: 'Status Lifecycle', path: '/students/lifecycle' },
             { name: 'Student ID Cards', path: '/students/id-cards' },
+            { name: 'Clinical Clearance', path: '/students/clinical' },
           ],
         },
         {

@@ -154,6 +154,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
           lifecycle: 'Status Lifecycle',
           'id-cards': 'Student ID Cards',
           id_cards: 'Student ID Cards',
+          clinical: 'Clinical Clearance',
         },
       },
       '/academics': {

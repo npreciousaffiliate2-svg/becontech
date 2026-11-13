@@ -991,7 +991,7 @@ export const AdmissionsView: React.FC = () => {
                 key: 'receipt',
                 header: 'Acceptance Receipt',
                 render: (c: Candidate) => (
-                  <span className="font-mono text-xs font-semibold text-slate-700">
+                  <span className="font-semibold text-xs text-slate-700 font-sans">
                     {c.acceptanceFeeRef || 'REC-ACC-2026-0014'}
                   </span>
                 ),
