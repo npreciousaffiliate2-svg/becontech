@@ -190,6 +190,8 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
         tabs: {
           materials: 'Course Materials',
           cbt: 'Practice Tests',
+          questions: 'Question Bank',
+          results: 'Student Results',
         },
       },
       '/bursary': {

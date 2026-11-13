@@ -171,6 +171,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           subItems: [
             { name: 'Course Materials', path: '/learning/materials' },
             { name: 'Practice Tests', path: '/learning/cbt' },
+            { name: 'Question Bank', path: '/learning/questions' },
+            { name: 'Student Results', path: '/learning/results' },
           ],
         },
       ],

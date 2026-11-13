@@ -1071,7 +1071,7 @@ export const ClinicalPostingsView: React.FC = () => {
           <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-[4px] text-xs text-emerald-800 flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-[#0F7640] shrink-0" />
             <span>
-              <strong>Statutory Clearance Prerequisite:</strong> Clearances require 100% posting duration completed, assessed score $\ge 50\%$, and full settlement of posting fees.
+              <strong>Clearance Requirements:</strong> Clearances require 100% posting duration completed, assessed score of 50% or higher, and full payment of posting fees.
             </span>
           </div>
 

@@ -567,7 +567,7 @@ export const AttendanceView: React.FC = () => {
               </Badge>
             ) : (
               <Badge variant={isEligible ? 'success' : 'danger'} size="sm">
-                {isEligible ? 'Eligible (>=75%)' : 'Barred (<75%)'}
+                {isEligible ? 'Eligible (75% or higher)' : 'Barred (Below 75%)'}
               </Badge>
             )}
           </div>
@@ -727,7 +727,7 @@ export const AttendanceView: React.FC = () => {
               )}
             </div>
             <span className={`text-[11px] font-semibold ${isEligible ? 'text-[#13A348]' : 'text-[#F83A20]'}`}>
-              {isEligible ? 'Qualified' : 'Barred (<75%)'}
+              {isEligible ? 'Qualified' : 'Barred (Below 75%)'}
             </span>
           </div>
         );
