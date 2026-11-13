@@ -199,8 +199,9 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
         tabs: {
           ledger: 'Student Master Ledger',
           receipts: 'Payment Receipts',
-          structure: 'Fee Structures',
-          debtors: 'Overdue Debts',
+          structure: 'Fee Schedules',
+          debtors: 'Debtors & Installments',
+          reconciliation: 'Bank Reconciliation',
         },
       },
       '/staff': {

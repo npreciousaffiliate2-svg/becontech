@@ -187,8 +187,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
           subItems: [
             { name: 'Student Master Ledger', path: '/bursary/ledger' },
             { name: 'Payment Receipts', path: '/bursary/receipts' },
-            { name: 'Fee Structures', path: '/bursary/structure' },
-            { name: 'Overdue Debts', path: '/bursary/debtors' },
+            { name: 'Fee Schedules', path: '/bursary/structure' },
+            { name: 'Debtors & Installments', path: '/bursary/debtors' },
+            { name: 'Bank Reconciliation', path: '/bursary/reconciliation' },
           ],
         },
         {
