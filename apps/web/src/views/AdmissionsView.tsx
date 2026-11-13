@@ -1106,18 +1106,24 @@ export const AdmissionsView: React.FC = () => {
               <span className="font-bold text-slate-900 text-xs uppercase tracking-wider block">
                 Candidate Bio Data
               </span>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-white border border-slate-200 rounded-[4px]">
-                <div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-3 bg-white border border-slate-200 rounded-[4px]">
+                <div className="min-w-0">
                   <span className="text-slate-400 block text-[11px]">Contact Email</span>
-                  <span className="font-semibold text-slate-800">{selectedCandidate.email}</span>
+                  <span className="font-semibold text-slate-800 block truncate" title={selectedCandidate.email}>
+                    {selectedCandidate.email}
+                  </span>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <span className="text-slate-400 block text-[11px]">Phone Number</span>
-                  <span className="font-semibold text-slate-800">{selectedCandidate.phone}</span>
+                  <span className="font-semibold text-slate-800 block whitespace-nowrap">
+                    {selectedCandidate.phone}
+                  </span>
                 </div>
-                <div>
+                <div className="min-w-0 sm:col-span-2 lg:col-span-1">
                   <span className="text-slate-400 block text-[11px]">State of Origin / LGA</span>
-                  <span className="font-semibold text-slate-800">{selectedCandidate.stateOfOrigin} State ({selectedCandidate.lga})</span>
+                  <span className="font-semibold text-slate-800 block truncate">
+                    {selectedCandidate.stateOfOrigin} State ({selectedCandidate.lga})
+                  </span>
                 </div>
               </div>
             </div>

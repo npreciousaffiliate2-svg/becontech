@@ -91,9 +91,12 @@ export const Select: React.FC<SelectProps> = ({
 
       {isOpen && (
         <div
-          className={`absolute z-[100] left-0 right-0 rounded-[4px] border border-slate-200 bg-white shadow-2xl overflow-hidden max-h-60 flex flex-col ${
+          className={`absolute z-[100] left-0 right-0 rounded-[4px] border border-slate-200 bg-white overflow-hidden max-h-60 flex flex-col ${
             openUpwards ? 'bottom-full mb-1' : 'top-full mt-1'
           }`}
+          style={{
+            boxShadow: '0 2px 6px 2px rgba(60, 64, 67, 0.15), 0 1px 2px 0 rgba(60, 64, 67, 0.30)',
+          }}
         >
           {searchable && (
             <div className="p-2 border-b border-slate-100 flex items-center gap-1.5 bg-slate-50">

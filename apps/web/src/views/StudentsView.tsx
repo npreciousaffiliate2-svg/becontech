@@ -1061,18 +1061,24 @@ export const StudentsView: React.FC = () => {
               <span className="font-bold text-slate-900 text-xs uppercase tracking-wider block">
                 Personal Information
               </span>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-white border border-slate-200 rounded-[4px]">
-                <div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-3 bg-white border border-slate-200 rounded-[4px]">
+                <div className="min-w-0">
                   <span className="text-slate-400 block text-[11px]">Email Address</span>
-                  <span className="font-semibold text-slate-800">{selectedStudent.email}</span>
+                  <span className="font-semibold text-slate-800 block truncate" title={selectedStudent.email}>
+                    {selectedStudent.email}
+                  </span>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <span className="text-slate-400 block text-[11px]">Phone Number</span>
-                  <span className="font-semibold text-slate-800">{selectedStudent.phone}</span>
+                  <span className="font-semibold text-slate-800 block whitespace-nowrap">
+                    {selectedStudent.phone}
+                  </span>
                 </div>
-                <div>
+                <div className="min-w-0 sm:col-span-2 lg:col-span-1">
                   <span className="text-slate-400 block text-[11px]">State / LGA</span>
-                  <span className="font-semibold text-slate-800">{selectedStudent.stateOfOrigin} State ({selectedStudent.lga})</span>
+                  <span className="font-semibold text-slate-800 block truncate">
+                    {selectedStudent.stateOfOrigin} State ({selectedStudent.lga})
+                  </span>
                 </div>
               </div>
             </div>

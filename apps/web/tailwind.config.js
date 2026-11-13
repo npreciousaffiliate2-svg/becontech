@@ -34,6 +34,8 @@ export default {
         lg: '0 4px 8px -2px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.04)',
         xl: '0 8px 14px -3px rgba(0, 0, 0, 0.09), 0 3px 6px -2px rgba(0, 0, 0, 0.04)',
         '2xl': '0 12px 20px -4px rgba(0, 0, 0, 0.1)',
+        // Google Docs Menu Dropdown Shadow: tight, crisp, zero blurry spill
+        dropdown: '0 2px 6px 2px rgba(60, 64, 67, 0.15), 0 1px 2px 0 rgba(60, 64, 67, 0.3)',
       },
       fontFamily: {
         sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
