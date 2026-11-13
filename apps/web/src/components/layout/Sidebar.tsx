@@ -214,7 +214,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
             { name: 'Maintenance & Repairs', path: '/hostels/maintenance' },
           ],
         },
-        { name: 'Timetable', path: '/timetable', icon: <Calendar size={19} /> },
+        {
+          name: 'Timetable',
+          path: '/timetable',
+          icon: <Calendar size={19} />,
+          subItems: [
+            { name: 'Class Timetables', path: '/timetable/classes' },
+            { name: 'Practical & Lab Sessions', path: '/timetable/practicals' },
+            { name: 'Lecture Halls & Venues', path: '/timetable/venues' },
+            { name: 'Faculty Teaching Load', path: '/timetable/faculty' },
+          ],
+        },
       ],
     },
     {

@@ -24,10 +24,14 @@ export const Modal: React.FC<ModalProps> = ({
   showCloseButton = true,
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        onCloseRef.current();
+      }
     };
 
     if (isOpen) {
@@ -37,11 +41,13 @@ export const Modal: React.FC<ModalProps> = ({
       window.addEventListener('keydown', handleKeyDown);
 
       return () => {
-        document.body.style.overflow = prevOverflow;
+        document.body.style.overflow = prevOverflow === 'hidden' ? '' : prevOverflow;
         window.removeEventListener('keydown', handleKeyDown);
       };
+    } else {
+      document.body.style.overflow = '';
     }
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

@@ -223,8 +223,13 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
         },
       },
       '/timetable': {
-        module: 'Timetable',
-        tabs: {},
+        module: 'Timetable & Class Schedules',
+        tabs: {
+          classes: 'Class Timetables',
+          practicals: 'Practical & Lab Sessions',
+          venues: 'Lecture Halls & Venues',
+          faculty: 'Faculty Teaching Load',
+        },
       },
       '/analytics': {
         module: 'Analytics',
