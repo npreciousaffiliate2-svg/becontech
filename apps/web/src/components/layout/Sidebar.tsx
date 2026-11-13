@@ -203,7 +203,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
             { name: 'Licensing Audits', path: '/staff/licensing' },
           ],
         },
-        { name: 'Hostels', path: '/hostels', icon: <Building2 size={19} /> },
+        {
+          name: 'Hostels',
+          path: '/hostels',
+          icon: <Building2 size={19} />,
+          subItems: [
+            { name: 'Room Inventory', path: '/hostels/inventory' },
+            { name: 'Bed Allocations', path: '/hostels/allocations' },
+            { name: 'Check-In & Clearance', path: '/hostels/checkin' },
+            { name: 'Maintenance & Repairs', path: '/hostels/maintenance' },
+          ],
+        },
         { name: 'Timetable', path: '/timetable', icon: <Calendar size={19} /> },
       ],
     },

@@ -214,8 +214,13 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
         },
       },
       '/hostels': {
-        module: 'Hostels',
-        tabs: {},
+        module: 'Hostel & Accommodation',
+        tabs: {
+          inventory: 'Room Inventory',
+          allocations: 'Bed Allocations',
+          checkin: 'Check-In & Clearance',
+          maintenance: 'Maintenance & Repairs',
+        },
       },
       '/timetable': {
         module: 'Timetable',

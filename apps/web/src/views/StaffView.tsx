@@ -1070,8 +1070,11 @@ export const StaffView: React.FC = () => {
 
       {/* ─── MODAL 2: PRINT OFFICIAL PAYSLIP ─── */}
       <Modal
-        isOpen={isPayslipModalOpen}
-        onClose={() => setSelectedPayslipStaff(null)}
+        isOpen={isPayslipModalOpen && Boolean(selectedPayslipStaff)}
+        onClose={() => {
+          setIsPayslipModalOpen(false);
+          setSelectedPayslipStaff(null);
+        }}
         title="Official Staff Monthly Salary Payslip"
         size="lg"
       >
@@ -1190,7 +1193,13 @@ export const StaffView: React.FC = () => {
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
-              <Button variant="secondary" onClick={() => setSelectedPayslipStaff(null)}>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setIsPayslipModalOpen(false);
+                  setSelectedPayslipStaff(null);
+                }}
+              >
                 Close
               </Button>
               <Button
