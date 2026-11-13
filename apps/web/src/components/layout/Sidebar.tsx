@@ -200,6 +200,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             { name: 'Staff Directory', path: '/staff/directory' },
             { name: 'Monthly Salaries', path: '/staff/payroll' },
             { name: 'Staff Leaves', path: '/staff/leave' },
+            { name: 'Licensing Audits', path: '/staff/licensing' },
           ],
         },
         { name: 'Hostels', path: '/hostels', icon: <Building2 size={19} /> },

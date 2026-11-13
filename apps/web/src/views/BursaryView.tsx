@@ -112,6 +112,10 @@ export const BursaryView: React.FC = () => {
   const [ledgerCategoryFilter, setLedgerCategoryFilter] = useState('ALL');
   const [ledgerTypeFilter, setLedgerTypeFilter] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [receiptSearchQuery, setReceiptSearchQuery] = useState('');
+  const [receiptGatewayFilter, setReceiptGatewayFilter] = useState('ALL');
+  const [debtorSearchQuery, setDebtorSearchQuery] = useState('');
+  const [reconcileSearchQuery, setReconcileSearchQuery] = useState('');
 
   /* ─── MODAL STATES ─── */
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -387,7 +391,7 @@ export const BursaryView: React.FC = () => {
     });
   };
 
-  /* ─── DERIVED FILTERED LEDGER ENTRIES ─── */
+  /* ─── DERIVED FILTERED LISTS ─── */
   const filteredLedgerEntries = ledgerEntries.filter((l) => {
     if (ledgerCategoryFilter !== 'ALL' && l.category !== ledgerCategoryFilter) return false;
     if (ledgerTypeFilter !== 'ALL' && l.entryType !== ledgerTypeFilter) return false;
@@ -396,6 +400,39 @@ export const BursaryView: React.FC = () => {
       const matchMatric = l.matricNumber.toLowerCase().includes(q);
       const matchDesc = l.description.toLowerCase().includes(q);
       if (!matchMatric && !matchDesc) return false;
+    }
+    return true;
+  });
+
+  const filteredReceipts = receipts.filter((r) => {
+    if (receiptGatewayFilter !== 'ALL' && r.paymentMethod !== receiptGatewayFilter) return false;
+    if (receiptSearchQuery.trim()) {
+      const q = receiptSearchQuery.toLowerCase();
+      const matchNum = r.receiptNumber.toLowerCase().includes(q);
+      const matchName = r.studentName.toLowerCase().includes(q);
+      const matchMatric = r.matricNumber.toLowerCase().includes(q);
+      if (!matchNum && !matchName && !matchMatric) return false;
+    }
+    return true;
+  });
+
+  const filteredDebtors = debtors.filter((d) => {
+    if (debtorSearchQuery.trim()) {
+      const q = debtorSearchQuery.toLowerCase();
+      const matchName = d.studentName.toLowerCase().includes(q);
+      const matchMatric = d.matricNumber.toLowerCase().includes(q);
+      const matchDept = d.departmentName.toLowerCase().includes(q);
+      if (!matchName && !matchMatric && !matchDept) return false;
+    }
+    return true;
+  });
+
+  const filteredReconciliations = reconciliations.filter((rec) => {
+    if (reconcileSearchQuery.trim()) {
+      const q = reconcileSearchQuery.toLowerCase();
+      const matchRef = rec.gatewayReference.toLowerCase().includes(q);
+      const matchGateway = rec.gateway.toLowerCase().includes(q);
+      if (!matchRef && !matchGateway) return false;
     }
     return true;
   });
@@ -709,70 +746,82 @@ export const BursaryView: React.FC = () => {
         </div>
       </div>
 
-      {/* ─── Institutional Stat Cards ─── */}
+      {/* ─── Institutional Stat Cards (Spacious, No Squeezing) ─── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <Card className="p-4 bg-white border border-slate-200 rounded-[4px]">
+        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Total Revenue
             </span>
-            <div className="w-7 h-7 rounded-[4px] bg-emerald-50 text-[#13A348] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#13A348] flex items-center justify-center shrink-0">
               <DollarSign className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900 font-sans">₦84.25M</span>
-            <span className="text-xs text-[#13A348] font-semibold">74.0% recovery</span>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">₦84.25M</div>
+            <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="text-[#13A348] font-semibold">74.0% recovery</span>
+              <span className="text-slate-300">•</span>
+              <span className="text-[11px] text-slate-400">Target ₦114M</span>
+            </div>
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">Target: ₦114M for 2026/2027</p>
         </Card>
 
-        <Card className="p-4 bg-white border border-slate-200 rounded-[4px]">
+        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Overdue Receivables
             </span>
-            <div className="w-7 h-7 rounded-[4px] bg-rose-50 text-[#F83A20] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-[4px] bg-rose-50 text-[#F83A20] flex items-center justify-center shrink-0">
               <AlertTriangle className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-[#F83A20] font-sans">₦18.40M</span>
-            <span className="text-xs text-[#F83A20] font-semibold">142 debtors</span>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-[#F83A20] font-sans tracking-tight">₦18.40M</div>
+            <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="text-[#F83A20] font-semibold">142 debtors</span>
+              <span className="text-slate-300">•</span>
+              <span className="text-[11px] text-slate-400">Overdue plans</span>
+            </div>
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">Overdue installment plans</p>
         </Card>
 
-        <Card className="p-4 bg-white border border-slate-200 rounded-[4px]">
+        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Settlements Reconciled
             </span>
-            <div className="w-7 h-7 rounded-[4px] bg-blue-50 text-blue-700 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-[4px] bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
               <CheckCircle2 className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900 font-sans">384</span>
-            <span className="text-xs text-slate-500">100% matched</span>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">384</div>
+            <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="text-[#13A348] font-semibold">100% matched</span>
+              <span className="text-slate-300">•</span>
+              <span className="text-[11px] text-slate-400">Zero discrepancy</span>
+            </div>
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">Zero discrepancy across gateways</p>
         </Card>
 
-        <Card className="p-4 bg-white border border-slate-200 rounded-[4px]">
+        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Exam Fee Clearance
             </span>
-            <div className="w-7 h-7 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center shrink-0">
               <CreditCard className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900 font-sans">88.6%</span>
-            <span className="text-xs text-[#13A348] font-semibold">Trainees cleared</span>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">88.6%</div>
+            <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="text-[#13A348] font-semibold">Trainees cleared</span>
+              <span className="text-slate-300">•</span>
+              <span className="text-[11px] text-slate-400">Gate Pass active</span>
+            </div>
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">Eligible for Examination Gate Pass</p>
         </Card>
       </div>
 
@@ -791,79 +840,78 @@ export const BursaryView: React.FC = () => {
 
       {/* ─── TAB 1: STUDENT MASTER LEDGER ─── */}
       {activeTab === 'ledger' && (
-        <div className="space-y-4">
-          {/* Filters Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="w-44">
-                <Select
-                  value={ledgerCategoryFilter}
-                  onChange={(val) => setLedgerCategoryFilter(val)}
-                  options={[
-                    { value: 'ALL', label: 'All Fee Categories' },
-                    { value: 'tuition', label: 'Tuition Fees' },
-                    { value: 'clinical_posting', label: 'Clinical Levies' },
-                    { value: 'acceptance', label: 'Acceptance Fees' },
-                    { value: 'exam', label: 'Board Exam Levies' },
-                    { value: 'hostel', label: 'Hostel Fees' },
-                  ]}
-                />
-              </div>
-              <div className="w-36">
-                <Select
-                  value={ledgerTypeFilter}
-                  onChange={(val) => setLedgerTypeFilter(val)}
-                  options={[
-                    { value: 'ALL', label: 'All Types' },
-                    { value: 'credit', label: 'Credits (Payments)' },
-                    { value: 'debit', label: 'Debits (Charges)' },
-                  ]}
-                />
-              </div>
-            </div>
-
-            <div className="relative w-full sm:w-64">
-              <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search matric or description..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-9 pl-8 pr-3 text-xs bg-white border border-slate-200 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
-              />
-            </div>
-          </div>
-
-          <Card>
-            <Table
-              columns={ledgerColumns}
-              data={filteredLedgerEntries}
-              keyExtractor={(l) => l.id}
-              isDense={isDense}
-              emptyTitle="No Ledger Entries Found"
-              emptyDescription="No transactions match your search filter."
-            />
-          </Card>
-        </div>
+        <Card>
+          <Table
+            columns={ledgerColumns}
+            data={filteredLedgerEntries}
+            keyExtractor={(l) => l.id}
+            isDense={isDense}
+            searchValue={searchQuery}
+            onSearchChange={setSearchQuery}
+            searchPlaceholder="Search matriculation or description..."
+            toolbarFilters={
+              <>
+                <div className="w-44">
+                  <Select
+                    value={ledgerCategoryFilter}
+                    onChange={(val) => setLedgerCategoryFilter(val)}
+                    options={[
+                      { value: 'ALL', label: 'All Fee Categories' },
+                      { value: 'tuition', label: 'Tuition Fees' },
+                      { value: 'clinical_posting', label: 'Clinical Levies' },
+                      { value: 'acceptance', label: 'Acceptance Fees' },
+                      { value: 'exam', label: 'Board Exam Levies' },
+                      { value: 'hostel', label: 'Hostel Fees' },
+                    ]}
+                  />
+                </div>
+                <div className="w-36">
+                  <Select
+                    value={ledgerTypeFilter}
+                    onChange={(val) => setLedgerTypeFilter(val)}
+                    options={[
+                      { value: 'ALL', label: 'All Types' },
+                      { value: 'credit', label: 'Credits (Payments)' },
+                      { value: 'debit', label: 'Debits (Charges)' },
+                    ]}
+                  />
+                </div>
+              </>
+            }
+            emptyTitle="No Ledger Entries Found"
+            emptyDescription="No transactions match your search filter."
+          />
+        </Card>
       )}
 
       {/* ─── TAB 2: PAYMENT RECEIPTS ─── */}
       {activeTab === 'receipts' && (
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <p className="text-xs text-slate-500">
-              Immutable digital receipts issued upon confirmed settlement across payment gateways.
-            </p>
-          </div>
-          <Card>
-            <Table
-              columns={receiptColumns}
-              data={receipts}
-              keyExtractor={(r) => r.receiptNumber}
-              isDense={isDense}
-            />
-          </Card>
-        </div>
+        <Card>
+          <Table
+            columns={receiptColumns}
+            data={filteredReceipts}
+            keyExtractor={(r) => r.receiptNumber}
+            isDense={isDense}
+            searchValue={receiptSearchQuery}
+            onSearchChange={setReceiptSearchQuery}
+            searchPlaceholder="Search receipt number, student, or matric..."
+            toolbarFilters={
+              <div className="w-48">
+                <Select
+                  value={receiptGatewayFilter}
+                  onChange={(val) => setReceiptGatewayFilter(val)}
+                  options={[
+                    { value: 'ALL', label: 'All Gateways' },
+                    { value: 'paystack', label: 'Paystack' },
+                    { value: 'remita', label: 'Remita' },
+                    { value: 'flutterwave', label: 'Flutterwave' },
+                    { value: 'bank_transfer_direct', label: 'Direct Bank Settlement' },
+                  ]}
+                />
+              </div>
+            }
+          />
+        </Card>
       )}
 
       {/* ─── TAB 3: FEE SCHEDULES & LEVIES ─── */}
@@ -917,72 +965,66 @@ export const BursaryView: React.FC = () => {
 
       {/* ─── TAB 4: DEBTORS & INSTALLMENTS ─── */}
       {activeTab === 'debtors' && (
-        <div className="space-y-4">
-          <div className="p-3 bg-rose-50/70 border border-rose-200 rounded-[4px] text-xs text-rose-800 flex items-center justify-between">
-            <span>
-              <strong>Defaulter Policy:</strong> Students with overdue installment lines are restricted from examination gate entrance until payment is cleared.
-            </span>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => {
-                showToast({
-                  type: 'info',
-                  title: 'SMS Reminders Queued',
-                  message: 'Automated installment reminders dispatched to all 142 overdue student accounts.',
-                });
-              }}
-              leftIcon={<Send className="w-3.5 h-3.5" />}
-              className="whitespace-nowrap"
-            >
-              Dispatch All Notices
-            </Button>
-          </div>
-
-          <Card>
-            <Table
-              columns={debtorColumns}
-              data={debtors}
-              keyExtractor={(d) => d.id}
-              isDense={isDense}
-            />
-          </Card>
-        </div>
+        <Card>
+          <Table
+            columns={debtorColumns}
+            data={filteredDebtors}
+            keyExtractor={(d) => d.id}
+            isDense={isDense}
+            searchValue={debtorSearchQuery}
+            onSearchChange={setDebtorSearchQuery}
+            searchPlaceholder="Search debtor name, matric, or department..."
+            toolbarFilters={
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  showToast({
+                    type: 'info',
+                    title: 'SMS Reminders Queued',
+                    message: 'Automated installment reminders dispatched to all 142 overdue student accounts.',
+                  });
+                }}
+                leftIcon={<Send className="w-3.5 h-3.5" />}
+                className="whitespace-nowrap"
+              >
+                Dispatch All Overdue Notices
+              </Button>
+            }
+          />
+        </Card>
       )}
 
       {/* ─── TAB 5: BANK RECONCILIATION ─── */}
       {activeTab === 'reconciliation' && (
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-            <p className="text-slate-500">
-              Daily settlement reconciliation matching Paystack, Remita, Flutterwave, and direct bank wire credits to college accounts.
-            </p>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => {
-                showToast({
-                  type: 'info',
-                  title: 'Reconciliation Statement Export',
-                  message: 'Exporting audited bank reconciliation statement for the Bursar.',
-                });
-              }}
-              leftIcon={<Download className="w-3.5 h-3.5" />}
-              className="whitespace-nowrap"
-            >
-              Export Statement
-            </Button>
-          </div>
-
-          <Card>
-            <Table
-              columns={reconciliationColumns}
-              data={reconciliations}
-              keyExtractor={(rec) => rec.id}
-              isDense={isDense}
-            />
-          </Card>
-        </div>
+        <Card>
+          <Table
+            columns={reconciliationColumns}
+            data={filteredReconciliations}
+            keyExtractor={(rec) => rec.id}
+            isDense={isDense}
+            searchValue={reconcileSearchQuery}
+            onSearchChange={setReconcileSearchQuery}
+            searchPlaceholder="Search settlement reference or gateway..."
+            toolbarFilters={
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  showToast({
+                    type: 'info',
+                    title: 'Reconciliation Statement Export',
+                    message: 'Exporting audited bank reconciliation statement for the Bursar.',
+                  });
+                }}
+                leftIcon={<Download className="w-3.5 h-3.5" />}
+                className="whitespace-nowrap"
+              >
+                Export Statement
+              </Button>
+            }
+          />
+        </Card>
       )}
 
       {/* ─── MODAL 1: RECORD STUDENT PAYMENT ─── */}

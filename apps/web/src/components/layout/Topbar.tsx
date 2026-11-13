@@ -210,6 +210,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
           directory: 'Staff Directory',
           payroll: 'Monthly Salaries',
           leave: 'Staff Leaves',
+          licensing: 'Licensing Audits',
         },
       },
       '/hostels': {
