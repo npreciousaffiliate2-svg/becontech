@@ -125,6 +125,14 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
     }
 
     const routeMap: Record<string, { module: string; tabs: Record<string, string> }> = {
+      '/departments': {
+        module: 'Academic Departments',
+        tabs: {
+          directory: 'Department Directory',
+          programmes: 'Accredited Programmes',
+          hods: 'Heads of Department',
+        },
+      },
       '/admissions': {
         module: 'Admissions',
         tabs: {
@@ -204,6 +212,15 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
           rbac: 'User Permissions',
           tenant: 'School Settings',
           security: 'Security & 2FA',
+        },
+      },
+      '/analytics': {
+        module: 'Institutional Analytics',
+        tabs: {
+          enrollment: 'Enrollment & Demographics',
+          financial: 'Fee Recovery',
+          academic: 'Academic Pass Rates',
+          clinical: 'Clinical Compliance',
         },
       },
       '/reports': {

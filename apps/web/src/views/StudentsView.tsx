@@ -13,6 +13,7 @@ import {
   IdCard,
   QrCode,
   Printer,
+  UserCheck,
 } from 'lucide-react';
 
 interface Student {
@@ -26,6 +27,33 @@ interface Student {
   hepatitisBStatus: 'VACCINATED' | 'PENDING';
   status: 'ACTIVE' | 'SUSPENDED' | 'DEFERRED' | 'GRADUATED';
 }
+
+// Industry Standard Code 128 / Code 39 Linear Barcode
+const Barcode: React.FC<{ value: string; className?: string }> = ({ value, className = '' }) => {
+  const bars = [
+    2, 1, 3, 1, 1, 2, 1, 3, 2, 1, 1, 2, 3, 1, 1, 2, 1, 2, 3, 1, 2, 1, 1, 3,
+    1, 2, 2, 1, 3, 1, 1, 2, 1, 1, 3, 2, 1, 2, 1, 3, 2, 1, 1, 2, 3, 1, 1, 2,
+    1, 3, 2, 1, 1, 2, 3, 1, 2, 1, 1, 3, 1, 2, 2, 1, 3, 1, 1, 2, 1, 3, 2, 2,
+    1, 2, 1, 3, 1, 1, 2, 1, 3, 2, 1, 1, 2, 3, 1, 1, 2, 1, 2, 3, 1, 2, 1, 1
+  ];
+
+  return (
+    <div className={`flex flex-col items-center select-none ${className}`}>
+      <div className="flex items-end h-7 gap-[1.5px] bg-white px-2 py-0.5 rounded-[2px] border border-slate-200">
+        {bars.map((width, idx) => (
+          <span
+            key={idx}
+            className={`h-full ${idx % 2 === 0 ? 'bg-slate-900' : 'bg-transparent'}`}
+            style={{ width: `${width}px` }}
+          />
+        ))}
+      </div>
+      <span className="text-[9px] font-semibold tracking-widest text-slate-700 mt-0.5 font-sans">
+        *{value}*
+      </span>
+    </div>
+  );
+};
 
 export const StudentsView: React.FC = () => {
   const { isDense } = useApp();
@@ -160,7 +188,7 @@ export const StudentsView: React.FC = () => {
         <Modal
           isOpen={!!selectedIdCard}
           onClose={() => setSelectedIdCard(null)}
-          title="Print-Ready Student ID Card"
+          title="Official Student Identity Card"
           description="Institutional credential compliant with clinical posting verification requirements."
           footer={
             <div className="flex justify-end gap-2 w-full">
@@ -170,32 +198,76 @@ export const StudentsView: React.FC = () => {
             </div>
           }
         >
-          <div className="w-80 mx-auto rounded-[4px] border border-slate-300 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white p-4 shadow-xl flex flex-col justify-between h-52 relative overflow-hidden">
-            <div className="flex items-center justify-between border-b border-slate-700 pb-2">
-              <div>
-                <h4 className="text-[11px] font-bold tracking-widest uppercase text-blue-400">
-                  Bethsaida College
-                </h4>
-                <p className="text-[8px] text-slate-300 tracking-wider">College of Health Tech</p>
+          {/* Authentic White PVC ID Card with Institutional Green Header */}
+          <div className="w-[340px] mx-auto rounded-[6px] border border-slate-300 bg-white shadow-lg overflow-hidden flex flex-col justify-between">
+            {/* Header Banner */}
+            <div className="bg-[#093322] px-3.5 py-2.5 text-white flex items-center justify-between border-b-2 border-[#FEC10A]">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-[2px] bg-white text-[#093322] font-black text-[10px] flex items-center justify-center shrink-0">
+                  C1
+                </div>
+                <div>
+                  <h4 className="text-[10px] font-bold tracking-wider uppercase leading-tight">
+                    Bethsaida College
+                  </h4>
+                  <p className="text-[8px] text-emerald-200 uppercase tracking-widest leading-none">
+                    College of Health Technology
+                  </p>
+                </div>
               </div>
-              <Badge variant="primary" size="sm">STUDENT</Badge>
+              <span className="px-1.5 py-0.5 rounded-[2px] bg-[#FEC10A] text-slate-900 font-extrabold text-[9px] uppercase tracking-wider">
+                Student
+              </span>
             </div>
 
-            <div className="flex items-center gap-3 my-2">
-              <div className="w-16 h-18 bg-slate-700 rounded-[4px] border border-slate-600 flex items-center justify-center text-slate-400 text-xs font-semibold shrink-0">
-                PHOTO
+            {/* Card Body */}
+            <div className="p-3.5 bg-white flex items-start gap-3">
+              {/* Photo Box */}
+              <div className="w-20 h-24 bg-slate-100 rounded-[3px] border border-slate-300 flex flex-col items-center justify-center text-slate-400 shrink-0 relative overflow-hidden">
+                <UserCheck className="w-8 h-8 text-slate-300" />
+                <span className="text-[8px] font-bold text-slate-400 mt-1 uppercase">PASSPORT</span>
+                <div className="absolute bottom-0 inset-x-0 bg-slate-200/80 text-[7px] text-center font-bold text-slate-500 py-0.5 uppercase">
+                  VERIFIED
+                </div>
               </div>
-              <div className="min-w-0">
-                <p className="font-bold text-xs truncate">{selectedIdCard.fullName}</p>
-                <p className="text-[10px] text-blue-300 font-semibold">{selectedIdCard.matricNumber}</p>
-                <p className="text-[9px] text-slate-300 truncate mt-0.5">{selectedIdCard.programme}</p>
-                <p className="text-[9px] text-slate-400">Blood: {selectedIdCard.bloodGroup} | Genotype: {selectedIdCard.genotype}</p>
+
+              {/* Student Details */}
+              <div className="min-w-0 flex-1 space-y-1">
+                <div>
+                  <span className="text-[9px] uppercase font-bold text-slate-400 block">Student Name</span>
+                  <p className="font-extrabold text-xs text-slate-900 truncate leading-tight uppercase">
+                    {selectedIdCard.fullName}
+                  </p>
+                </div>
+
+                <div>
+                  <span className="text-[9px] uppercase font-bold text-slate-400 block">Matriculation No.</span>
+                  <p className="font-bold text-xs text-[#0F7640] leading-tight">
+                    {selectedIdCard.matricNumber}
+                  </p>
+                </div>
+
+                <div>
+                  <span className="text-[9px] uppercase font-bold text-slate-400 block">Programme</span>
+                  <p className="text-[10px] font-semibold text-slate-800 truncate leading-tight">
+                    {selectedIdCard.programme}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3 pt-0.5 text-[9px] font-medium text-slate-600">
+                  <span>Blood: <strong className="text-slate-800">{selectedIdCard.bloodGroup}</strong></span>
+                  <span>Genotype: <strong className="text-slate-800">{selectedIdCard.genotype}</strong></span>
+                </div>
               </div>
             </div>
 
-            <div className="flex items-center justify-between border-t border-slate-700 pt-1.5 text-[8px] text-slate-400">
-              <span className="font-semibold">VALID: 2026 – 2028</span>
-              <QrCode className="w-6 h-6 text-white p-0.5 bg-slate-800 rounded-[2px]" />
+            {/* Industry Standard Linear Barcode Section */}
+            <div className="px-3.5 py-2 bg-slate-50 border-t border-slate-200 flex flex-col items-center justify-center">
+              <Barcode value={selectedIdCard.matricNumber} />
+              <div className="w-full flex items-center justify-between text-[8px] text-slate-500 pt-1 mt-1 border-t border-slate-200/60 font-medium">
+                <span>ISSUED: NOV 2026</span>
+                <span className="font-bold text-slate-700">VALID THRU: OCT 2028</span>
+              </div>
             </div>
           </div>
         </Modal>

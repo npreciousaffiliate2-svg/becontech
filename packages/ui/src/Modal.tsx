@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 export interface ModalProps {
@@ -51,9 +52,10 @@ export const Modal: React.FC<ModalProps> = ({
     xl: 'max-w-4xl',
   }[size];
 
-  return (
+  // Render via portal directly to document.body so the modal & blur cover the entire screen 100%
+  const modalContent = (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-md overflow-y-auto transition-all duration-200"
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-slate-900/40 backdrop-blur-[3px] overflow-y-auto transition-all duration-200"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
@@ -63,10 +65,11 @@ export const Modal: React.FC<ModalProps> = ({
     >
       <div
         ref={modalRef}
-        className={`w-full ${sizeClasses} rounded-[4px] bg-white shadow-2xl border border-slate-200 flex flex-col max-h-[92vh] overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150`}
+        className={`relative w-full ${sizeClasses} rounded-[4px] bg-white shadow-2xl border border-slate-200/90 flex flex-col max-h-[92vh] my-auto animate-in fade-in zoom-in-95 duration-150`}
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-start justify-between bg-slate-50/80">
+        <div className="px-6 py-4 border-b border-slate-100 flex items-start justify-between bg-slate-50/90 rounded-t-[4px] shrink-0">
           <div>
             <h2 id="modal-title" className="text-base font-bold text-slate-900 tracking-tight">
               {title}
@@ -76,7 +79,7 @@ export const Modal: React.FC<ModalProps> = ({
           {showCloseButton && (
             <button
               onClick={onClose}
-              className="text-slate-400 hover:text-slate-700 p-1 rounded-[4px] hover:bg-slate-200/60 transition-colors ml-4"
+              className="text-slate-400 hover:text-slate-700 p-1.5 rounded-[4px] hover:bg-slate-200/60 transition-colors ml-4 shrink-0"
               aria-label="Close dialog"
             >
               <X className="w-4 h-4" />
@@ -84,16 +87,20 @@ export const Modal: React.FC<ModalProps> = ({
           )}
         </div>
 
-        {/* Modal Body */}
-        <div className="p-6 overflow-y-auto space-y-4 text-xs text-slate-700 flex-1">{children}</div>
+        {/* Modal Body (Allowing dropdowns to overflow naturally) */}
+        <div className="p-6 overflow-y-auto space-y-4 text-xs text-slate-700 flex-1 relative">
+          {children}
+        </div>
 
         {/* Modal Footer */}
         {footer && (
-          <div className="px-6 py-3.5 border-t border-slate-100 bg-slate-50 flex items-center justify-end gap-2.5">
+          <div className="px-6 py-3.5 border-t border-slate-100 bg-slate-50 rounded-b-[4px] flex items-center justify-end gap-2.5 shrink-0">
             {footer}
           </div>
         )}
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 };

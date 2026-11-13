@@ -19,6 +19,7 @@ import {
   ChevronLeft,
   LogOut,
   ShieldAlert,
+  FileCheck,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext.tsx';
 
@@ -85,6 +86,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
     {
       group: 'Academics & Students',
       items: [
+        {
+          name: 'Academic Departments',
+          path: '/departments',
+          icon: <Building2 size={19} />,
+          subItems: [
+            { name: 'Department Directory', path: '/departments?tab=directory' },
+            { name: 'Accredited Programmes', path: '/departments?tab=programmes' },
+            { name: 'Heads of Department', path: '/departments?tab=hods' },
+          ],
+        },
         {
           name: 'Admissions',
           path: '/admissions',
@@ -178,6 +189,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
       group: 'Administration & System',
       items: [
         {
+          name: 'Analytics & Insights',
+          path: '/analytics',
+          icon: <BarChart3 size={19} />,
+          subItems: [
+            { name: 'Enrollment & Growth', path: '/analytics?tab=enrollment' },
+            { name: 'Fee Recovery', path: '/analytics?tab=financial' },
+            { name: 'Academic Pass Rates', path: '/analytics?tab=academic' },
+            { name: 'Clinical Compliance', path: '/analytics?tab=clinical' },
+          ],
+        },
+        {
           name: 'Platform Admin',
           path: '/admin',
           icon: <ShieldAlert size={19} />,
@@ -188,7 +210,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             { name: 'Security & 2FA', path: '/admin?tab=security' },
           ],
         },
-        { name: 'Reports & Accreditation', path: '/reports', icon: <BarChart3 size={19} /> },
+        { name: 'Reports & Accreditation', path: '/reports', icon: <FileCheck size={19} /> },
         { name: 'Messages & Notices', path: '/messages', icon: <MessageSquare size={19} /> },
       ],
     },

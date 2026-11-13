@@ -19,6 +19,8 @@ import { HostelsView } from './views/HostelsView.tsx';
 import { TimetableView } from './views/TimetableView.tsx';
 import { CommunicationsView } from './views/CommunicationsView.tsx';
 import { ReportsView } from './views/ReportsView.tsx';
+import { DepartmentsView } from './views/DepartmentsView.tsx';
+import { AnalyticsView } from './views/AnalyticsView.tsx';
 import { AdminView } from './views/AdminView.tsx';
 
 export const App: React.FC = () => {
@@ -35,6 +37,7 @@ export const App: React.FC = () => {
             {/* Authenticated Application Layout */}
             <Route element={<AppLayout />}>
               <Route path="/" element={<DashboardView />} />
+              <Route path="/departments" element={<DepartmentsView />} />
               <Route path="/admissions" element={<AdmissionsView />} />
               <Route path="/students" element={<StudentsView />} />
               <Route path="/bursary" element={<BursaryView />} />
@@ -45,8 +48,9 @@ export const App: React.FC = () => {
               <Route path="/staff" element={<StaffView />} />
               <Route path="/hostels" element={<HostelsView />} />
               <Route path="/timetable" element={<TimetableView />} />
-              <Route path="/messages" element={<CommunicationsView />} />
+              <Route path="/analytics" element={<AnalyticsView />} />
               <Route path="/reports" element={<ReportsView />} />
+              <Route path="/messages" element={<CommunicationsView />} />
               <Route path="/admin" element={<AdminView />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>

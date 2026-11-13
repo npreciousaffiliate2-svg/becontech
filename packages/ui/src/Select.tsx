@@ -32,6 +32,7 @@ export const Select: React.FC<SelectProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [openUpwards, setOpenUpwards] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const selectedOption = options.find((opt) => opt.value === value);
@@ -45,6 +46,19 @@ export const Select: React.FC<SelectProps> = ({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Smart upward/downward flip to prevent clipping inside modals and small screens
+  useEffect(() => {
+    if (isOpen && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      if (spaceBelow < 230 && rect.top > 230) {
+        setOpenUpwards(true);
+      } else {
+        setOpenUpwards(false);
+      }
+    }
+  }, [isOpen]);
 
   const filteredOptions = searchable
     ? options.filter((opt) =>
@@ -63,20 +77,24 @@ export const Select: React.FC<SelectProps> = ({
         type="button"
         disabled={disabled}
         onClick={() => !disabled && setIsOpen(!isOpen)}
-        className={`w-full h-9 rounded-[4px] border px-3 flex items-center justify-between text-sm transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-[#0A77FE] focus:ring-offset-1 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed ${
+        className={`w-full h-9 rounded-[4px] border px-3 flex items-center justify-between text-sm transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-[#0F7640] focus:ring-offset-1 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed ${
           error ? 'border-[#F83A20]' : 'border-slate-300 hover:border-slate-400 bg-white'
-        } ${selectedOption ? 'text-slate-900' : 'text-slate-400'}`}
+        } ${selectedOption ? 'text-slate-900 font-medium' : 'text-slate-400'}`}
       >
         <span className="truncate">{selectedOption ? selectedOption.label : placeholder}</span>
         <ChevronDown
           className={`w-4 h-4 text-slate-400 shrink-0 transition-transform duration-150 ${
-            isOpen ? 'rotate-180 text-[#0A77FE]' : ''
+            isOpen ? 'rotate-180 text-[#0F7640]' : ''
           }`}
         />
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 left-0 right-0 mt-1 rounded-[4px] border border-slate-200 bg-white shadow-lg overflow-hidden max-h-60 flex flex-col">
+        <div
+          className={`absolute z-[100] left-0 right-0 rounded-[4px] border border-slate-200 bg-white shadow-2xl overflow-hidden max-h-60 flex flex-col ${
+            openUpwards ? 'bottom-full mb-1' : 'top-full mt-1'
+          }`}
+        >
           {searchable && (
             <div className="p-2 border-b border-slate-100 flex items-center gap-1.5 bg-slate-50">
               <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
@@ -107,7 +125,7 @@ export const Select: React.FC<SelectProps> = ({
                     }}
                     className={`w-full px-2.5 py-1.5 text-left text-xs rounded-[4px] flex items-center justify-between transition-colors ${
                       isSelected
-                        ? 'bg-blue-50 text-[#0A77FE] font-medium'
+                        ? 'bg-emerald-50 text-[#0F7640] font-semibold'
                         : 'text-slate-700 hover:bg-slate-50'
                     }`}
                   >
@@ -117,7 +135,7 @@ export const Select: React.FC<SelectProps> = ({
                         <div className="text-[10px] text-slate-400">{opt.description}</div>
                       )}
                     </div>
-                    {isSelected && <Check className="w-3.5 h-3.5 text-[#0A77FE] shrink-0" />}
+                    {isSelected && <Check className="w-3.5 h-3.5 text-[#0F7640] shrink-0" />}
                   </button>
                 );
               })
