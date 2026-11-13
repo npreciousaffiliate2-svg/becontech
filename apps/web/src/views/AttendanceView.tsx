@@ -913,68 +913,80 @@ export const AttendanceView: React.FC = () => {
 
       {/* ─── Institutional Stat Cards ─── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <Card className="p-4 bg-white border border-slate-200 rounded-[4px]">
+        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Attendance Rate
             </span>
-            <div className="w-7 h-7 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center shrink-0">
               <CalendarCheck className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900">{overallPct}%</span>
-            <span className="text-xs text-[#13A348] font-semibold">+1.8% vs last month</span>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">{overallPct}%</div>
+            <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="text-[#13A348] font-semibold">+1.8% vs last month</span>
+              <span className="text-slate-300">•</span>
+              <span className="text-[11px] text-slate-400">First Semester 2026/2027</span>
+            </div>
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">First Semester 2026/2027 session</p>
         </Card>
 
-        <Card className="p-4 bg-white border border-slate-200 rounded-[4px]">
+        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Exam Cleared
             </span>
-            <div className="w-7 h-7 rounded-[4px] bg-emerald-50 text-[#13A348] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#13A348] flex items-center justify-center shrink-0">
               <UserCheck className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900">{eligibleCount}</span>
-            <span className="text-xs text-slate-500">of {totalEnrolled} trainees</span>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">{eligibleCount}</div>
+            <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="text-slate-600 font-semibold">of {totalEnrolled} trainees</span>
+              <span className="text-slate-300">•</span>
+              <span className="text-[11px] text-slate-400">Qualified under 75% rule</span>
+            </div>
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">Qualified under 75% rule & fees</p>
         </Card>
 
-        <Card className="p-4 bg-white border border-slate-200 rounded-[4px]">
+        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Barred From Exams
             </span>
-            <div className="w-7 h-7 rounded-[4px] bg-rose-50 text-[#F83A20] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-[4px] bg-rose-50 text-[#F83A20] flex items-center justify-center shrink-0">
               <ShieldAlert className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-[#F83A20]">{barredCount}</span>
-            <span className="text-xs text-[#F83A20] font-semibold">Under 75% threshold</span>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-[#F83A20] font-sans tracking-tight">{barredCount}</div>
+            <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="text-[#F83A20] font-semibold">Under 75% threshold</span>
+              <span className="text-slate-300">•</span>
+              <span className="text-[11px] text-slate-400">Academic review pending</span>
+            </div>
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">Subject to academic review or waiver</p>
         </Card>
 
-        <Card className="p-4 bg-white border border-slate-200 rounded-[4px]">
+        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Active Courses
             </span>
-            <div className="w-7 h-7 rounded-[4px] bg-blue-50 text-blue-700 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-[4px] bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
               <BookOpen className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900">7</span>
-            <span className="text-xs text-slate-500">Accredited curricula</span>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">7</div>
+            <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="text-slate-600 font-semibold">Accredited curricula</span>
+              <span className="text-slate-300">•</span>
+              <span className="text-[11px] text-slate-400">Across 5 departments</span>
+            </div>
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">Across 5 health departments</p>
         </Card>
       </div>
 

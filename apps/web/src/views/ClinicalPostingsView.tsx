@@ -896,68 +896,80 @@ export const ClinicalPostingsView: React.FC = () => {
 
       {/* ─── Institutional Stat Cards ─── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <Card className="p-4 bg-white border border-slate-200 rounded-[4px]">
+        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Trainees on Rotation
             </span>
-            <div className="w-7 h-7 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center shrink-0">
               <Stethoscope className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900">640</span>
-            <span className="text-xs text-[#13A348] font-semibold">+14% vs 2025</span>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">640</div>
+            <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="text-[#13A348] font-semibold">+14% vs 2025</span>
+              <span className="text-slate-300">•</span>
+              <span className="text-[11px] text-slate-400">Across 6 teaching hospitals</span>
+            </div>
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">Across 6 teaching & general hospitals</p>
         </Card>
 
-        <Card className="p-4 bg-white border border-slate-200 rounded-[4px]">
+        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Partner Hospitals
             </span>
-            <div className="w-7 h-7 rounded-[4px] bg-blue-50 text-blue-700 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-[4px] bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
               <Building2 className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900">{sites.length}</span>
-            <span className="text-xs text-slate-500">Clinical sites</span>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">{sites.length}</div>
+            <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="text-slate-600 font-semibold">Clinical sites</span>
+              <span className="text-slate-300">•</span>
+              <span className="text-[11px] text-slate-400">CHPRBN, MLSCN, PCN approved</span>
+            </div>
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">Accredited by CHPRBN, MLSCN, PCN</p>
         </Card>
 
-        <Card className="p-4 bg-white border border-slate-200 rounded-[4px]">
+        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Logbook Completion
             </span>
-            <div className="w-7 h-7 rounded-[4px] bg-emerald-50 text-[#13A348] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#13A348] flex items-center justify-center shrink-0">
               <FileCheck className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900">{logbookPct}%</span>
-            <span className="text-xs text-slate-500">598 completed</span>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">{logbookPct}%</div>
+            <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="text-slate-600 font-semibold">598 completed</span>
+              <span className="text-slate-300">•</span>
+              <span className="text-[11px] text-slate-400">Preceptor signed off</span>
+            </div>
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">Verified with preceptor sign-off</p>
         </Card>
 
-        <Card className="p-4 bg-white border border-slate-200 rounded-[4px]">
+        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Certified Clearances
             </span>
-            <div className="w-7 h-7 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center shrink-0">
               <Award className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900">{certifiedCount}</span>
-            <span className="text-xs text-[#13A348] font-semibold">Ready for Boards</span>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">{certifiedCount}</div>
+            <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="text-[#13A348] font-semibold">Ready for Boards</span>
+              <span className="text-slate-300">•</span>
+              <span className="text-[11px] text-slate-400">National licensing eligible</span>
+            </div>
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">Eligible for National Licensing Exams</p>
         </Card>
       </div>
 

@@ -820,68 +820,80 @@ export const LearningView: React.FC = () => {
 
       {/* ─── Institutional Stat Cards ─── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <Card className="p-4 bg-white border border-slate-200 rounded-[4px]">
+        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Learning Modules
             </span>
-            <div className="w-7 h-7 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center shrink-0">
               <BookOpen className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900">42</span>
-            <span className="text-xs text-[#13A348] font-semibold">+8 this semester</span>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">42</div>
+            <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="text-[#13A348] font-semibold">+8 this semester</span>
+              <span className="text-slate-300">•</span>
+              <span className="text-[11px] text-slate-400">Accredited notes & lab guides</span>
+            </div>
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">Accredited notes & lab guides</p>
         </Card>
 
-        <Card className="p-4 bg-white border border-slate-200 rounded-[4px]">
+        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Practice Mock Tests
             </span>
-            <div className="w-7 h-7 rounded-[4px] bg-blue-50 text-blue-700 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-[4px] bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
               <GraduationCap className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900">16</span>
-            <span className="text-xs text-slate-500">Active suites</span>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">16</div>
+            <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="text-slate-600 font-semibold">Active suites</span>
+              <span className="text-slate-300">•</span>
+              <span className="text-[11px] text-slate-400">CHPRBN & MLSCN exam format</span>
+            </div>
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">Simulating CHPRBN & MLSCN exams</p>
         </Card>
 
-        <Card className="p-4 bg-white border border-slate-200 rounded-[4px]">
+        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Student Submissions
             </span>
-            <div className="w-7 h-7 rounded-[4px] bg-emerald-50 text-[#13A348] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#13A348] flex items-center justify-center shrink-0">
               <FileCheck className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900">2,480</span>
-            <span className="text-xs text-[#13A348] font-semibold">78.4% pass rate</span>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">2,480</div>
+            <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="text-[#13A348] font-semibold">78.4% pass rate</span>
+              <span className="text-slate-300">•</span>
+              <span className="text-[11px] text-slate-400">Mock attempts logged</span>
+            </div>
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">Mock test attempts logged</p>
         </Card>
 
-        <Card className="p-4 bg-white border border-slate-200 rounded-[4px]">
+        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Average Mock Score
             </span>
-            <div className="w-7 h-7 rounded-[4px] bg-amber-50 text-amber-700 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-[4px] bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
               <Award className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900">74.8%</span>
-            <span className="text-xs text-[#13A348] font-semibold">+5.2% vs last term</span>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">74.8%</div>
+            <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="text-[#13A348] font-semibold">+5.2% vs last term</span>
+              <span className="text-slate-300">•</span>
+              <span className="text-[11px] text-slate-400">Licensing exam readiness</span>
+            </div>
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">High licensing exam readiness</p>
         </Card>
       </div>
 

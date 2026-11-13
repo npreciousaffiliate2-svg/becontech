@@ -582,30 +582,85 @@ export const StudentsView: React.FC = () => {
         </div>
       </div>
 
-      {/* 4 Core Summary Stat Cards (Clean Subtle Shadows) */}
+      {/* 4 Core Summary Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-[4px] border border-slate-200 p-5 shadow-sm">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Total Enrolled</span>
-          <span className="text-2xl font-extrabold text-slate-900 mt-2 block">1,248</span>
-          <span className="text-xs text-slate-500 mt-1 block">Active across all 5 departments</span>
-        </div>
-        <div className="bg-white rounded-[4px] border border-slate-200 p-5 shadow-sm">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Active Good Standing</span>
-          <span className="text-2xl font-extrabold text-[#0F7640] mt-2 block">1,192</span>
-          <span className="text-xs text-slate-500 mt-1 block">95.5% meeting GPA benchmarks</span>
-        </div>
-        <div className="bg-white rounded-[4px] border border-slate-200 p-5 shadow-sm">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Clinical Cleared</span>
-          <span className="text-2xl font-extrabold text-blue-600 mt-2 block">1,140</span>
-          <span className="text-xs text-slate-500 mt-1 block">Hepatitis B vaccinated & serology verified</span>
-        </div>
-        <div className="bg-white rounded-[4px] border border-slate-200 p-5 shadow-sm">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Probation / Review</span>
-          <span className="text-2xl font-extrabold text-amber-600 mt-2 block">
-            {students.filter((s) => s.status === 'PROBATION').length}
-          </span>
-          <span className="text-xs text-slate-500 mt-1 block">Academic remediation tracking</span>
-        </div>
+        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Total Enrolled
+            </span>
+            <div className="w-8 h-8 rounded-[4px] bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
+              <GraduationCap className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">1,248</div>
+            <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="text-slate-600 font-semibold">5 Health depts</span>
+              <span className="text-slate-300">•</span>
+              <span className="text-[11px] text-slate-400">Harmattan session active</span>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Active Good Standing
+            </span>
+            <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-[#0F7640] font-sans tracking-tight">1,192</div>
+            <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="text-[#13A348] font-semibold">95.5% benchmarks met</span>
+              <span className="text-slate-300">•</span>
+              <span className="text-[11px] text-slate-400">CGPA &ge; 2.00</span>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Clinical Cleared
+            </span>
+            <div className="w-8 h-8 rounded-[4px] bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
+              <Activity className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-blue-600 font-sans tracking-tight">1,140</div>
+            <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="text-blue-700 font-semibold">Hepatitis B vaccinated</span>
+              <span className="text-slate-300">•</span>
+              <span className="text-[11px] text-slate-400">Serology verified</span>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Probation / Review
+            </span>
+            <div className="w-8 h-8 rounded-[4px] bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
+              <AlertTriangle className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-amber-600 font-sans tracking-tight">
+              {students.filter((s) => s.status === 'PROBATION').length}
+            </div>
+            <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="text-amber-700 font-semibold">Remediation track</span>
+              <span className="text-slate-300">•</span>
+              <span className="text-[11px] text-slate-400">Academic advisory queue</span>
+            </div>
+          </div>
+        </Card>
       </div>
 
       {/* Institutional Nav Tabs */}

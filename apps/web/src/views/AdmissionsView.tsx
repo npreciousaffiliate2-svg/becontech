@@ -587,32 +587,87 @@ export const AdmissionsView: React.FC = () => {
 
       {/* 4 Summary Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-[4px] border border-slate-200 p-5 shadow-sm">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Applications</span>
-          <span className="text-2xl font-extrabold text-slate-900 mt-2 block">{candidates.length}</span>
-          <span className="text-xs text-slate-500 mt-1 block">2026/2027 Academic Session</span>
-        </div>
-        <div className="bg-white rounded-[4px] border border-slate-200 p-5 shadow-sm">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Screened & Qualified</span>
-          <span className="text-2xl font-extrabold text-[#0F7640] mt-2 block">
-            {candidates.filter((c) => c.status !== 'APPLIED').length}
-          </span>
-          <span className="text-xs text-slate-500 mt-1 block">Met CBT cut-off & O'Level criteria</span>
-        </div>
-        <div className="bg-white rounded-[4px] border border-slate-200 p-5 shadow-sm">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Admissions Granted</span>
-          <span className="text-2xl font-extrabold text-blue-600 mt-2 block">
-            {candidates.filter((c) => c.status === 'ADMITTED' || c.status === 'ENROLLED').length}
-          </span>
-          <span className="text-xs text-slate-500 mt-1 block">Provisional offers published</span>
-        </div>
-        <div className="bg-white rounded-[4px] border border-slate-200 p-5 shadow-sm">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Enrolled Students</span>
-          <span className="text-2xl font-extrabold text-slate-900 mt-2 block">
-            {candidates.filter((c) => c.status === 'ENROLLED').length}
-          </span>
-          <span className="text-xs text-slate-500 mt-1 block">Acceptance fee cleared & matriculated</span>
-        </div>
+        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Applications
+            </span>
+            <div className="w-8 h-8 rounded-[4px] bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
+              <FileText className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">{candidates.length}</div>
+            <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="text-slate-600 font-semibold">2026/2027 Session</span>
+              <span className="text-slate-300">•</span>
+              <span className="text-[11px] text-slate-400">Total portal submissions</span>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Screened & Qualified
+            </span>
+            <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-[#0F7640] font-sans tracking-tight">
+              {candidates.filter((c) => c.status !== 'APPLIED').length}
+            </div>
+            <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="text-[#13A348] font-semibold">CBT & O'Level passed</span>
+              <span className="text-slate-300">•</span>
+              <span className="text-[11px] text-slate-400">Met statutory cut-offs</span>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Admissions Granted
+            </span>
+            <div className="w-8 h-8 rounded-[4px] bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
+              <Award className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-blue-600 font-sans tracking-tight">
+              {candidates.filter((c) => c.status === 'ADMITTED' || c.status === 'ENROLLED').length}
+            </div>
+            <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="text-blue-700 font-semibold">Offers published</span>
+              <span className="text-slate-300">•</span>
+              <span className="text-[11px] text-slate-400">Provisional merit list</span>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Enrolled Students
+            </span>
+            <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#13A348] flex items-center justify-center shrink-0">
+              <GraduationCap className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">
+              {candidates.filter((c) => c.status === 'ENROLLED').length}
+            </div>
+            <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="text-[#13A348] font-semibold">Acceptance settled</span>
+              <span className="text-slate-300">•</span>
+              <span className="text-[11px] text-slate-400">Matriculated & active</span>
+            </div>
+          </div>
+        </Card>
       </div>
 
       {/* Institutional Nav Tabs */}

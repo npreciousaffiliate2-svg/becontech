@@ -163,24 +163,26 @@ export const DashboardView: React.FC = () => {
               <span className="shrink-0">{kpi.icon}</span>
             </div>
 
-            <div className="flex items-baseline justify-between gap-2 mt-3 flex-wrap">
-              <span className="text-2xl lg:text-3xl font-extrabold text-slate-900 tracking-tight shrink-0">
+            <div className="mt-3">
+              <div className="text-2xl lg:text-3xl font-extrabold text-slate-900 tracking-tight font-sans">
                 {kpi.value}
-              </span>
-              <span
-                className={`text-[11px] font-bold px-2 py-0.5 rounded-[4px] whitespace-nowrap shrink-0 ${
-                  kpi.isPositive
-                    ? 'bg-emerald-50 text-[#13A348] border border-emerald-200'
-                    : 'bg-rose-50 text-[#F83A20] border border-rose-200'
-                }`}
-              >
-                {kpi.trend}
-              </span>
+              </div>
+              <div className="mt-1.5 flex items-center gap-1.5 flex-wrap text-xs">
+                <span
+                  className={`text-[11px] font-bold px-2 py-0.5 rounded-[4px] whitespace-nowrap shrink-0 ${
+                    kpi.isPositive
+                      ? 'bg-emerald-50 text-[#13A348] border border-emerald-200'
+                      : 'bg-rose-50 text-[#F83A20] border border-rose-200'
+                  }`}
+                >
+                  {kpi.trend}
+                </span>
+                <span className="text-slate-300">•</span>
+                <span className="text-xs text-slate-500 truncate">
+                  {kpi.subtext}
+                </span>
+              </div>
             </div>
-
-            <span className="text-xs text-slate-500 mt-2 block truncate">
-              {kpi.subtext}
-            </span>
           </div>
         ))}
       </div>

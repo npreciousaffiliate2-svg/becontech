@@ -396,26 +396,81 @@ export const AcademicsView: React.FC = () => {
 
       {/* 4 Academic KPI Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-[4px] border border-slate-200 p-5 shadow-sm">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Accredited Courses</span>
-          <span className="text-2xl font-extrabold text-slate-900 mt-2 block">{curriculumCourses.length}</span>
-          <span className="text-xs text-slate-500 mt-1 block">Harmattan & Rain semesters</span>
-        </div>
-        <div className="bg-white rounded-[4px] border border-slate-200 p-5 shadow-sm">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Average Pass Rate</span>
-          <span className="text-2xl font-extrabold text-[#0F7640] mt-2 block">88.4%</span>
-          <span className="text-xs text-slate-500 mt-1 block">College-wide exam results</span>
-        </div>
-        <div className="bg-white rounded-[4px] border border-slate-200 p-5 shadow-sm">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Dean’s Honor List</span>
-          <span className="text-2xl font-extrabold text-blue-600 mt-2 block">142</span>
-          <span className="text-xs text-slate-500 mt-1 block">Trainees with CGPA &ge; 4.00</span>
-        </div>
-        <div className="bg-white rounded-[4px] border border-slate-200 p-5 shadow-sm">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Broadsheets Status</span>
-          <span className="text-2xl font-extrabold text-emerald-700 mt-2 block">Ratified</span>
-          <span className="text-xs text-slate-500 mt-1 block">Senate approved Harmattan diet</span>
-        </div>
+        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Accredited Courses
+            </span>
+            <div className="w-8 h-8 rounded-[4px] bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
+              <BookOpen className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">{curriculumCourses.length}</div>
+            <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="text-slate-600 font-semibold">Curriculum modules</span>
+              <span className="text-slate-300">•</span>
+              <span className="text-[11px] text-slate-400">Harmattan & Rain</span>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Average Pass Rate
+            </span>
+            <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center shrink-0">
+              <Award className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-[#0F7640] font-sans tracking-tight">88.4%</div>
+            <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="text-[#13A348] font-semibold">+3.2% vs 2025</span>
+              <span className="text-slate-300">•</span>
+              <span className="text-[11px] text-slate-400">College-wide exam diets</span>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Dean’s Honor List
+            </span>
+            <div className="w-8 h-8 rounded-[4px] bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
+              <GraduationCap className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-blue-600 font-sans tracking-tight">142</div>
+            <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="text-blue-700 font-semibold">Trainees CGPA &ge; 4.00</span>
+              <span className="text-slate-300">•</span>
+              <span className="text-[11px] text-slate-400">Distinction standing</span>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Broadsheets Status
+            </span>
+            <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#13A348] flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-emerald-700 font-sans tracking-tight">Ratified</div>
+            <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="text-[#13A348] font-semibold">Senate approved</span>
+              <span className="text-slate-300">•</span>
+              <span className="text-[11px] text-slate-400">Harmattan semester diet</span>
+            </div>
+          </div>
+        </Card>
       </div>
 
       {/* Institutional Nav Tabs */}
