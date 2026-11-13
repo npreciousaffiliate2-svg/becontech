@@ -41,16 +41,16 @@ export const AdminView: React.FC = () => {
   const auditColumns = [
     {
       key: 'timestamp',
-      header: 'UTC Timestamp',
+      header: 'Date & Time',
       render: (a: AuditEventRecord) => (
-        <span className="text-[11px] text-slate-700 font-medium">{a.timestamp.replace('T', ' ').slice(0, 19)}</span>
+        <span className="text-xs text-slate-700 font-medium whitespace-nowrap">{a.timestamp.replace('T', ' ').slice(0, 19)}</span>
       ),
     },
     {
       key: 'actor',
-      header: 'Actor & Role',
+      header: 'User & Role',
       render: (a: AuditEventRecord) => (
-        <div>
+        <div className="whitespace-nowrap">
           <span className="font-semibold text-slate-900">{a.actorId}</span>
           <Badge variant="neutral" size="sm" className="ml-1.5">{a.actorRole}</Badge>
         </div>
@@ -58,23 +58,14 @@ export const AdminView: React.FC = () => {
     },
     {
       key: 'action',
-      header: 'Privileged Action',
-      render: (a: AuditEventRecord) => <span className="font-semibold text-slate-800">{a.action}</span>,
+      header: 'Action Performed',
+      render: (a: AuditEventRecord) => <span className="font-semibold text-slate-800 whitespace-nowrap">{a.action.replace(/_/g, ' ')}</span>,
     },
     {
       key: 'entity',
-      header: 'Target Entity',
+      header: 'Target Record',
       render: (a: AuditEventRecord) => (
-        <span className="text-slate-600 font-medium text-[11px]">{a.entityType}:{a.entityId}</span>
-      ),
-    },
-    {
-      key: 'chainHash',
-      header: 'Chain Integrity Hash',
-      render: (a: AuditEventRecord) => (
-        <span className="text-[11px] text-slate-500 font-medium truncate max-w-[120px] block" title={a.chainHash}>
-          {a.chainHash.slice(0, 16)}...
-        </span>
+        <span className="text-slate-600 font-medium text-xs whitespace-nowrap">{a.entityType}: {a.entityId}</span>
       ),
     },
     {
@@ -83,7 +74,7 @@ export const AdminView: React.FC = () => {
       align: 'right' as const,
       render: (a: AuditEventRecord) => (
         <Button size="sm" variant="secondary" onClick={() => setSelectedAuditLog(a)}>
-          Inspect Event
+          View Details
         </Button>
       ),
     },
@@ -100,7 +91,7 @@ export const AdminView: React.FC = () => {
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="success" size="md">
-            <ShieldCheck className="w-3.5 h-3.5 inline mr-1" /> System Secure
+            System Verified & Secure
           </Badge>
         </div>
       </div>
@@ -119,22 +110,21 @@ export const AdminView: React.FC = () => {
       {/* Tab 1: Audit Explorer */}
       {activeTab === 'audit' && (
         <Card>
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
-              <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                Cryptographically Linked Immutable Audit Trail
+              <span className="text-sm font-bold text-slate-900">
+                System Activity Log
               </span>
-              <p className="text-xs text-slate-500">
-                Hash-chained events recording all privileged academic, financial, and lifecycle mutations
+              <p className="text-xs text-slate-500 mt-0.5">
+                Permanent log of all academic, financial, and administrative actions performed across the school.
               </p>
             </div>
             <Button
               size="sm"
               variant="secondary"
-              leftIcon={<Download className="w-3.5 h-3.5" />}
-              onClick={() => showToast({ type: 'info', title: 'Audit Trail Exported', message: 'Full NDPA compliant JSON archive downloaded' })}
+              onClick={() => showToast({ type: 'info', title: 'Activity Log Exported', message: 'Activity log records exported successfully.' })}
             >
-              Export Signed Archive
+              Export Activity Log
             </Button>
           </div>
           <Table

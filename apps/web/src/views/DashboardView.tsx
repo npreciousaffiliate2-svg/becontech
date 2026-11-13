@@ -120,52 +120,16 @@ export const DashboardView: React.FC = () => {
       {/* Page Title & Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-            School Performance Overview
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+            Overview
           </h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            Bethsaida College of Health Tech • 2026/2027 Academic Session
+          <p className="text-xs text-slate-500 mt-0.5">
+            2026/2027 Academic Session
           </p>
         </div>
 
-        {/* Unified Segmented Control Toggle (Matching UseOneID Design) */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="p-1 bg-slate-200/70 rounded-[4px] inline-flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => setActiveTab('overview')}
-              className={`px-3.5 py-1.5 text-xs font-semibold rounded-[4px] transition-all ${
-                activeTab === 'overview'
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              School Overview
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('finance')}
-              className={`px-3.5 py-1.5 text-xs font-semibold rounded-[4px] transition-all ${
-                activeTab === 'finance'
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Fee Collections
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('academics')}
-              className={`px-3.5 py-1.5 text-xs font-semibold rounded-[4px] transition-all ${
-                activeTab === 'academics'
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Exams & Grades
-            </button>
-          </div>
-
+        {/* Clean Segmented Timeframe Toggle */}
+        <div className="flex items-center gap-2">
           <div className="p-1 bg-slate-200/70 rounded-[4px] inline-flex items-center gap-1">
             {(['30D', '90D', 'Session'] as const).map((t) => (
               <button
@@ -185,26 +149,26 @@ export const DashboardView: React.FC = () => {
         </div>
       </div>
 
-      {/* 4 Core Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* 4 Core Metric Cards (Responsive Grid: 1 col on mobile, 2 cols on tablet/laptop, 4 cols on wide screen) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {kpis.map((kpi, idx) => (
           <div
             key={idx}
-            className="bg-white rounded-[4px] border border-slate-200 p-5 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-150"
+            className="bg-white rounded-[4px] border border-slate-200 p-5 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-150 min-w-0"
           >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider truncate">
                 {kpi.title}
               </span>
-              {kpi.icon}
+              <span className="shrink-0">{kpi.icon}</span>
             </div>
 
-            <div className="flex items-baseline justify-between mt-3">
-              <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            <div className="flex items-baseline justify-between gap-2 mt-3 flex-wrap">
+              <span className="text-2xl lg:text-3xl font-extrabold text-slate-900 tracking-tight shrink-0">
                 {kpi.value}
               </span>
               <span
-                className={`text-xs font-bold px-2 py-0.5 rounded-[4px] ${
+                className={`text-[11px] font-bold px-2 py-0.5 rounded-[4px] whitespace-nowrap shrink-0 ${
                   kpi.isPositive
                     ? 'bg-emerald-50 text-[#13A348] border border-emerald-200'
                     : 'bg-rose-50 text-[#F83A20] border border-rose-200'
@@ -214,7 +178,7 @@ export const DashboardView: React.FC = () => {
               </span>
             </div>
 
-            <span className="text-xs text-slate-500 mt-2 block">
+            <span className="text-xs text-slate-500 mt-2 block truncate">
               {kpi.subtext}
             </span>
           </div>

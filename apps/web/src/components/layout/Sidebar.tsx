@@ -56,40 +56,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Expanded parent menus state (WordPress-style)
-  const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
-    '/admissions': false,
-    '/students': false,
-    '/bursary': false,
-    '/academics': false,
-    '/postings': false,
-    '/staff': false,
-    '/admin': false,
-  });
+  // Single active submenu (when one module is selected, others are closed)
+  const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null);
 
-  // Auto-expand the menu corresponding to the active path
+  // Auto-expand only the menu corresponding to the active path
   useEffect(() => {
     const currentBasePath = '/' + location.pathname.split('/')[1];
-    setExpandedMenus((prev) => ({
-      ...prev,
-      [currentBasePath]: true,
-    }));
+    if (currentBasePath !== '/') {
+      setActiveSubmenu(currentBasePath);
+    } else {
+      setActiveSubmenu(null);
+    }
   }, [location.pathname]);
 
   const toggleSubmenu = (basePath: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setExpandedMenus((prev) => ({
-      ...prev,
-      [basePath]: !prev[basePath],
-    }));
+    setActiveSubmenu((prev) => (prev === basePath ? null : basePath));
   };
 
   const navGroups: NavGroup[] = [
     {
       group: 'Core',
       items: [
-        { name: 'Dashboard Overview', path: '/', icon: <LayoutDashboard size={19} /> },
+        { name: 'Overview', path: '/', icon: <LayoutDashboard size={19} /> },
         {
           name: 'Platform Admin',
           path: '/admin',
@@ -269,7 +259,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     item.path === '/'
                       ? location.pathname === '/'
                       : location.pathname.startsWith(item.path);
-                  const isMenuOpen = expandedMenus[item.path] || false;
+                  const isMenuOpen = activeSubmenu === item.path;
                   const hasSubItems = item.subItems && item.subItems.length > 0;
 
                   return (
@@ -280,10 +270,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           end={item.path === '/'}
                           onClick={() => {
                             if (!isCollapsed && hasSubItems) {
-                              setExpandedMenus((prev) => ({
-                                ...prev,
-                                [item.path]: true,
-                              }));
+                              setActiveSubmenu(item.path);
+                            } else {
+                              setActiveSubmenu(null);
                             }
                             onCloseMobile();
                           }}
@@ -317,9 +306,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         )}
                       </div>
 
-                      {/* WordPress-Style Indented Sub-Menu Items */}
+                      {/* Clean Sub-Menu Items (Flush, No Empty Space) */}
                       {!isCollapsed && hasSubItems && isMenuOpen && (
-                        <div className="pl-9 pr-1 py-1 space-y-1 border-l-2 border-white/15 ml-4">
+                        <div className="py-1 space-y-0.5">
                           {item.subItems!.map((sub) => {
                             const isSubActive =
                               location.pathname + location.search === sub.path ||
@@ -330,10 +319,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 key={sub.path}
                                 to={sub.path}
                                 onClick={onCloseMobile}
-                                className={`block px-2.5 py-1.5 text-[13px] rounded-[4px] transition-colors truncate ${
+                                className={`block pl-10 pr-3 py-2 text-[13px] rounded-[4px] transition-colors truncate ${
                                   isSubActive
                                     ? 'text-white bg-white/20 font-bold'
-                                    : 'text-white/75 hover:text-white hover:bg-white/10 font-normal'
+                                    : 'text-white/75 hover:text-white hover:bg-white/10 font-medium'
                                 }`}
                               >
                                 {sub.name}
@@ -363,7 +352,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     {session.fullName}
                   </p>
                   <p className="text-[11px] text-white/70 truncate leading-tight">
-                    {session.activeRole} • Bethsaida
+                    {session.activeRole}
                   </p>
                 </div>
               )}
