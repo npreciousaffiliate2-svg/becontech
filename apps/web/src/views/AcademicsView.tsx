@@ -470,9 +470,9 @@ export const AcademicsView: React.FC = () => {
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold text-emerald-700 font-sans tracking-tight">Ratified</div>
+            <div className="text-2xl font-bold text-emerald-700 font-sans tracking-tight">100%</div>
             <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
-              <span className="text-[#13A348] font-semibold">Senate approved</span>
+              <span className="text-[#13A348] font-semibold">Senate Ratified</span>
               <span className="text-slate-300">•</span>
               <span className="text-[11px] text-slate-400">Harmattan semester diet</span>
             </div>

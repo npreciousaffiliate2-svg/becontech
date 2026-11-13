@@ -1214,11 +1214,11 @@ export const HostelsView: React.FC = () => {
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">4 Active</div>
+            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">4</div>
             <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
-              <span className="text-amber-700 font-semibold">1 Critical Wing</span>
+              <span className="text-amber-700 font-semibold">Active Workorders</span>
               <span className="text-slate-300">•</span>
-              <span className="text-[11px] text-slate-400">3 Under Routine Repair</span>
+              <span className="text-[11px] text-slate-400">1 Critical Wing, 3 Routine</span>
             </div>
           </div>
         </Card>

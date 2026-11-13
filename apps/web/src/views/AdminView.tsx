@@ -458,15 +458,15 @@ export const AdminView: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* ─── MODULE HEADER ─── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 pb-4">
+      {/* ─── MODULE HEADER (Responsive Anti-Wrap) ─── */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight">Settings & Platform Governance</h1>
           <p className="text-xs text-slate-500 mt-0.5">
             Cryptographic Activity Log • RBAC Separation of Duties • Academic Policies • Integration Gateways
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto shrink-0">
           <Button
             variant="secondary"
             onClick={() => {
@@ -477,21 +477,21 @@ export const AdminView: React.FC = () => {
               });
             }}
             leftIcon={<ShieldCheck className="w-3.5 h-3.5 text-[#13A348]" />}
-            className="whitespace-nowrap text-xs"
+            className="whitespace-nowrap text-xs w-full sm:w-auto"
           >
             Run Security Audit
           </Button>
           <Button
             onClick={() => setIsEditSchoolModalOpen(true)}
             leftIcon={<Edit3 className="w-4 h-4" />}
-            className="whitespace-nowrap text-xs bg-[#0F7640] hover:bg-[#093322]"
+            className="whitespace-nowrap text-xs bg-[#0F7640] hover:bg-[#093322] w-full sm:w-auto"
           >
             Edit School Profile
           </Button>
         </div>
       </div>
 
-      {/* ─── TOP STAT CARDS (VERTICAL STACKING, STRICT 4PX BORDER RADIUS) ─── */}
+      {/* ─── TOP STAT CARDS (UNIFORM HEIGHT, ZERO WORD-WRAP SQUEEZING) ─── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
           <div className="flex items-center justify-between">
@@ -504,12 +504,12 @@ export const AdminView: React.FC = () => {
           </div>
           <div className="mt-3">
             <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">
-              100% Compliant
+              100%
             </div>
             <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
-              <span className="text-[#13A348] font-semibold">2FA Enforced</span>
+              <span className="text-[#13A348] font-semibold">Security Compliant</span>
               <span className="text-slate-300">•</span>
-              <span className="text-[11px] text-slate-400">Zero Unresolved Alerts</span>
+              <span className="text-[11px] text-slate-400">2FA Enforced</span>
             </div>
           </div>
         </Card>
@@ -525,12 +525,12 @@ export const AdminView: React.FC = () => {
           </div>
           <div className="mt-3">
             <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">
-              7 Roles
+              10
             </div>
             <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
-              <span className="text-blue-700 font-semibold">64 Staff Assigned</span>
+              <span className="text-blue-700 font-semibold">Institutional Roles</span>
               <span className="text-slate-300">•</span>
-              <span className="text-[11px] text-slate-400">Hard RBAC Limits</span>
+              <span className="text-[11px] text-slate-400">64 Staff Assigned</span>
             </div>
           </div>
         </Card>
@@ -546,12 +546,12 @@ export const AdminView: React.FC = () => {
           </div>
           <div className="mt-3">
             <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">
-              {auditLogs.length} Events
+              {auditLogs.length}
             </div>
             <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
-              <span className="text-[#0F7640] font-semibold">SHA-256 Chained</span>
+              <span className="text-[#0F7640] font-semibold">Logged Events</span>
               <span className="text-slate-300">•</span>
-              <span className="text-[11px] text-slate-400">Non-repudiable</span>
+              <span className="text-[11px] text-slate-400">SHA-256 Chained</span>
             </div>
           </div>
         </Card>
@@ -567,12 +567,12 @@ export const AdminView: React.FC = () => {
           </div>
           <div className="mt-3">
             <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">
-              4 Operational
+              4
             </div>
             <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
-              <span className="text-amber-700 font-semibold">Paystack • Remita • Termii</span>
+              <span className="text-amber-700 font-semibold">Active Gateways</span>
               <span className="text-slate-300">•</span>
-              <span className="text-[11px] text-slate-400">Live Production</span>
+              <span className="text-[11px] text-slate-400">Paystack, Remita, Termii</span>
             </div>
           </div>
         </Card>

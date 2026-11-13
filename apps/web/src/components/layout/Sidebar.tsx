@@ -295,10 +295,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         style={{
           width: isCollapsed ? '68px' : '260px',
           background: 'linear-gradient(180deg, #093322 0%, #052015 100%)',
-          boxShadow: '2px 0 16px rgba(5, 32, 21, 0.35)',
+          boxShadow: isMobileOpen ? '4px 0 24px rgba(5, 32, 21, 0.45)' : 'none',
           borderRadius: '0px',
         }}
-        className={`fixed top-0 bottom-0 left-0 z-40 flex flex-col justify-between text-white transition-all duration-200 select-none rounded-none ${
+        className={`fixed top-0 bottom-0 left-0 z-40 flex flex-col justify-between text-white border-r border-white/10 transition-all duration-200 select-none rounded-none ${
           isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
