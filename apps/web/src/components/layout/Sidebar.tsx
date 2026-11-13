@@ -53,7 +53,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isMobileOpen,
   onCloseMobile,
 }) => {
-  const { session } = useApp();
+  const { session, persona } = useApp();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -267,6 +267,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
   ];
 
+  // Filter navigation groups based on active persona's allowedModules
+  const allowedPaths = new Set(persona?.allowedModules || ['/']);
+  const filteredNavGroups: NavGroup[] = navGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => allowedPaths.has(item.path)),
+    }))
+    .filter((group) => group.items.length > 0);
+
   const handleSignOut = () => {
     navigate('/login');
   };
@@ -321,7 +330,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* Grouped Navigation Links with WordPress-style Submenus */}
           <nav className="flex-1 overflow-y-auto px-2 py-3 pb-10 space-y-4">
-            {navGroups.map((group) => (
+            {filteredNavGroups.map((group) => (
               <div key={group.group} className="space-y-1">
                 {!isCollapsed ? (
                   <div className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-300/60 px-3.5 py-1 select-none">
@@ -428,7 +437,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-8 h-8 rounded-[4px] bg-[#107C41] text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-sm border border-emerald-400/30">
-                TB
+                {persona?.initials || 'C1'}
               </div>
               {!isCollapsed && (
                 <div className="min-w-0">
@@ -436,7 +445,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     {session.fullName}
                   </p>
                   <p className="text-[11px] text-emerald-300/80 truncate leading-tight">
-                    {session.activeRole}
+                    {persona?.scopeBadge || session.activeRole}
                   </p>
                 </div>
               )}

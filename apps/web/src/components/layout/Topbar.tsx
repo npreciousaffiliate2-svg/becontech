@@ -12,9 +12,12 @@ import {
   AlertCircle,
   FileCheck,
   Check,
+  ShieldCheck,
+  UserCheck,
 } from 'lucide-react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext.tsx';
+import { PERSONA_PROFILES } from '../../context/personas.ts';
 
 interface TopbarProps {
   onOpenMobile: () => void;
@@ -71,17 +74,19 @@ const INITIAL_NOTIFICATIONS: NotificationItem[] = [
 ];
 
 export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed }) => {
-  const { session } = useApp();
+  const { session, persona, switchRole } = useApp();
   const location = useLocation();
   const navigate = useNavigate();
 
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isRoleSwitcherOpen, setIsRoleSwitcherOpen] = useState(false);
   const [notificationTab, setNotificationTab] = useState<'all' | 'unread'>('all');
   const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
 
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
+  const roleSwitcherRef = useRef<HTMLDivElement>(null);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -91,6 +96,9 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
       }
       if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
         setIsProfileOpen(false);
+      }
+      if (roleSwitcherRef.current && !roleSwitcherRef.current.contains(e.target as Node)) {
+        setIsRoleSwitcherOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -353,16 +361,95 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
         </nav>
       </div>
 
-      {/* ─── Right Side: Search, Notifications (UseOneID Style), Profile ─── */}
+      {/* ─── Right Side: Search, Role Switcher, Notifications, Profile ─── */}
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         {/* Desktop Search Bar (Hidden on Mobile for Zero Clutter) */}
-        <div className="relative w-48 lg:w-64 hidden md:block">
+        <div className="relative w-40 lg:w-56 hidden md:block">
           <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
             placeholder="Search students, staff, ledger..."
             className="w-full h-8 pl-8 pr-3 text-xs bg-slate-50 border border-slate-200 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640] focus:bg-white transition-colors"
           />
+        </div>
+
+        {/* ─── Quick Persona / Role Switcher ─── */}
+        <div className="relative" ref={roleSwitcherRef}>
+          <button
+            onClick={() => setIsRoleSwitcherOpen(!isRoleSwitcherOpen)}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[4px] bg-emerald-50 hover:bg-emerald-100/70 border border-emerald-200 text-[#0F7640] transition-colors"
+            title="Switch User Role Persona"
+          >
+            <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+            <span className="text-xs font-bold whitespace-nowrap hidden sm:inline">
+              {persona?.scopeBadge || session.activeRole}
+            </span>
+            <ChevronDown className="w-3 h-3 text-[#0F7640] shrink-0" />
+          </button>
+
+          {isRoleSwitcherOpen && (
+            <div
+              className="absolute right-0 mt-2 w-72 sm:w-80 rounded-[4px] border border-slate-200 bg-white py-1 z-50 text-xs animate-in fade-in duration-150"
+              style={{
+                boxShadow: '0 2px 6px 2px rgba(60, 64, 67, 0.15), 0 1px 2px 0 rgba(60, 64, 67, 0.30)',
+              }}
+            >
+              <div className="px-3.5 py-2.5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+                <div>
+                  <p className="font-bold text-slate-900 text-xs">Switch User Persona</p>
+                  <p className="text-[11px] text-slate-500">Live preview across institutional roles</p>
+                </div>
+                <span className="text-[10px] bg-emerald-100 text-[#0F7640] font-bold px-1.5 py-0.5 rounded-[4px]">
+                  RBAC Active
+                </span>
+              </div>
+              <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
+                {Object.values(PERSONA_PROFILES).map((p) => {
+                  const isActive = p.role === session.activeRole;
+                  return (
+                    <button
+                      key={p.role}
+                      onClick={() => {
+                        switchRole(p.role);
+                        setIsRoleSwitcherOpen(false);
+                      }}
+                      className={`w-full px-3.5 py-2.5 text-left flex items-start gap-2.5 hover:bg-slate-50 transition-colors ${
+                        isActive ? 'bg-emerald-50/70 font-semibold' : ''
+                      }`}
+                    >
+                      <div
+                        className={`w-7 h-7 rounded-[4px] text-xs font-extrabold flex items-center justify-center shrink-0 mt-0.5 shadow-sm ${
+                          isActive
+                            ? 'bg-[#107C41] text-white'
+                            : 'bg-slate-100 text-slate-700'
+                        }`}
+                      >
+                        {p.initials}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1">
+                          <span
+                            className={`text-xs truncate ${
+                              isActive ? 'text-[#0F7640] font-bold' : 'text-slate-900 font-semibold'
+                            }`}
+                          >
+                            {p.fullName}
+                          </span>
+                          {isActive && <Check className="w-3.5 h-3.5 text-[#0F7640] shrink-0" />}
+                        </div>
+                        <span className="text-[11px] text-emerald-800 font-medium block truncate">
+                          {p.scopeBadge}
+                        </span>
+                        <span className="text-[10px] text-slate-400 block truncate mt-0.5">
+                          {p.description}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Notifications Flyout (UseOneID Style) */}
@@ -504,14 +591,14 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
             className="flex items-center gap-2 pl-1.5 pr-1 py-1 rounded-[4px] hover:bg-slate-100 transition-colors"
           >
             <div className="w-7 h-7 rounded-[4px] bg-[#107C41] text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-sm">
-              TB
+              {persona?.initials || 'C1'}
             </div>
             <div className="text-left hidden md:block">
               <p className="text-xs font-semibold text-slate-800 leading-tight">
                 {session.fullName}
               </p>
               <p className="text-[10px] text-emerald-700 font-medium leading-tight">
-                {session.activeRole}
+                {persona?.scopeBadge || session.activeRole}
               </p>
             </div>
             <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden md:block" />

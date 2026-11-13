@@ -10,9 +10,14 @@ import {
   GraduationCap,
   CreditCard,
   UserCheck,
+  Building2,
+  BookOpen,
+  Stethoscope,
+  Briefcase,
 } from 'lucide-react';
 import { Button, Input, useToast } from '@campusone/ui';
 import { useApp } from '../context/AppContext.tsx';
+import { PERSONA_PROFILES } from '../context/personas.ts';
 import type { RoleCode } from '@campusone/contracts';
 
 export const LoginView: React.FC = () => {
@@ -49,10 +54,11 @@ export const LoginView: React.FC = () => {
 
   const handleQuickLogin = (role: RoleCode) => {
     switchRole(role);
+    const p = PERSONA_PROFILES[role];
     showToast({
       type: 'info',
-      title: `Signed in as ${role}`,
-      message: 'Switched persona and authenticated.',
+      title: `Signed in as ${p.scopeBadge}`,
+      message: `Welcome, ${p.fullName}. Your authorized workspace is loaded.`,
     });
     navigate('/');
   };
@@ -257,47 +263,125 @@ export const LoginView: React.FC = () => {
                 Sign In
               </Button>
 
-              {/* 1-Click Persona Simulator Logins (For Testing) */}
+              {/* 1-Click Persona Simulator Logins (Role Testing & RBAC) */}
               <div className="pt-4 border-t border-slate-200">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2 text-center">
-                  1-Click Quick Demo Sign In
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5 text-center">
+                  1-Click Role-Based Quick Sign In
                 </span>
+                <p className="text-[11px] text-slate-400 text-center mb-3">
+                  Select any persona to experience their tailored workspace & permissions
+                </p>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <Button
                     type="button"
                     variant="secondary"
                     size="sm"
                     onClick={() => handleQuickLogin('PROVOST')}
-                    leftIcon={<UserCheck size={14} className="text-[#0F7640]" />}
+                    leftIcon={<ShieldCheck size={14} className="text-[#0F7640]" />}
+                    className="justify-start text-left h-auto py-1.5"
                   >
-                    Provost
+                    <div>
+                      <span className="block font-bold text-slate-900 leading-tight">Provost</span>
+                      <span className="text-[10px] text-slate-400 block leading-none mt-0.5">Full Executive</span>
+                    </div>
                   </Button>
+
                   <Button
                     type="button"
                     variant="secondary"
                     size="sm"
                     onClick={() => handleQuickLogin('BURSAR')}
                     leftIcon={<CreditCard size={14} className="text-[#13A348]" />}
+                    className="justify-start text-left h-auto py-1.5"
                   >
-                    Bursar
+                    <div>
+                      <span className="block font-bold text-slate-900 leading-tight">Bursar</span>
+                      <span className="text-[10px] text-slate-400 block leading-none mt-0.5">Fees & Finance</span>
+                    </div>
                   </Button>
+
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handleQuickLogin('REG')}
+                    leftIcon={<FileCheck size={14} className="text-blue-600" />}
+                    className="justify-start text-left h-auto py-1.5"
+                  >
+                    <div>
+                      <span className="block font-bold text-slate-900 leading-tight">Registrar</span>
+                      <span className="text-[10px] text-slate-400 block leading-none mt-0.5">Admissions & Records</span>
+                    </div>
+                  </Button>
+
                   <Button
                     type="button"
                     variant="secondary"
                     size="sm"
                     onClick={() => handleQuickLogin('EXAM')}
                     leftIcon={<GraduationCap size={14} className="text-amber-500" />}
+                    className="justify-start text-left h-auto py-1.5"
                   >
-                    Exams Officer
+                    <div>
+                      <span className="block font-bold text-slate-900 leading-tight">Exams Officer</span>
+                      <span className="text-[10px] text-slate-400 block leading-none mt-0.5">Grades & Broadsheets</span>
+                    </div>
                   </Button>
+
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handleQuickLogin('HOD')}
+                    leftIcon={<Building2 size={14} className="text-purple-600" />}
+                    className="justify-start text-left h-auto py-1.5"
+                  >
+                    <div>
+                      <span className="block font-bold text-slate-900 leading-tight">HOD (CHEW)</span>
+                      <span className="text-[10px] text-slate-400 block leading-none mt-0.5">Department Head</span>
+                    </div>
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handleQuickLogin('INSTR')}
+                    leftIcon={<BookOpen size={14} className="text-teal-600" />}
+                    className="justify-start text-left h-auto py-1.5"
+                  >
+                    <div>
+                      <span className="block font-bold text-slate-900 leading-tight">Lecturer</span>
+                      <span className="text-[10px] text-slate-400 block leading-none mt-0.5">Scores & Classes</span>
+                    </div>
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handleQuickLogin('CLINSUP')}
+                    leftIcon={<Stethoscope size={14} className="text-rose-600" />}
+                    className="justify-start text-left h-auto py-1.5"
+                  >
+                    <div>
+                      <span className="block font-bold text-slate-900 leading-tight">Preceptor</span>
+                      <span className="text-[10px] text-slate-400 block leading-none mt-0.5">Clinical Hospital</span>
+                    </div>
+                  </Button>
+
                   <Button
                     type="button"
                     variant="secondary"
                     size="sm"
                     onClick={() => handleQuickLogin('STU')}
-                    leftIcon={<UserCheck size={14} className="text-slate-600" />}
+                    leftIcon={<UserCheck size={14} className="text-[#0F7640]" />}
+                    className="justify-start text-left h-auto py-1.5"
                   >
-                    Student Portal
+                    <div>
+                      <span className="block font-bold text-slate-900 leading-tight">Student Portal</span>
+                      <span className="text-[10px] text-slate-400 block leading-none mt-0.5">Self-Service</span>
+                    </div>
                   </Button>
                 </div>
               </div>

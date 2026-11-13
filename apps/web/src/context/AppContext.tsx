@@ -6,9 +6,14 @@ import {
   AuditEventRecord,
   formatNaira,
 } from '@campusone/contracts';
+import { PERSONA_PROFILES, PersonaProfile } from './personas.ts';
+
+export { PERSONA_PROFILES };
+export type { PersonaProfile };
 
 export interface AppContextType {
   session: UserSession;
+  persona: PersonaProfile;
   switchRole: (role: RoleCode) => void;
   isDense: boolean;
   toggleDense: () => void;
@@ -178,11 +183,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [receipts, setReceipts] = useState<OfficialReceipt[]>(INITIAL_RECEIPTS);
   const [auditLogs, setAuditLogs] = useState<AuditEventRecord[]>(INITIAL_AUDIT_LOGS);
 
+  const persona = PERSONA_PROFILES[activeRole] || PERSONA_PROFILES.PROVOST;
+
   const session: UserSession = {
-    userId: 'usr-admin-01',
+    userId: `usr-${activeRole.toLowerCase()}-01`,
     collegeId: 'bethsaida',
-    email: 'provost@bethsaida.edu.ng',
-    fullName: 'Dr. Timothy Balogun',
+    email: persona.email,
+    fullName: persona.fullName,
     activeRole,
     roles: [
       { role: 'PROVOST', scope: 'college' },
@@ -196,21 +203,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       { role: 'STU', scope: 'self', scopeId: 'stu-001' },
       { role: 'SPON', scope: 'self', scopeId: 'stu-001' },
     ],
-    permissions: [
-      'adm:read', 'adm:write', 'adm:approve',
-      'sis:read', 'sis:write', 'sis:status_change',
-      'fin:read', 'fin:write', 'fin:reversal', 'fin:reconciliation',
-      'exm:read', 'exm:score_entry', 'exm:approve_hod', 'exm:approve_dean', 'exm:publish', 'exm:amend',
-      'att:read', 'att:mark', 'att:override',
-      'cln:read', 'cln:allocate', 'cln:assess', 'cln:clearance',
-      'lms:read', 'lms:write', 'lms:grade',
-      'hrm:read', 'hrm:write', 'hrm:payroll',
-      'hst:read', 'hst:allocate',
-      'tts:read', 'tts:write',
-      'com:read', 'com:broadcast',
-      'rpt:read', 'rpt:export', 'rpt:audit',
-      'core:admin', 'core:users', 'core:tenant_config',
-    ],
+    permissions: persona.permissions,
   };
 
   const recordAudit = (action: string, entityType: string, entityId: string, details?: any) => {
@@ -307,6 +300,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     <AppContext.Provider
       value={{
         session,
+        persona,
         switchRole: (role) => {
           setActiveRole(role);
           recordAudit('ROLE_SWITCHED', 'USER_SESSION', role);
