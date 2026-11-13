@@ -160,6 +160,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           subItems: [
             { name: 'Hospital Allocations', path: '/postings/allocations' },
             { name: 'Training Hospitals', path: '/postings/sites' },
+            { name: 'Logbook Grading', path: '/postings/logbooks' },
             { name: 'Final Clearance', path: '/postings/clearance' },
           ],
         },

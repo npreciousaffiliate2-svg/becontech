@@ -10,6 +10,7 @@ export interface Column<T> {
   sortable?: boolean;
   align?: 'left' | 'center' | 'right';
   width?: string;
+  nowrap?: boolean;
 }
 
 export interface TableProps<T> {
@@ -68,7 +69,7 @@ export function Table<T>({
                     key={col.key}
                     scope="col"
                     style={{ width: col.width }}
-                    className={`${cellPadding} ${
+                    className={`${cellPadding} whitespace-nowrap ${
                       col.align === 'right'
                         ? 'text-right'
                         : col.align === 'center'
@@ -112,6 +113,10 @@ export function Table<T>({
                   <td
                     key={col.key}
                     className={`${cellPadding} ${
+                      col.nowrap || col.align === 'right' || col.key === 'action' || col.key === 'matricNumber'
+                        ? 'whitespace-nowrap'
+                        : ''
+                    } ${
                       col.align === 'right'
                         ? 'text-right font-tabular'
                         : col.align === 'center'

@@ -578,40 +578,41 @@ export const AttendanceView: React.FC = () => {
       key: 'marking',
       header: "Today's Attendance",
       align: 'right' as const,
+      nowrap: true,
       render: (s: AttendanceStudent) => (
-        <div className="flex items-center justify-end gap-1.5">
+        <div className="flex items-center justify-end gap-1.5 whitespace-nowrap shrink-0">
           <button
             type="button"
             onClick={() => handleToggleStatus(s.id, 'PRESENT')}
-            className={`px-2.5 py-1 text-xs rounded-[4px] border font-semibold flex items-center gap-1 transition-colors ${
+            className={`px-2.5 py-1 text-xs rounded-[4px] border font-semibold flex items-center gap-1 whitespace-nowrap transition-colors ${
               s.statusToday === 'PRESENT'
                 ? 'bg-[#13A348] text-white border-[#13A348]'
                 : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
             }`}
           >
-            <Check className="w-3 h-3" /> Present
+            <Check className="w-3 h-3 shrink-0" /> Present
           </button>
           <button
             type="button"
             onClick={() => handleToggleStatus(s.id, 'ABSENT')}
-            className={`px-2.5 py-1 text-xs rounded-[4px] border font-semibold flex items-center gap-1 transition-colors ${
+            className={`px-2.5 py-1 text-xs rounded-[4px] border font-semibold flex items-center gap-1 whitespace-nowrap transition-colors ${
               s.statusToday === 'ABSENT'
                 ? 'bg-[#F83A20] text-white border-[#F83A20]'
                 : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
             }`}
           >
-            <X className="w-3 h-3" /> Absent
+            <X className="w-3 h-3 shrink-0" /> Absent
           </button>
           <button
             type="button"
             onClick={() => handleToggleStatus(s.id, 'EXCUSED')}
-            className={`px-2.5 py-1 text-xs rounded-[4px] border font-semibold flex items-center gap-1 transition-colors ${
+            className={`px-2.5 py-1 text-xs rounded-[4px] border font-semibold flex items-center gap-1 whitespace-nowrap transition-colors ${
               s.statusToday === 'EXCUSED'
                 ? 'bg-amber-500 text-white border-amber-500'
                 : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
             }`}
           >
-            <Clock className="w-3 h-3" /> Excused
+            <Clock className="w-3 h-3 shrink-0" /> Excused
           </button>
         </div>
       ),
@@ -674,6 +675,7 @@ export const AttendanceView: React.FC = () => {
       key: 'action',
       header: 'Action',
       align: 'right' as const,
+      nowrap: true,
       render: (c: CourseSummary) => (
         <Button
           variant="secondary"
@@ -777,6 +779,7 @@ export const AttendanceView: React.FC = () => {
       key: 'action',
       header: 'Examination Docket',
       align: 'right' as const,
+      nowrap: true,
       render: (s: AttendanceStudent) => {
         const pct = Math.round((s.attendedSessions / s.totalSessions) * 100);
         const isAttendanceEligible = pct >= 75 || s.waiverGranted;
@@ -786,9 +789,9 @@ export const AttendanceView: React.FC = () => {
             variant={isAttendanceEligible ? 'secondary' : 'ghost'}
             size="sm"
             onClick={() => openExamDocket(s)}
-            className="flex items-center gap-1"
+            leftIcon={<Printer className="w-3.5 h-3.5" />}
+            className="whitespace-nowrap"
           >
-            <Printer className="w-3.5 h-3.5" />
             Print Docket
           </Button>
         );
@@ -855,6 +858,7 @@ export const AttendanceView: React.FC = () => {
       key: 'action',
       header: 'Action',
       align: 'right' as const,
+      nowrap: true,
       render: (w: MedicalWaiver) => (
         <Button
           variant="secondary"

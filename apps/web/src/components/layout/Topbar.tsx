@@ -181,6 +181,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
         tabs: {
           allocations: 'Hospital Allocations',
           sites: 'Training Hospitals',
+          logbooks: 'Logbook Grading',
           clearance: 'Final Clearance',
         },
       },
