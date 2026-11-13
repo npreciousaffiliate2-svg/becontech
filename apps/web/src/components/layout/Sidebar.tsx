@@ -230,7 +230,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
     {
       group: 'Administration & System',
       items: [
-        { name: 'Reports & Accreditation', path: '/reports', icon: <FileCheck size={19} /> },
+        {
+          name: 'Reports & Accreditation',
+          path: '/reports',
+          icon: <FileCheck size={19} />,
+          subItems: [
+            { name: 'Accreditation Dossiers', path: '/reports/accreditation' },
+            { name: 'Council Exam Rosters', path: '/reports/rosters' },
+            { name: 'Standard Reports', path: '/reports/repository' },
+            { name: 'Custom Report Builder', path: '/reports/builder' },
+          ],
+        },
         {
           name: 'Messages & Notices',
           path: '/messages',

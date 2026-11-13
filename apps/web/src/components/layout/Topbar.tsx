@@ -265,7 +265,12 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
       },
       '/reports': {
         module: 'Reports & Accreditation',
-        tabs: {},
+        tabs: {
+          accreditation: 'Accreditation Dossiers',
+          rosters: 'Council Exam Rosters',
+          repository: 'Standard Reports',
+          builder: 'Custom Report Builder',
+        },
       },
       '/messages': {
         module: 'Messages & Notices',
