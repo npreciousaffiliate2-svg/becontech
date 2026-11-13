@@ -63,6 +63,7 @@ export const App: React.FC = () => {
               <Route path="/analytics/:tab" element={<AnalyticsView />} />
               <Route path="/reports" element={<ReportsView />} />
               <Route path="/messages" element={<CommunicationsView />} />
+              <Route path="/messages/:tab" element={<CommunicationsView />} />
               <Route path="/settings" element={<AdminView />} />
               <Route path="/settings/:tab" element={<AdminView />} />
               <Route path="/admin" element={<Navigate to="/settings" replace />} />

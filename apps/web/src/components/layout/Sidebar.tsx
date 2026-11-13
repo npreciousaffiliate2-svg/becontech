@@ -231,7 +231,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
       group: 'Administration & System',
       items: [
         { name: 'Reports & Accreditation', path: '/reports', icon: <FileCheck size={19} /> },
-        { name: 'Messages & Notices', path: '/messages', icon: <MessageSquare size={19} /> },
+        {
+          name: 'Messages & Notices',
+          path: '/messages',
+          icon: <MessageSquare size={19} />,
+          subItems: [
+            { name: 'Broadcast Dispatch', path: '/messages/broadcasts' },
+            { name: 'Official Circulars', path: '/messages/notices' },
+            { name: 'Delivery Logs', path: '/messages/logs' },
+            { name: 'Automated Triggers', path: '/messages/triggers' },
+          ],
+        },
         {
           name: 'Settings',
           path: '/settings',

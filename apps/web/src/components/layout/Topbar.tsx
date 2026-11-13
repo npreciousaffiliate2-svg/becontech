@@ -269,7 +269,12 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
       },
       '/messages': {
         module: 'Messages & Notices',
-        tabs: {},
+        tabs: {
+          broadcasts: 'Broadcast Dispatch',
+          notices: 'Official Circulars',
+          logs: 'Delivery Logs',
+          triggers: 'Automated Triggers',
+        },
       },
     };
 
