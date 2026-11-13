@@ -34,7 +34,7 @@ export const AdminView: React.FC = () => {
       key: 'timestamp',
       header: 'UTC Timestamp',
       render: (a: AuditEventRecord) => (
-        <span className="font-mono text-[11px] text-slate-700">{a.timestamp.replace('T', ' ').slice(0, 19)}</span>
+        <span className="text-[11px] text-slate-700 font-medium">{a.timestamp.replace('T', ' ').slice(0, 19)}</span>
       ),
     },
     {
@@ -50,20 +50,20 @@ export const AdminView: React.FC = () => {
     {
       key: 'action',
       header: 'Privileged Action',
-      render: (a: AuditEventRecord) => <span className="font-mono font-semibold text-slate-800">{a.action}</span>,
+      render: (a: AuditEventRecord) => <span className="font-semibold text-slate-800">{a.action}</span>,
     },
     {
       key: 'entity',
       header: 'Target Entity',
       render: (a: AuditEventRecord) => (
-        <span className="text-slate-600 font-mono text-[11px]">{a.entityType}:{a.entityId}</span>
+        <span className="text-slate-600 font-medium text-[11px]">{a.entityType}:{a.entityId}</span>
       ),
     },
     {
       key: 'chainHash',
-      header: 'Tamper-Proof Chain Hash (SHA-256)',
+      header: 'Chain Integrity Hash',
       render: (a: AuditEventRecord) => (
-        <span className="font-mono text-[10px] text-slate-400 truncate max-w-[120px] block" title={a.chainHash}>
+        <span className="text-[11px] text-slate-500 font-medium truncate max-w-[120px] block" title={a.chainHash}>
           {a.chainHash.slice(0, 16)}...
         </span>
       ),
@@ -270,19 +270,19 @@ export const AdminView: React.FC = () => {
           title="Audit Log Event Inspection"
           description="Detailed immutable cryptographic record of the privileged state transition."
         >
-          <div className="space-y-3 text-xs font-mono bg-slate-900 text-slate-200 p-4 rounded-[4px] overflow-x-auto">
-            <p><span className="text-blue-400">Event ID:</span> {selectedAuditLog.id}</p>
-            <p><span className="text-blue-400">Timestamp:</span> {selectedAuditLog.timestamp}</p>
-            <p><span className="text-blue-400">Actor:</span> {selectedAuditLog.actorId} ({selectedAuditLog.actorRole})</p>
-            <p><span className="text-blue-400">Action:</span> {selectedAuditLog.action}</p>
-            <p><span className="text-blue-400">Target:</span> {selectedAuditLog.entityType}:{selectedAuditLog.entityId}</p>
-            <p><span className="text-blue-400">IP Address:</span> {selectedAuditLog.ipAddress}</p>
-            <p className="break-all"><span className="text-emerald-400">Chain Hash:</span> {selectedAuditLog.chainHash}</p>
-            <p className="break-all"><span className="text-slate-500">Prev Hash:</span> {selectedAuditLog.prevHash}</p>
+          <div className="space-y-3 text-xs bg-slate-900 text-slate-200 p-4 rounded-[4px] overflow-x-auto">
+            <p><span className="text-blue-400 font-semibold">Event ID:</span> {selectedAuditLog.id}</p>
+            <p><span className="text-blue-400 font-semibold">Timestamp:</span> {selectedAuditLog.timestamp}</p>
+            <p><span className="text-blue-400 font-semibold">Actor:</span> {selectedAuditLog.actorId} ({selectedAuditLog.actorRole})</p>
+            <p><span className="text-blue-400 font-semibold">Action:</span> {selectedAuditLog.action}</p>
+            <p><span className="text-blue-400 font-semibold">Target:</span> {selectedAuditLog.entityType}:{selectedAuditLog.entityId}</p>
+            <p><span className="text-blue-400 font-semibold">IP Address:</span> {selectedAuditLog.ipAddress}</p>
+            <p className="break-all"><span className="text-emerald-400 font-semibold">Chain Hash:</span> {selectedAuditLog.chainHash}</p>
+            <p className="break-all"><span className="text-slate-400 font-semibold">Prev Hash:</span> {selectedAuditLog.prevHash}</p>
             {selectedAuditLog.afterSnapshot && (
               <div>
-                <span className="text-amber-400">Payload Snapshot:</span>
-                <pre className="mt-1 p-2 bg-slate-800 rounded-[4px] text-slate-300">
+                <span className="text-amber-400 font-semibold">Payload Snapshot:</span>
+                <pre className="mt-1 p-2 bg-slate-800 rounded-[4px] text-slate-300 font-sans">
                   {JSON.stringify(selectedAuditLog.afterSnapshot, null, 2)}
                 </pre>
               </div>

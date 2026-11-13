@@ -58,7 +58,7 @@ export const ReportsView: React.FC = () => {
             <div className="space-y-2 text-xs">
               <div className="flex items-center justify-between">
                 <Badge variant="primary">{rpt.category}</Badge>
-                <span className="font-mono text-slate-400 text-[10px]">{rpt.format}</span>
+                <span className="text-slate-500 font-medium text-[10px]">{rpt.format}</span>
               </div>
               <h3 className="font-bold text-slate-900 text-sm">{rpt.title}</h3>
               <p className="text-slate-500 text-[11px] leading-relaxed">{rpt.description}</p>

@@ -63,7 +63,7 @@ export const StatCard: React.FC<StatCardProps> = ({
         {icon && <span className="text-slate-400">{icon}</span>}
       </div>
       <div className="mt-2 flex items-baseline gap-2">
-        <span className="text-2xl font-bold tracking-tight text-slate-900 font-tabular">{value}</span>
+        <span className="text-2xl font-bold tracking-tight text-slate-900">{value}</span>
         {trend && (
           <span
             className={`text-xs font-medium ${

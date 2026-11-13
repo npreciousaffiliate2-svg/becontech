@@ -98,7 +98,7 @@ export const AdmissionsView: React.FC = () => {
   };
 
   const columns = [
-    { key: 'applicationNumber', header: 'App No.', render: (c: Candidate) => <span className="font-mono font-semibold">{c.applicationNumber}</span> },
+    { key: 'applicationNumber', header: 'App No.', render: (c: Candidate) => <span className="font-semibold text-slate-900">{c.applicationNumber}</span> },
     { key: 'fullName', header: 'Applicant Full Name' },
     { key: 'programme', header: 'Applied Programme' },
     {
@@ -110,7 +110,7 @@ export const AdmissionsView: React.FC = () => {
         </Badge>
       ),
     },
-    { key: 'cbtScore', header: 'CBT Score', align: 'right' as const, render: (c: Candidate) => <span className="font-bold font-tabular">{c.cbtScore}%</span> },
+    { key: 'cbtScore', header: 'CBT Score', align: 'right' as const, render: (c: Candidate) => <span className="font-bold text-slate-900">{c.cbtScore}%</span> },
     {
       key: 'status',
       header: 'Status',
@@ -124,7 +124,7 @@ export const AdmissionsView: React.FC = () => {
       key: 'matricNumber',
       header: 'Matric No.',
       render: (c: Candidate) => (
-        c.matricNumber ? <span className="font-mono font-bold text-[#0A77FE]">{c.matricNumber}</span> : <span className="text-slate-400">—</span>
+        c.matricNumber ? <span className="font-bold text-[#0A77FE]">{c.matricNumber}</span> : <span className="text-slate-400">—</span>
       ),
     },
     {

@@ -42,7 +42,7 @@ export const TimetableView: React.FC = () => {
             <div key={i} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="flex items-center gap-3">
                 <span className="font-bold text-slate-900 w-24">{slot.day}</span>
-                <span className="font-mono text-slate-500 w-28">{slot.time}</span>
+                <span className="font-semibold text-slate-600 w-28">{slot.time}</span>
                 <div>
                   <span className="font-semibold text-slate-800">{slot.course}</span>
                   <span className="text-slate-400 block text-[11px]">{slot.venue} • {slot.instructor}</span>

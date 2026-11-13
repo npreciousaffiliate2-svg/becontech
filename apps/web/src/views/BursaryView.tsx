@@ -101,12 +101,12 @@ export const BursaryView: React.FC = () => {
   ];
 
   const receiptColumns = [
-    { key: 'receiptNumber', header: 'Receipt No.', render: (r: any) => <span className="font-mono font-bold text-[#0A77FE]">{r.receiptNumber}</span> },
+    { key: 'receiptNumber', header: 'Receipt No.', render: (r: any) => <span className="font-bold text-[#0A77FE]">{r.receiptNumber}</span> },
     { key: 'paidAt', header: 'Date & Time', render: (r: any) => r.paidAt.replace('T', ' ').slice(0, 16) },
     { key: 'studentName', header: 'Student Name' },
     { key: 'matricNumber', header: 'Matric No.' },
     { key: 'paymentMethod', header: 'Gateway / Channel', render: (r: any) => <Badge variant="primary">{r.paymentMethod.toUpperCase()}</Badge> },
-    { key: 'formattedAmount', header: 'Amount Paid', align: 'right' as const, render: (r: any) => <span className="font-bold text-[#13A348] font-tabular">{r.formattedAmount}</span> },
+    { key: 'formattedAmount', header: 'Amount Paid', align: 'right' as const, render: (r: any) => <span className="font-bold text-[#13A348]">{r.formattedAmount}</span> },
     {
       key: 'actions',
       header: 'Action',
@@ -380,8 +380,8 @@ export const BursaryView: React.FC = () => {
           size="lg"
           footer={
             <div className="flex items-center justify-between w-full">
-              <span className="text-[11px] text-slate-400 font-mono">
-                Hash: {selectedReceipt.qrVerificationHash.slice(0, 24)}...
+              <span className="text-[11px] text-slate-400 font-medium">
+                Ref: {selectedReceipt.qrVerificationHash.slice(0, 24)}...
               </span>
               <Button
                 size="sm"
@@ -403,7 +403,7 @@ export const BursaryView: React.FC = () => {
               <p className="text-[11px] text-slate-500">
                 P.M.B. 1042, Oyo State, Nigeria • accredited by NBTE & Health Boards
               </p>
-              <div className="mt-2 inline-block px-3 py-1 bg-slate-100 rounded-[4px] font-mono text-xs font-bold text-[#0A77FE]">
+              <div className="mt-2 inline-block px-3 py-1 bg-slate-100 rounded-[4px] text-xs font-bold text-[#0A77FE]">
                 RECEIPT NO: {selectedReceipt.receiptNumber}
               </div>
             </div>
@@ -413,7 +413,7 @@ export const BursaryView: React.FC = () => {
               <div>
                 <span className="text-slate-400 block text-[10px] uppercase">Paid By</span>
                 <span className="font-bold text-slate-900 text-sm">{selectedReceipt.studentName}</span>
-                <span className="block text-slate-500 font-mono">{selectedReceipt.matricNumber}</span>
+                <span className="block text-slate-600 font-medium">{selectedReceipt.matricNumber}</span>
               </div>
               <div className="text-right">
                 <span className="text-slate-400 block text-[10px] uppercase">Date & Time</span>
@@ -435,7 +435,7 @@ export const BursaryView: React.FC = () => {
                 <tr className="border-b border-slate-100">
                   <td className="py-2 px-2 font-medium">Harmattan 2026/2027 Academic Fees</td>
                   <td className="py-2 px-2 capitalize">{selectedReceipt.category.replace('_', ' ')}</td>
-                  <td className="py-2 px-2 text-right font-bold text-slate-900 font-tabular">{selectedReceipt.formattedAmount}</td>
+                  <td className="py-2 px-2 text-right font-bold text-slate-900">{selectedReceipt.formattedAmount}</td>
                 </tr>
               </tbody>
             </table>
@@ -448,7 +448,7 @@ export const BursaryView: React.FC = () => {
                   <p className="font-semibold text-slate-900 text-[11px] flex items-center gap-1">
                     <ShieldCheck className="w-3.5 h-3.5 text-[#13A348]" /> Cryptographically Sealed
                   </p>
-                  <p className="text-[10px] text-slate-500 font-mono">
+                  <p className="text-[10px] text-slate-600 font-medium">
                     Gateway Ref: {selectedReceipt.gatewayReference}
                   </p>
                 </div>

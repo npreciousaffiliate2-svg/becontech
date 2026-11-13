@@ -77,7 +77,7 @@ export const StudentsView: React.FC = () => {
   ]);
 
   const columns = [
-    { key: 'matricNumber', header: 'Matric No.', render: (s: Student) => <span className="font-mono font-bold text-[#0A77FE]">{s.matricNumber}</span> },
+    { key: 'matricNumber', header: 'Matric No.', render: (s: Student) => <span className="font-bold text-[#0A77FE]">{s.matricNumber}</span> },
     { key: 'fullName', header: 'Full Name' },
     { key: 'programme', header: 'Programme' },
     { key: 'level', header: 'Level' },
@@ -181,14 +181,14 @@ export const StudentsView: React.FC = () => {
               </div>
               <div className="min-w-0">
                 <p className="font-bold text-xs truncate">{selectedIdCard.fullName}</p>
-                <p className="text-[10px] text-blue-300 font-mono">{selectedIdCard.matricNumber}</p>
+                <p className="text-[10px] text-blue-300 font-semibold">{selectedIdCard.matricNumber}</p>
                 <p className="text-[9px] text-slate-300 truncate mt-0.5">{selectedIdCard.programme}</p>
                 <p className="text-[9px] text-slate-400">Blood: {selectedIdCard.bloodGroup} | Genotype: {selectedIdCard.genotype}</p>
               </div>
             </div>
 
             <div className="flex items-center justify-between border-t border-slate-700 pt-1.5 text-[8px] text-slate-400">
-              <span className="font-mono">VALID: 2026 – 2028</span>
+              <span className="font-semibold">VALID: 2026 – 2028</span>
               <QrCode className="w-6 h-6 text-white p-0.5 bg-slate-800 rounded-[2px]" />
             </div>
           </div>

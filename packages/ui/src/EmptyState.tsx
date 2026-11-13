@@ -56,7 +56,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
       <h4 className="text-sm font-semibold text-slate-900">{title}</h4>
       <p className="mt-1 text-xs text-slate-600 max-w-md">{message}</p>
       {correlationId && (
-        <div className="mt-2 text-[10px] font-mono text-slate-400 bg-white px-2 py-0.5 rounded-[4px] border border-slate-200">
+        <div className="mt-2 text-[10px] text-slate-500 font-medium bg-white px-2 py-0.5 rounded-[4px] border border-slate-200">
           Correlation ID: {correlationId}
         </div>
       )}

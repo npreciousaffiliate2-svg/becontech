@@ -64,7 +64,7 @@ export const StaffView: React.FC = () => {
     {
       key: 'licenseNumber',
       header: 'License Number',
-      render: (s: any) => <span className="font-mono font-semibold">{s.licenseNumber}</span>,
+      render: (s: any) => <span className="font-semibold text-slate-800">{s.licenseNumber}</span>,
     },
     { key: 'licenseExpiry', header: 'Expiry Date' },
     {

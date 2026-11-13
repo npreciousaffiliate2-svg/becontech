@@ -82,7 +82,7 @@ export const CommunicationsView: React.FC = () => {
                 />
                 <div className="flex justify-between items-center text-[10px] text-slate-400 mt-1">
                   <span>Standard Nigerian SMS Billing Unit: 160 Chars</span>
-                  <span className="font-mono">{messageText.length} / 320 characters</span>
+                  <span className="font-semibold text-slate-600">{messageText.length} / 320 characters</span>
                 </div>
               </div>
 
@@ -106,7 +106,7 @@ export const CommunicationsView: React.FC = () => {
             <div className="space-y-3 text-xs">
               <div className="p-3 rounded-[4px] bg-slate-50 border border-slate-200">
                 <span className="text-slate-500 block uppercase text-[10px]">Termii Wallet Balance</span>
-                <span className="text-lg font-bold text-slate-900 font-tabular">₦142,500.00</span>
+                <span className="text-lg font-bold text-slate-900">₦142,500.00</span>
                 <span className="text-[10px] text-emerald-600 block mt-0.5">Route: DND Priority Tier 1</span>
               </div>
               <div className="space-y-1.5 text-slate-600 text-[11px]">
@@ -116,7 +116,7 @@ export const CommunicationsView: React.FC = () => {
                 </div>
                 <div className="flex justify-between">
                   <span>Registered Sender ID:</span>
-                  <span className="font-mono font-bold">BETHSAIDA</span>
+                  <span className="font-bold text-slate-800">BETHSAIDA</span>
                 </div>
               </div>
             </div>
