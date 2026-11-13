@@ -726,18 +726,24 @@ export const AcademicsView: React.FC = () => {
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3 rounded-[4px] border border-slate-200 shadow-sm">
             <div className="flex items-center gap-3 w-full sm:w-auto">
-              <span className="text-xs text-slate-500 font-medium shrink-0">Select Trainee:</span>
+              <span className="text-xs text-slate-500 font-medium shrink-0">Trainee Record:</span>
               <div className="w-72">
-                <Select
-                  options={[
-                    { value: 'CHE/2026/0014', label: 'Blessing Adeyemi (CHE/2026/0014)' },
-                    { value: 'CHE/2026/0015', label: 'Oluwaseun Bakare (CHE/2026/0015)' },
-                    { value: 'CHE/2026/0016', label: 'Fatima Ibrahim (CHE/2026/0016)' },
-                    { value: 'CHE/2026/0017', label: 'Chinedu Eze (CHE/2026/0017)' },
-                  ]}
-                  value={transcriptMatric}
-                  onChange={(val) => setTranscriptMatric(val)}
-                />
+                {isStudent ? (
+                  <div className="h-9 px-3 bg-slate-50 border border-slate-200 rounded-[4px] flex items-center text-xs font-bold text-slate-800">
+                    Blessing Adeyemi (CHE/2026/0014)
+                  </div>
+                ) : (
+                  <Select
+                    options={[
+                      { value: 'CHE/2026/0014', label: 'Blessing Adeyemi (CHE/2026/0014)' },
+                      { value: 'CHE/2026/0015', label: 'Oluwaseun Bakare (CHE/2026/0015)' },
+                      { value: 'CHE/2026/0016', label: 'Fatima Ibrahim (CHE/2026/0016)' },
+                      { value: 'CHE/2026/0017', label: 'Chinedu Eze (CHE/2026/0017)' },
+                    ]}
+                    value={transcriptMatric}
+                    onChange={(val) => setTranscriptMatric(val)}
+                  />
+                )}
               </div>
             </div>
 

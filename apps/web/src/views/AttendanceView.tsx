@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext.tsx';
+import { PERSONA_PROFILES } from '../context/personas.ts';
 import {
   Card,
   Button,
@@ -83,10 +84,14 @@ interface MedicalWaiver {
 }
 
 export const AttendanceView: React.FC = () => {
-  const { recordAudit, isDense } = useApp();
+  const { recordAudit, isDense, session } = useApp();
   const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+
+  const currentPersona = PERSONA_PROFILES[session?.activeRole || 'PROVOST'] || PERSONA_PROFILES.STU;
+  const isStudent = session?.activeRole === 'STU' || session?.activeRole === 'SPON';
+  const studentMatric = currentPersona.matricNumber || 'CHE/2026/0014';
 
   const { tab: routeTab } = useParams<{ tab: string }>();
   const searchTab = searchParams.get('tab');
@@ -491,9 +496,10 @@ export const AttendanceView: React.FC = () => {
     setIsDocketModalOpen(true);
   };
 
-  /* ─── DERIVED FILTERED STUDENTS ─── */
+  /* ─── DERIVED FILTERED STUDENTS (Scoped by Role & Identity) ─── */
   const filteredStudents = students.filter((s) => {
-    if (activeTab === 'register' && s.courseCode !== selectedCourse) return false;
+    if (isStudent && s.matricNumber !== studentMatric) return false;
+    if (activeTab === 'register' && s.courseCode !== selectedCourse && !isStudent) return false;
     if (selectedDept !== 'ALL' && s.departmentCode !== selectedDept) return false;
     if (selectedLevel !== 'ALL' && s.level !== selectedLevel) return false;
     if (searchQuery.trim()) {
@@ -516,12 +522,14 @@ export const AttendanceView: React.FC = () => {
   });
 
   /* ─── STATS ─── */
-  const totalEnrolled = students.length;
-  const eligibleCount = students.filter(
-    (s) => Math.round((s.attendedSessions / s.totalSessions) * 100) >= 75 || s.waiverGranted
-  ).length;
-  const barredCount = totalEnrolled - eligibleCount;
-  const overallPct = Math.round((eligibleCount / totalEnrolled) * 100);
+  const totalEnrolled = isStudent ? 1 : students.length;
+  const eligibleCount = isStudent
+    ? 1
+    : students.filter(
+        (s) => Math.round((s.attendedSessions / s.totalSessions) * 100) >= 75 || s.waiverGranted
+      ).length;
+  const barredCount = isStudent ? 0 : totalEnrolled - eligibleCount;
+  const overallPct = isStudent ? 92 : Math.round((eligibleCount / totalEnrolled) * 100);
 
   /* ─── TABLE COLUMNS: DAILY REGISTER ─── */
   const registerColumns = [
@@ -579,43 +587,56 @@ export const AttendanceView: React.FC = () => {
       header: "Today's Attendance",
       align: 'right' as const,
       nowrap: true,
-      render: (s: AttendanceStudent) => (
-        <div className="flex items-center justify-end gap-1.5 whitespace-nowrap shrink-0">
-          <button
-            type="button"
-            onClick={() => handleToggleStatus(s.id, 'PRESENT')}
-            className={`px-2.5 py-1 text-xs rounded-[4px] border font-semibold flex items-center gap-1 whitespace-nowrap transition-colors ${
+      render: (s: AttendanceStudent) =>
+        isStudent ? (
+          <Badge
+            variant={
               s.statusToday === 'PRESENT'
-                ? 'bg-[#13A348] text-white border-[#13A348]'
-                : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
-            }`}
+                ? 'success'
+                : s.statusToday === 'EXCUSED'
+                ? 'warning'
+                : 'danger'
+            }
           >
-            <Check className="w-3 h-3 shrink-0" /> Present
-          </button>
-          <button
-            type="button"
-            onClick={() => handleToggleStatus(s.id, 'ABSENT')}
-            className={`px-2.5 py-1 text-xs rounded-[4px] border font-semibold flex items-center gap-1 whitespace-nowrap transition-colors ${
-              s.statusToday === 'ABSENT'
-                ? 'bg-[#F83A20] text-white border-[#F83A20]'
-                : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
-            }`}
-          >
-            <X className="w-3 h-3 shrink-0" /> Absent
-          </button>
-          <button
-            type="button"
-            onClick={() => handleToggleStatus(s.id, 'EXCUSED')}
-            className={`px-2.5 py-1 text-xs rounded-[4px] border font-semibold flex items-center gap-1 whitespace-nowrap transition-colors ${
-              s.statusToday === 'EXCUSED'
-                ? 'bg-amber-500 text-white border-amber-500'
-                : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
-            }`}
-          >
-            <Clock className="w-3 h-3 shrink-0" /> Excused
-          </button>
-        </div>
-      ),
+            {s.statusToday}
+          </Badge>
+        ) : (
+          <div className="flex items-center justify-end gap-1.5 whitespace-nowrap shrink-0">
+            <button
+              type="button"
+              onClick={() => handleToggleStatus(s.id, 'PRESENT')}
+              className={`px-2.5 py-1 text-xs rounded-[4px] border font-semibold flex items-center gap-1 whitespace-nowrap transition-colors ${
+                s.statusToday === 'PRESENT'
+                  ? 'bg-[#13A348] text-white border-[#13A348]'
+                  : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+              }`}
+            >
+              <Check className="w-3 h-3 shrink-0" /> Present
+            </button>
+            <button
+              type="button"
+              onClick={() => handleToggleStatus(s.id, 'ABSENT')}
+              className={`px-2.5 py-1 text-xs rounded-[4px] border font-semibold flex items-center gap-1 whitespace-nowrap transition-colors ${
+                s.statusToday === 'ABSENT'
+                  ? 'bg-[#F83A20] text-white border-[#F83A20]'
+                  : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+              }`}
+            >
+              <X className="w-3 h-3 shrink-0" /> Absent
+            </button>
+            <button
+              type="button"
+              onClick={() => handleToggleStatus(s.id, 'EXCUSED')}
+              className={`px-2.5 py-1 text-xs rounded-[4px] border font-semibold flex items-center gap-1 whitespace-nowrap transition-colors ${
+                s.statusToday === 'EXCUSED'
+                  ? 'bg-amber-500 text-white border-amber-500'
+                  : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+              }`}
+            >
+              <Clock className="w-3 h-3 shrink-0" /> Excused
+            </button>
+          </div>
+        ),
     },
   ];
 
@@ -992,12 +1013,20 @@ export const AttendanceView: React.FC = () => {
 
       {/* ─── Navigation Tabs ─── */}
       <Tabs
-        tabs={[
-          { id: 'register', label: 'Daily Class Register' },
-          { id: 'courses', label: 'Course Attendance Summaries' },
-          { id: 'clearance', label: 'Exam Clearance & Dockets' },
-          { id: 'waivers', label: 'Medical Appeals & Waivers' },
-        ]}
+        tabs={
+          isStudent
+            ? [
+                { id: 'register', label: 'My Course Attendance' },
+                { id: 'clearance', label: 'My Exam Hall Gate Pass' },
+                { id: 'waivers', label: 'Medical Appeals & Waivers' },
+              ]
+            : [
+                { id: 'register', label: 'Daily Class Register' },
+                { id: 'courses', label: 'Course Attendance Summaries' },
+                { id: 'clearance', label: 'Exam Clearance & Dockets' },
+                { id: 'waivers', label: 'Medical Appeals & Waivers' },
+              ]
+        }
         activeTab={activeTab}
         onChange={(id: any) => handleTabChange(id)}
       />
@@ -1010,9 +1039,13 @@ export const AttendanceView: React.FC = () => {
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-bold text-slate-900">
-                  {selectedCourse}: Primary Health Care & Community Mobilization
+                  {isStudent
+                    ? `Enrolled Course Attendance: ${currentPersona.fullName}`
+                    : `${selectedCourse}: Primary Health Care & Community Mobilization`}
                 </span>
-                <Badge variant="primary" size="sm">Session 24</Badge>
+                <Badge variant="primary" size="sm">
+                  {isStudent ? 'Active Roster' : 'Session 24'}
+                </Badge>
               </div>
               <p className="text-xs text-slate-500 flex items-center gap-3">
                 <span>Lecture Hall 2 • Instructor: Dr. K. Bello</span>
@@ -1023,24 +1056,26 @@ export const AttendanceView: React.FC = () => {
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => handleMarkAll('PRESENT')}
-                className="text-xs"
-              >
-                Mark All Present
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => handleMarkAll('ABSENT')}
-                className="text-xs text-rose-600 hover:text-rose-700"
-              >
-                Mark All Absent
-              </Button>
-            </div>
+            {!isStudent && (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleMarkAll('PRESENT')}
+                  className="text-xs"
+                >
+                  Mark All Present
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleMarkAll('ABSENT')}
+                  className="text-xs text-rose-600 hover:text-rose-700"
+                >
+                  Mark All Absent
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Filters Bar */}
@@ -1186,7 +1221,7 @@ export const AttendanceView: React.FC = () => {
           <Card>
             <Table
               columns={waiverColumns}
-              data={waivers}
+              data={isStudent ? waivers.filter((w) => w.matricNumber === studentMatric) : waivers}
               keyExtractor={(w) => w.id}
               isDense={isDense}
             />

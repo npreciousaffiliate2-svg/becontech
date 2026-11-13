@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext.tsx';
+import { PERSONA_PROFILES } from '../context/personas.ts';
 import {
   Card,
   Button,
@@ -121,12 +122,18 @@ export interface MaintenanceTicket {
 export const HostelsView: React.FC = () => {
   const { tab } = useParams<{ tab?: string }>();
   const navigate = useNavigate();
-  const { isDense, recordAudit } = useApp();
+  const { isDense, recordAudit, session } = useApp();
   const { showToast } = useToast();
 
+  const currentPersona = PERSONA_PROFILES[session?.activeRole || 'PROVOST'] || PERSONA_PROFILES.STU;
+  const isStudent = session?.activeRole === 'STU' || session?.activeRole === 'SPON';
+  const studentMatric = currentPersona.matricNumber || 'CHE/2026/0014';
+
   /* ─── TAB ROUTING STATE ─── */
-  const validTabs = ['inventory', 'allocations', 'checkin', 'maintenance'];
-  const activeTab = tab && validTabs.includes(tab) ? tab : 'inventory';
+  const validTabs = isStudent
+    ? ['allocations', 'inventory', 'maintenance']
+    : ['inventory', 'allocations', 'checkin', 'maintenance'];
+  const activeTab = tab && validTabs.includes(tab) ? tab : (isStudent ? 'allocations' : 'inventory');
 
   const handleTabChange = (newTab: string) => {
     navigate(`/hostels/${newTab}`);
@@ -552,8 +559,9 @@ export const HostelsView: React.FC = () => {
   const [newMntDesc, setNewMntDesc] = useState('');
   const [newMntArtisan, setNewMntArtisan] = useState('Works Dept - Plumber Alao');
 
-  /* ─── FILTERED DATA LOGIC ─── */
+  /* ─── FILTERED DATA LOGIC (Scoped by Student Identity) ─── */
   const filteredRooms = rooms.filter((r) => {
+    if (isStudent && !r.occupants.some((o) => o.matricNo === studentMatric)) return false;
     if (hallFilter !== 'ALL' && r.blockCode !== hallFilter) return false;
     if (roomTypeFilter !== 'ALL' && r.roomType !== roomTypeFilter) return false;
     if (roomSearch.trim()) {
@@ -567,6 +575,7 @@ export const HostelsView: React.FC = () => {
   });
 
   const filteredAllocations = allocations.filter((a) => {
+    if (isStudent && a.matricNo !== studentMatric) return false;
     if (allocHallFilter !== 'ALL' && a.blockCode !== allocHallFilter) return false;
     if (allocStatusFilter !== 'ALL' && a.status !== allocStatusFilter) return false;
     if (allocSearch.trim()) {
@@ -581,6 +590,7 @@ export const HostelsView: React.FC = () => {
   });
 
   const filteredCheckIns = checkIns.filter((c) => {
+    if (isStudent && c.matricNo !== studentMatric) return false;
     if (checkInSearch.trim()) {
       const q = checkInSearch.toLowerCase();
       const matchName = c.studentName.toLowerCase().includes(q);
@@ -1135,13 +1145,15 @@ export const HostelsView: React.FC = () => {
           >
             Report Defect
           </Button>
-          <Button
-            onClick={() => setIsAllocateModalOpen(true)}
-            leftIcon={<Plus className="w-4 h-4" />}
-            className="whitespace-nowrap text-xs bg-[#0F7640] hover:bg-[#093322]"
-          >
-            Allocate Bed Space
-          </Button>
+          {!isStudent && (
+            <Button
+              onClick={() => setIsAllocateModalOpen(true)}
+              leftIcon={<Plus className="w-4 h-4" />}
+              className="whitespace-nowrap text-xs bg-[#0F7640] hover:bg-[#093322]"
+            >
+              Allocate Bed Space
+            </Button>
+          )}
         </div>
       </div>
 
@@ -1226,12 +1238,20 @@ export const HostelsView: React.FC = () => {
 
       {/* ─── NAVIGATION TABS ─── */}
       <Tabs
-        tabs={[
-          { id: 'inventory', label: 'Room Inventory' },
-          { id: 'allocations', label: 'Bed Allocations' },
-          { id: 'checkin', label: 'Check-In & Clearance' },
-          { id: 'maintenance', label: 'Maintenance & Repairs' },
-        ]}
+        tabs={
+          isStudent
+            ? [
+                { id: 'allocations', label: 'My Bed Space Pass' },
+                { id: 'inventory', label: 'My Room Details' },
+                { id: 'maintenance', label: 'Maintenance & Repairs' },
+              ]
+            : [
+                { id: 'inventory', label: 'Room Inventory' },
+                { id: 'allocations', label: 'Bed Allocations' },
+                { id: 'checkin', label: 'Check-In & Clearance' },
+                { id: 'maintenance', label: 'Maintenance & Repairs' },
+              ]
+        }
         activeTab={activeTab}
         onChange={(id: any) => handleTabChange(id)}
       />

@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastProvider } from '@campusone/ui';
 import { AppProvider } from './context/AppContext.tsx';
 import { AppLayout } from './components/layout/AppLayout.tsx';
+import { ProtectedRoute } from './components/auth/ProtectedRoute.tsx';
 
 import { LoginView } from './views/LoginView.tsx';
 import { ForgotPasswordView } from './views/ForgotPasswordView.tsx';
@@ -36,37 +37,254 @@ export const App: React.FC = () => {
 
             {/* Authenticated Application Layout */}
             <Route element={<AppLayout />}>
-              <Route path="/" element={<DashboardView />} />
-              <Route path="/departments" element={<DepartmentsView />} />
-              <Route path="/departments/:tab" element={<DepartmentsView />} />
-              <Route path="/admissions" element={<AdmissionsView />} />
-              <Route path="/admissions/:tab" element={<AdmissionsView />} />
-              <Route path="/students" element={<StudentsView />} />
-              <Route path="/students/:tab" element={<StudentsView />} />
-              <Route path="/bursary" element={<BursaryView />} />
-              <Route path="/bursary/:tab" element={<BursaryView />} />
-              <Route path="/academics" element={<AcademicsView />} />
-              <Route path="/academics/:tab" element={<AcademicsView />} />
-              <Route path="/attendance" element={<AttendanceView />} />
-              <Route path="/attendance/:tab" element={<AttendanceView />} />
-              <Route path="/postings" element={<ClinicalPostingsView />} />
-              <Route path="/postings/:tab" element={<ClinicalPostingsView />} />
-              <Route path="/learning" element={<LearningView />} />
-              <Route path="/learning/:tab" element={<LearningView />} />
-              <Route path="/staff" element={<StaffView />} />
-              <Route path="/staff/:tab" element={<StaffView />} />
-              <Route path="/hostels" element={<HostelsView />} />
-              <Route path="/hostels/:tab" element={<HostelsView />} />
-              <Route path="/timetable" element={<TimetableView />} />
-              <Route path="/timetable/:tab" element={<TimetableView />} />
-              <Route path="/analytics" element={<AnalyticsView />} />
-              <Route path="/analytics/:tab" element={<AnalyticsView />} />
-              <Route path="/reports" element={<ReportsView />} />
-              <Route path="/reports/:tab" element={<ReportsView />} />
-              <Route path="/messages" element={<CommunicationsView />} />
-              <Route path="/messages/:tab" element={<CommunicationsView />} />
-              <Route path="/settings" element={<AdminView />} />
-              <Route path="/settings/:tab" element={<AdminView />} />
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute path="/" moduleName="Dashboard">
+                    <DashboardView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/departments"
+                element={
+                  <ProtectedRoute path="/departments" moduleName="Departments & Programmes">
+                    <DepartmentsView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/departments/:tab"
+                element={
+                  <ProtectedRoute path="/departments" moduleName="Departments & Programmes">
+                    <DepartmentsView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admissions"
+                element={
+                  <ProtectedRoute path="/admissions" moduleName="Admissions & Registration">
+                    <AdmissionsView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admissions/:tab"
+                element={
+                  <ProtectedRoute path="/admissions" moduleName="Admissions & Registration">
+                    <AdmissionsView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/students"
+                element={
+                  <ProtectedRoute path="/students" moduleName="Student Information System">
+                    <StudentsView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/students/:tab"
+                element={
+                  <ProtectedRoute path="/students" moduleName="Student Information System">
+                    <StudentsView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/bursary"
+                element={
+                  <ProtectedRoute path="/bursary" moduleName="Fees & Bursary">
+                    <BursaryView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/bursary/:tab"
+                element={
+                  <ProtectedRoute path="/bursary" moduleName="Fees & Bursary">
+                    <BursaryView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/academics"
+                element={
+                  <ProtectedRoute path="/academics" moduleName="Academics & Examinations">
+                    <AcademicsView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/academics/:tab"
+                element={
+                  <ProtectedRoute path="/academics" moduleName="Academics & Examinations">
+                    <AcademicsView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/attendance"
+                element={
+                  <ProtectedRoute path="/attendance" moduleName="Attendance Register">
+                    <AttendanceView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/attendance/:tab"
+                element={
+                  <ProtectedRoute path="/attendance" moduleName="Attendance Register">
+                    <AttendanceView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/postings"
+                element={
+                  <ProtectedRoute path="/postings" moduleName="Clinical Postings & Rotations">
+                    <ClinicalPostingsView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/postings/:tab"
+                element={
+                  <ProtectedRoute path="/postings" moduleName="Clinical Postings & Rotations">
+                    <ClinicalPostingsView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/learning"
+                element={
+                  <ProtectedRoute path="/learning" moduleName="E-Learning & CBT">
+                    <LearningView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/learning/:tab"
+                element={
+                  <ProtectedRoute path="/learning" moduleName="E-Learning & CBT">
+                    <LearningView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/staff"
+                element={
+                  <ProtectedRoute path="/staff" moduleName="Staff & Human Resources">
+                    <StaffView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/staff/:tab"
+                element={
+                  <ProtectedRoute path="/staff" moduleName="Staff & Human Resources">
+                    <StaffView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/hostels"
+                element={
+                  <ProtectedRoute path="/hostels" moduleName="Hostel & Accommodation">
+                    <HostelsView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/hostels/:tab"
+                element={
+                  <ProtectedRoute path="/hostels" moduleName="Hostel & Accommodation">
+                    <HostelsView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/timetable"
+                element={
+                  <ProtectedRoute path="/timetable" moduleName="Timetable & Scheduling">
+                    <TimetableView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/timetable/:tab"
+                element={
+                  <ProtectedRoute path="/timetable" moduleName="Timetable & Scheduling">
+                    <TimetableView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/analytics"
+                element={
+                  <ProtectedRoute path="/analytics" moduleName="Executive Analytics">
+                    <AnalyticsView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/analytics/:tab"
+                element={
+                  <ProtectedRoute path="/analytics" moduleName="Executive Analytics">
+                    <AnalyticsView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/reports"
+                element={
+                  <ProtectedRoute path="/reports" moduleName="Reports & Regulatory Compliance">
+                    <ReportsView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/reports/:tab"
+                element={
+                  <ProtectedRoute path="/reports" moduleName="Reports & Regulatory Compliance">
+                    <ReportsView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/messages"
+                element={
+                  <ProtectedRoute path="/messages" moduleName="Communications & Notices">
+                    <CommunicationsView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/messages/:tab"
+                element={
+                  <ProtectedRoute path="/messages" moduleName="Communications & Notices">
+                    <CommunicationsView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/settings"
+                element={
+                  <ProtectedRoute path="/settings" moduleName="Settings & Platform Governance">
+                    <AdminView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/settings/:tab"
+                element={
+                  <ProtectedRoute path="/settings" moduleName="Settings & Platform Governance">
+                    <AdminView />
+                  </ProtectedRoute>
+                }
+              />
               <Route path="/admin" element={<Navigate to="/settings" replace />} />
               <Route path="/admin/:tab" element={<Navigate to="/settings" replace />} />
               <Route path="*" element={<Navigate to="/" replace />} />

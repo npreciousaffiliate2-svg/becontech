@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext.tsx';
+import { PERSONA_PROFILES } from '../context/personas.ts';
 import {
   Card,
   Button,
@@ -76,11 +77,15 @@ interface AllocationRecord {
 }
 
 export const ClinicalPostingsView: React.FC = () => {
-  const { recordAudit, isDense } = useApp();
+  const { recordAudit, isDense, session } = useApp();
   const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { tab: routeTab } = useParams<{ tab: string }>();
+
+  const currentPersona = PERSONA_PROFILES[session?.activeRole || 'PROVOST'] || PERSONA_PROFILES.STU;
+  const isStudent = session?.activeRole === 'STU' || session?.activeRole === 'SPON';
+  const studentMatric = currentPersona.matricNumber || 'CHE/2026/0014';
 
   // Tab state synced with URL path and search params
   const resolveTab = (tabStr?: string | null): 'allocations' | 'sites' | 'logbooks' | 'clearance' => {
@@ -353,8 +358,9 @@ export const ClinicalPostingsView: React.FC = () => {
     },
   ]);
 
-  /* ─── DERIVED FILTERED ALLOCATIONS ─── */
+  /* ─── DERIVED FILTERED ALLOCATIONS (Scoped by Student Role) ─── */
   const filteredAllocations = allocations.filter((a) => {
+    if (isStudent && a.matricNumber !== studentMatric) return false;
     if (selectedHospitalFilter !== 'ALL' && a.siteId !== selectedHospitalFilter) return false;
     if (selectedDeptFilter !== 'ALL' && a.departmentCode !== selectedDeptFilter) return false;
     if (selectedStatusFilter !== 'ALL' && a.status !== selectedStatusFilter) return false;
@@ -369,11 +375,11 @@ export const ClinicalPostingsView: React.FC = () => {
   });
 
   /* ─── STATS COMPUTATION ─── */
-  const totalAllocated = allocations.length;
-  const completedCount = allocations.filter((a) => a.status === 'COMPLETED').length;
-  const logbooksCompleted = allocations.filter((a) => a.logbookStatus === 'COMPLETED').length;
-  const certifiedCount = allocations.filter((a) => a.clearanceGenerated).length;
-  const logbookPct = Math.round((logbooksCompleted / totalAllocated) * 100);
+  const totalAllocated = isStudent ? 1 : allocations.length;
+  const completedCount = isStudent ? 1 : allocations.filter((a) => a.status === 'COMPLETED').length;
+  const logbooksCompleted = isStudent ? 1 : allocations.filter((a) => a.logbookStatus === 'COMPLETED').length;
+  const certifiedCount = isStudent ? 1 : allocations.filter((a) => a.clearanceGenerated).length;
+  const logbookPct = isStudent ? 100 : Math.round((logbooksCompleted / totalAllocated) * 100);
 
   /* ─── ACTIONS ─── */
   const handleOpenPostingLetter = (record: AllocationRecord) => {
@@ -750,16 +756,19 @@ export const ClinicalPostingsView: React.FC = () => {
       header: 'Action',
       align: 'right' as const,
       nowrap: true,
-      render: (a: AllocationRecord) => (
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => handleOpenGradingModal(a)}
-          className="whitespace-nowrap"
-        >
-          Grade Logbook
-        </Button>
-      ),
+      render: (a: AllocationRecord) =>
+        isStudent ? (
+          <Badge variant="success">Verified by Preceptor</Badge>
+        ) : (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => handleOpenGradingModal(a)}
+            className="whitespace-nowrap"
+          >
+            Grade Logbook
+          </Button>
+        ),
     },
   ];
 
@@ -975,12 +984,20 @@ export const ClinicalPostingsView: React.FC = () => {
 
       {/* ─── Navigation Tabs ─── */}
       <Tabs
-        tabs={[
-          { id: 'allocations', label: 'Hospital Allocations' },
-          { id: 'sites', label: 'Training Hospitals' },
-          { id: 'logbooks', label: 'Logbook Grading' },
-          { id: 'clearance', label: 'Final Clearance' },
-        ]}
+        tabs={
+          isStudent
+            ? [
+                { id: 'allocations', label: 'My Hospital Placement' },
+                { id: 'logbooks', label: 'My Clinical Logbook' },
+                { id: 'clearance', label: 'My Clinical Clearance' },
+              ]
+            : [
+                { id: 'allocations', label: 'Hospital Allocations' },
+                { id: 'sites', label: 'Training Hospitals' },
+                { id: 'logbooks', label: 'Logbook Grading' },
+                { id: 'clearance', label: 'Final Clearance' },
+              ]
+        }
         activeTab={activeTab}
         onChange={(id: any) => handleTabChange(id)}
       />

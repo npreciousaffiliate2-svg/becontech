@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext.tsx';
+import { PERSONA_PROFILES } from '../context/personas.ts';
 import {
   Card,
   Button,
@@ -100,11 +101,17 @@ export interface FacultyLoadItem {
 export const TimetableView: React.FC = () => {
   const { tab } = useParams<{ tab?: string }>();
   const navigate = useNavigate();
-  const { isDense, recordAudit } = useApp();
+  const { isDense, recordAudit, session } = useApp();
   const { showToast } = useToast();
 
+  const currentPersona = PERSONA_PROFILES[session?.activeRole || 'PROVOST'] || PERSONA_PROFILES.STU;
+  const isStudent = session?.activeRole === 'STU' || session?.activeRole === 'SPON';
+  const isInstructor = session?.activeRole === 'INSTR';
+
   /* ─── TAB ROUTING STATE ─── */
-  const validTabs = ['classes', 'practicals', 'venues', 'faculty'];
+  const validTabs = isStudent
+    ? ['classes', 'practicals']
+    : ['classes', 'practicals', 'venues', 'faculty'];
   const activeTab = tab && validTabs.includes(tab) ? tab : 'classes';
 
   const handleTabChange = (newTab: string) => {
@@ -986,15 +993,17 @@ export const TimetableView: React.FC = () => {
             leftIcon={<Printer className="w-3.5 h-3.5 text-slate-600" />}
             className="whitespace-nowrap text-xs"
           >
-            Print Master Schedule
+            {isStudent ? 'Print My Schedule' : 'Print Master Schedule'}
           </Button>
-          <Button
-            onClick={() => setIsAddScheduleModalOpen(true)}
-            leftIcon={<Plus className="w-4 h-4" />}
-            className="whitespace-nowrap text-xs bg-[#0F7640] hover:bg-[#093322]"
-          >
-            Add Class Slot
-          </Button>
+          {!isStudent && (
+            <Button
+              onClick={() => setIsAddScheduleModalOpen(true)}
+              leftIcon={<Plus className="w-4 h-4" />}
+              className="whitespace-nowrap text-xs bg-[#0F7640] hover:bg-[#093322]"
+            >
+              Add Class Slot
+            </Button>
+          )}
         </div>
       </div>
 
@@ -1087,12 +1096,19 @@ export const TimetableView: React.FC = () => {
 
       {/* ─── NAVIGATION TABS ─── */}
       <Tabs
-        tabs={[
-          { id: 'classes', label: 'Class Timetables' },
-          { id: 'practicals', label: 'Practical & Lab Sessions' },
-          { id: 'venues', label: 'Lecture Halls & Venues' },
-          { id: 'faculty', label: 'Faculty Teaching Load' },
-        ]}
+        tabs={
+          isStudent
+            ? [
+                { id: 'classes', label: 'My Lecture Timetable' },
+                { id: 'practicals', label: 'My Clinical Practical Schedule' },
+              ]
+            : [
+                { id: 'classes', label: 'Class Timetables' },
+                { id: 'practicals', label: 'Practical & Lab Sessions' },
+                { id: 'venues', label: 'Lecture Halls & Venues' },
+                { id: 'faculty', label: 'Faculty Teaching Load' },
+              ]
+        }
         activeTab={activeTab}
         onChange={(id: any) => handleTabChange(id)}
       />
