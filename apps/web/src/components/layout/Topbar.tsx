@@ -160,7 +160,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
       '/academics': {
         module: 'Academics & Exams',
         tabs: {
-          scores: 'Score Entry Grid',
+          scores: 'Score Entry',
           broadsheet: 'Broadsheets',
           transcript: 'Transcripts',
           curriculum: 'Curriculum & Courses',
@@ -170,7 +170,10 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
         module: 'Attendance Register',
         tabs: {
           register: 'Daily Class Register',
+          courses: 'Course Summaries',
+          clearance: 'Exam Clearance',
           eligibility: 'Exam Clearance',
+          waivers: 'Medical Appeals & Waivers',
         },
       },
       '/postings': {
@@ -354,7 +357,12 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
 
           {/* Floating Notifications Popover */}
           {isNotificationsOpen && (
-            <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-[4px] border border-slate-200 bg-white shadow-xl z-50 text-xs animate-in fade-in duration-150">
+            <div
+              className="absolute right-0 mt-2 w-80 sm:w-96 rounded-[4px] border border-slate-200 bg-white z-50 text-xs animate-in fade-in duration-150"
+              style={{
+                boxShadow: '0 2px 6px 2px rgba(60, 64, 67, 0.15), 0 1px 2px 0 rgba(60, 64, 67, 0.30)',
+              }}
+            >
               {/* Header */}
               <div className="p-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
                 <div className="flex items-center gap-2">
@@ -485,7 +493,12 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
           </button>
 
           {isProfileOpen && (
-            <div className="absolute right-0 mt-1.5 w-52 rounded-[4px] border border-slate-200 bg-white shadow-lg py-1 z-50 text-xs">
+            <div
+              className="absolute right-0 mt-1.5 w-52 rounded-[4px] border border-slate-200 bg-white py-1 z-50 text-xs"
+              style={{
+                boxShadow: '0 2px 6px 2px rgba(60, 64, 67, 0.15), 0 1px 2px 0 rgba(60, 64, 67, 0.30)',
+              }}
+            >
               <div className="px-3 py-2 border-b border-slate-100">
                 <p className="font-semibold text-slate-900">{session.fullName}</p>
                 <p className="text-slate-400 text-[11px] truncate">{session.email}</p>

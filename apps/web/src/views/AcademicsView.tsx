@@ -421,7 +421,7 @@ export const AcademicsView: React.FC = () => {
       {/* Institutional Nav Tabs */}
       <Tabs
         tabs={[
-          { id: 'scores', label: 'Score Entry Grid' },
+          { id: 'scores', label: 'Score Entry' },
           { id: 'broadsheet', label: 'Examination Broadsheets' },
           { id: 'transcript', label: 'Student Transcripts' },
           { id: 'curriculum', label: 'Curriculum & Courses' },

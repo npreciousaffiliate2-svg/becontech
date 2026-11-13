@@ -136,7 +136,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           path: '/academics',
           icon: <GraduationCap size={19} />,
           subItems: [
-            { name: 'Score Entry Grid', path: '/academics/scores' },
+            { name: 'Score Entry', path: '/academics/scores' },
             { name: 'Broadsheets', path: '/academics/broadsheet' },
             { name: 'Transcripts', path: '/academics/transcript' },
             { name: 'Curriculum & Courses', path: '/academics/curriculum' },
@@ -148,7 +148,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
           icon: <CalendarCheck size={19} />,
           subItems: [
             { name: 'Daily Class Register', path: '/attendance/register' },
-            { name: 'Exam Clearance', path: '/attendance/eligibility' },
+            { name: 'Course Summaries', path: '/attendance/courses' },
+            { name: 'Exam Clearance', path: '/attendance/clearance' },
+            { name: 'Medical Waivers', path: '/attendance/waivers' },
           ],
         },
         {
