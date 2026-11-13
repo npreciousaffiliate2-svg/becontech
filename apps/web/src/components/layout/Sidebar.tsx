@@ -77,20 +77,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const navGroups: NavGroup[] = [
     {
-      group: 'Core',
+      group: 'General',
       items: [
         { name: 'Overview', path: '/', icon: <LayoutDashboard size={19} /> },
-        {
-          name: 'Platform Admin',
-          path: '/admin',
-          icon: <ShieldAlert size={19} />,
-          subItems: [
-            { name: 'Audit Trail', path: '/admin?tab=audit' },
-            { name: 'User Permissions', path: '/admin?tab=rbac' },
-            { name: 'School Settings', path: '/admin?tab=tenant' },
-            { name: 'Security & 2FA', path: '/admin?tab=security' },
-          ],
-        },
       ],
     },
     {
@@ -131,6 +120,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           name: 'Attendance Register',
           path: '/attendance',
           icon: <CalendarCheck size={19} />,
+          subItems: [
+            { name: 'Daily Class Register', path: '/attendance?tab=register' },
+            { name: 'Exam Clearance', path: '/attendance?tab=eligibility' },
+          ],
         },
         {
           name: 'Clinical Postings',
@@ -147,14 +140,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
           path: '/learning',
           icon: <BookOpen size={19} />,
           subItems: [
-            { name: 'Lecture Notes', path: '/learning?tab=materials' },
+            { name: 'Course Materials', path: '/learning?tab=materials' },
             { name: 'Practice Tests', path: '/learning?tab=cbt' },
           ],
         },
       ],
     },
     {
-      group: 'Operations & Finance',
+      group: 'Finance & Operations',
       items: [
         {
           name: 'Fees & Bursary',
@@ -182,10 +175,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
       ],
     },
     {
-      group: 'Communications & Reports',
+      group: 'Administration & System',
       items: [
-        { name: 'Messages & Notices', path: '/messages', icon: <MessageSquare size={19} /> },
+        {
+          name: 'Platform Admin',
+          path: '/admin',
+          icon: <ShieldAlert size={19} />,
+          subItems: [
+            { name: 'Activity History', path: '/admin?tab=audit' },
+            { name: 'User Permissions', path: '/admin?tab=rbac' },
+            { name: 'School Settings', path: '/admin?tab=tenant' },
+            { name: 'Security & 2FA', path: '/admin?tab=security' },
+          ],
+        },
         { name: 'Reports & Accreditation', path: '/reports', icon: <BarChart3 size={19} /> },
+        { name: 'Messages & Notices', path: '/messages', icon: <MessageSquare size={19} /> },
       ],
     },
   ];
@@ -204,12 +208,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
         />
       )}
 
-      {/* ─── SIDEBAR (Strictly 0px Outer Radius — XIROLY Executive Navy) ─── */}
+      {/* ─── SIDEBAR (Institutional Health Green — Bethsaida Identity) ─── */}
       <aside
         style={{
           width: isCollapsed ? '68px' : '260px',
-          background: 'linear-gradient(180deg, #093774 0%, #06234d 100%)',
-          boxShadow: '2px 0 16px rgba(6, 35, 77, 0.25)',
+          background: 'linear-gradient(180deg, #093322 0%, #052015 100%)',
+          boxShadow: '2px 0 16px rgba(5, 32, 21, 0.35)',
           borderRadius: '0px',
         }}
         className={`fixed top-0 bottom-0 left-0 z-40 flex flex-col justify-between text-white transition-all duration-200 select-none rounded-none ${
@@ -221,21 +225,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="h-14 px-4 border-b border-white/10 flex items-center justify-between shrink-0">
             {!isCollapsed ? (
               <div className="flex flex-col min-w-0">
-                <span className="text-base font-extrabold tracking-wider text-white uppercase font-sans">
+                <span className="text-base font-extrabold tracking-wider text-white uppercase font-sans flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block shrink-0 shadow-sm shadow-emerald-400/50" />
                   CampusOne
                 </span>
-                <span className="text-[11px] text-white/70 truncate font-sans">
+                <span className="text-[11px] text-emerald-200/80 truncate font-sans">
                   Bethsaida College of Health Tech
                 </span>
               </div>
             ) : (
-              <div className="w-8 h-8 bg-white text-[#093774] font-bold text-xs rounded-[4px] flex items-center justify-center mx-auto">
+              <div className="w-8 h-8 bg-[#107C41] text-white font-bold text-xs rounded-[4px] flex items-center justify-center mx-auto border border-emerald-400/30">
                 C1
               </div>
             )}
             <button
               onClick={onToggleCollapse}
-              className="hidden lg:flex p-1.5 rounded-[4px] text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+              className="hidden lg:flex p-1.5 rounded-[4px] text-emerald-200/70 hover:text-white hover:bg-white/10 transition-colors"
               title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             >
               {isCollapsed ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}
@@ -247,7 +252,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {navGroups.map((group) => (
               <div key={group.group} className="space-y-1">
                 {!isCollapsed ? (
-                  <div className="text-[11px] font-extrabold uppercase tracking-wider text-white/50 px-3.5 py-1 select-none">
+                  <div className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-300/60 px-3.5 py-1 select-none">
                     {group.group}
                   </div>
                 ) : (
@@ -279,26 +284,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           className={({ isActive }) =>
                             `flex-1 flex items-center justify-between px-3.5 py-2.5 rounded-[4px] text-[14px] transition-all duration-150 ${
                               isActive || (isBasePathActive && !hasSubItems)
-                                ? 'bg-white text-[#093774] font-bold shadow-sm'
-                                : 'text-white/90 hover:text-white hover:bg-white/10 font-medium'
+                                ? 'bg-white text-[#093322] font-bold shadow-sm'
+                                : 'text-white/85 hover:text-white hover:bg-white/10 font-medium'
                             } ${isCollapsed ? 'justify-center px-0' : ''}`
                           }
                           title={isCollapsed ? item.name : undefined}
                         >
                           <div className="flex items-center gap-3 min-w-0">
-                            <span className={isBasePathActive && !hasSubItems ? 'text-[#093774]' : 'text-white/90'}>
+                            <span className={isBasePathActive && !hasSubItems ? 'text-[#0F7640]' : 'text-white/90'}>
                               {item.icon}
                             </span>
                             {!isCollapsed && <span className="truncate">{item.name}</span>}
                           </div>
                         </NavLink>
 
-                        {/* Expand/Collapse Chevron (WordPress Style) */}
+                        {/* Expand/Collapse Chevron */}
                         {!isCollapsed && hasSubItems && (
                           <button
                             type="button"
                             onClick={(e) => toggleSubmenu(item.path, e)}
-                            className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-[4px] ml-1 transition-colors"
+                            className="p-2 text-emerald-200/70 hover:text-white hover:bg-white/10 rounded-[4px] ml-1 transition-colors"
                             aria-label={`Toggle ${item.name} sub-menu`}
                           >
                             {isMenuOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
@@ -306,7 +311,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         )}
                       </div>
 
-                      {/* Clean Sub-Menu Items (Flush, No Empty Space) */}
+                      {/* Clean Sub-Menu Items */}
                       {!isCollapsed && hasSubItems && isMenuOpen && (
                         <div className="py-1 space-y-0.5">
                           {item.subItems!.map((sub) => {
@@ -321,7 +326,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 onClick={onCloseMobile}
                                 className={`block pl-10 pr-3 py-2 text-[13px] rounded-[4px] transition-colors truncate ${
                                   isSubActive
-                                    ? 'text-white bg-white/20 font-bold'
+                                    ? 'text-white bg-white/20 font-bold border-l-2 border-emerald-400'
                                     : 'text-white/75 hover:text-white hover:bg-white/10 font-medium'
                                 }`}
                               >
@@ -339,11 +344,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </nav>
         </div>
 
-        {/* User Profile Footer (XIROLY & UseOneID Style) */}
-        <div className="border-t border-white/10 p-3 bg-black/15 shrink-0">
+        {/* User Profile Footer */}
+        <div className="border-t border-white/10 p-3 bg-black/20 shrink-0">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-[4px] bg-white text-[#0A77FE] font-bold text-xs flex items-center justify-center shrink-0 shadow-sm">
+              <div className="w-8 h-8 rounded-[4px] bg-[#107C41] text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-sm border border-emerald-400/30">
                 TB
               </div>
               {!isCollapsed && (
@@ -351,7 +356,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <p className="text-[13px] font-bold text-white truncate leading-tight">
                     {session.fullName}
                   </p>
-                  <p className="text-[11px] text-white/70 truncate leading-tight">
+                  <p className="text-[11px] text-emerald-300/80 truncate leading-tight">
                     {session.activeRole}
                   </p>
                 </div>
@@ -362,7 +367,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div className="flex items-center gap-1">
                 <button
                   onClick={handleSignOut}
-                  className="p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded-[4px] transition-colors"
+                  className="p-1.5 text-emerald-200/70 hover:text-white hover:bg-white/10 rounded-[4px] transition-colors"
                   title="Sign Out"
                 >
                   <LogOut size={16} />

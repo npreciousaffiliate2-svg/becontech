@@ -65,10 +65,10 @@ export const DashboardView: React.FC = () => {
 
   // Department Enrollment Data
   const departmentEnrollment = [
-    { name: 'Community Health (CHEW)', count: 480, percentage: 38, color: 'bg-[#0A77FE]' },
+    { name: 'Community Health (CHEW)', count: 480, percentage: 38, color: 'bg-[#107C41]' },
     { name: 'Medical Laboratory (MLT)', count: 320, percentage: 26, color: 'bg-[#13A348]' },
     { name: 'Pharmacy Technician', count: 260, percentage: 21, color: 'bg-amber-500' },
-    { name: 'Health Information (HIM)', count: 120, percentage: 10, color: 'bg-indigo-500' },
+    { name: 'Health Information (HIM)', count: 120, percentage: 10, color: 'bg-teal-600' },
     { name: 'Environmental Health', count: 68, percentage: 5, color: 'bg-slate-400' },
   ];
 
@@ -211,12 +211,12 @@ export const DashboardView: React.FC = () => {
                 const heightPercent = Math.round((bar.amount / maxRevenue) * 100);
                 return (
                   <div key={i} className="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
-                    <span className="text-xs font-bold text-slate-700 opacity-90 group-hover:text-[#0A77FE] transition-colors">
+                    <span className="text-xs font-bold text-slate-700 opacity-90 group-hover:text-[#107C41] transition-colors">
                       {bar.label}
                     </span>
                     <div
                       style={{ height: `${heightPercent}%` }}
-                      className="w-full bg-[#0A77FE] hover:bg-[#093774] rounded-[4px] transition-all duration-200 shadow-sm"
+                      className="w-full bg-[#107C41] hover:bg-[#093322] rounded-[4px] transition-all duration-200 shadow-sm"
                     />
                     <span className="text-xs font-semibold text-slate-600">{bar.month}</span>
                   </div>
