@@ -1,25 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext.tsx';
 import {
   Card,
   Button,
   Table,
   Badge,
-  Modal,
-  Input,
-  Select,
   useToast,
   Tabs,
 } from '@campusone/ui';
-import {
-  Stethoscope,
-  Building,
-  CheckCircle2,
-  BookOpen,
-  Award,
-  AlertCircle,
-  FileCheck,
-} from 'lucide-react';
 
 interface PostingSite {
   id: string;
@@ -45,10 +34,23 @@ interface AllocationRecord {
 }
 
 export const ClinicalPostingsView: React.FC = () => {
-  const { session, recordAudit, isDense } = useApp();
+  const { recordAudit, isDense } = useApp();
   const { showToast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [activeTab, setActiveTab] = useState<'allocations' | 'sites' | 'clearance'>('allocations');
+  const tabParam = searchParams.get('tab') as 'allocations' | 'sites' | 'clearance' | null;
+  const [activeTab, setActiveTab] = useState<'allocations' | 'sites' | 'clearance'>(tabParam || 'allocations');
+
+  useEffect(() => {
+    if (tabParam) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
+
+  const handleTabChange = (id: string) => {
+    setActiveTab(id as any);
+    setSearchParams({ tab: id });
+  };
 
   const [sites, setSites] = useState<PostingSite[]>([
     {
@@ -206,21 +208,21 @@ export const ClinicalPostingsView: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Clinical Postings & SIWES (CLN)</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Teaching Hospitals & PHC Registry • Cohort Rotation Engine • E-Logbooks • Regulatory Clearance
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Clinical Hospital Postings</h1>
+          <p className="text-sm text-slate-500 mt-0.5">
+            Teaching hospitals, student rotations, and clinical clearances
           </p>
         </div>
       </div>
 
       <Tabs
         tabs={[
-          { id: 'allocations', label: 'Cohort Rotation Allocations' },
-          { id: 'sites', label: 'Clinical Sites Registry' },
-          { id: 'clearance', label: 'Board Clearance Dashboard' },
+          { id: 'allocations', label: 'Hospital Allocations' },
+          { id: 'sites', label: 'Training Hospitals' },
+          { id: 'clearance', label: 'Final Clearances' },
         ]}
         activeTab={activeTab}
-        onChange={(id: any) => setActiveTab(id)}
+        onChange={handleTabChange}
       />
 
       <Card>

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext.tsx';
 import {
   Card,
@@ -12,22 +13,31 @@ import {
   Tabs,
 } from '@campusone/ui';
 import {
-  CreditCard,
   Plus,
-  FileText,
   Printer,
-  ShieldCheck,
   QrCode,
-  Download,
-  AlertTriangle,
+  ShieldCheck,
 } from 'lucide-react';
 import { formatNaira, FeeCategory, PaymentMethod } from '@campusone/contracts';
 
 export const BursaryView: React.FC = () => {
   const { ledgerEntries, receipts, addLedgerPayment, isDense } = useApp();
   const { showToast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [activeTab, setActiveTab] = useState<'ledger' | 'receipts' | 'structure' | 'debtors'>('ledger');
+  const tabParam = searchParams.get('tab') as 'ledger' | 'receipts' | 'structure' | 'debtors' | null;
+  const [activeTab, setActiveTab] = useState<'ledger' | 'receipts' | 'structure' | 'debtors'>(tabParam || 'ledger');
+
+  useEffect(() => {
+    if (tabParam) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
+
+  const handleTabChange = (id: string) => {
+    setActiveTab(id as any);
+    setSearchParams({ tab: id });
+  };
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
 
@@ -124,9 +134,9 @@ export const BursaryView: React.FC = () => {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Fees & Bursary Operations (FIN)</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Double-Entry Student Ledger • Immutable E-Receipts • Debtor & Cashbook Reconciliation
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">School Fees & Bursary</h1>
+          <p className="text-sm text-slate-500 mt-0.5">
+            Student fee accounts, official payment receipts, and fee schedules
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -135,7 +145,7 @@ export const BursaryView: React.FC = () => {
             onClick={() => setIsPaymentModalOpen(true)}
             leftIcon={<Plus className="w-3.5 h-3.5" />}
           >
-            Record Verified Payment
+            Record Student Payment
           </Button>
         </div>
       </div>
@@ -143,13 +153,13 @@ export const BursaryView: React.FC = () => {
       {/* Tabs */}
       <Tabs
         tabs={[
-          { id: 'ledger', label: 'Student Master Ledger' },
-          { id: 'receipts', label: 'Official Receipts Vault' },
-          { id: 'structure', label: 'Fee Structures (Versioned)' },
-          { id: 'debtors', label: 'Debtors & Defaulter Tracking' },
+          { id: 'ledger', label: 'Student Accounts Ledger' },
+          { id: 'receipts', label: 'Payment Receipts' },
+          { id: 'structure', label: 'Fee Schedules' },
+          { id: 'debtors', label: 'Overdue Balances' },
         ]}
         activeTab={activeTab}
-        onChange={(id: any) => setActiveTab(id)}
+        onChange={handleTabChange}
       />
 
       {/* Tab 1: Master Ledger */}

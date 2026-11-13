@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext.tsx';
 import {
   Card,
@@ -6,19 +7,12 @@ import {
   Table,
   Badge,
   Modal,
-  Input,
-  Select,
-  useToast,
   Tabs,
 } from '@campusone/ui';
 import {
-  Users,
   IdCard,
   QrCode,
-  FileText,
   Printer,
-  Shield,
-  HeartPulse,
 } from 'lucide-react';
 
 interface Student {
@@ -34,11 +28,23 @@ interface Student {
 }
 
 export const StudentsView: React.FC = () => {
-  const { session, recordAudit, isDense } = useApp();
-  const { showToast } = useToast();
+  const { isDense } = useApp();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [activeTab, setActiveTab] = useState<'directory' | 'lifecycle' | 'id_cards'>('directory');
+  const tabParam = searchParams.get('tab') as 'directory' | 'lifecycle' | 'id_cards' | null;
+  const [activeTab, setActiveTab] = useState<'directory' | 'lifecycle' | 'id_cards'>(tabParam || 'directory');
   const [selectedIdCard, setSelectedIdCard] = useState<Student | null>(null);
+
+  useEffect(() => {
+    if (tabParam) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
+
+  const handleTabChange = (id: string) => {
+    setActiveTab(id as any);
+    setSearchParams({ tab: id });
+  };
 
   const [students, setStudents] = useState<Student[]>([
     {
@@ -115,21 +121,21 @@ export const StudentsView: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Student Information System (SIS)</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Student 360 Master Records • Semester Registration • Status Lifecycle • ID Card Studio
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Student Information System</h1>
+          <p className="text-sm text-slate-500 mt-0.5">
+            Student records, status changes, and student ID cards
           </p>
         </div>
       </div>
 
       <Tabs
         tabs={[
-          { id: 'directory', label: 'Master Student Registry' },
-          { id: 'lifecycle', label: 'Status Lifecycle Workflow' },
-          { id: 'id_cards', label: 'ID Card Generation' },
+          { id: 'directory', label: 'Student Directory' },
+          { id: 'lifecycle', label: 'Status Lifecycle' },
+          { id: 'id_cards', label: 'Student ID Cards' },
         ]}
         activeTab={activeTab}
-        onChange={(id: any) => setActiveTab(id)}
+        onChange={handleTabChange}
       />
 
       <Card>

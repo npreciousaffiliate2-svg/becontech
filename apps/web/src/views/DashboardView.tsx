@@ -4,149 +4,175 @@ import {
   Users,
   CreditCard,
   GraduationCap,
-  Clock,
+  AlertCircle,
   ArrowRight,
-  TrendingUp,
-  ShieldCheck,
-  CheckCircle,
-  AlertTriangle,
-  FileText,
-  Activity,
-  CheckCircle2,
 } from 'lucide-react';
 import { Button, Badge } from '@campusone/ui';
 import { useNavigate } from 'react-router-dom';
 
 export const DashboardView: React.FC = () => {
-  const { session, receipts, ledgerEntries } = useApp();
+  const { session, receipts } = useApp();
   const navigate = useNavigate();
 
-  const [timeframe, setTimeframe] = useState<'7D' | '30D' | '90D' | '1Y'>('30D');
-  const [semesterView, setSemesterView] = useState<'Harmattan' | 'Rain' | 'All'>('Harmattan');
+  const [timeframe, setTimeframe] = useState<'30D' | '90D' | 'Session'>('30D');
+  const [activeTab, setActiveTab] = useState<'overview' | 'finance' | 'academics'>('overview');
 
   const kpis = [
     {
-      title: 'Total Enrolled Students',
+      title: 'Active Students Enrolled',
       value: '1,248',
-      trend: '+8.4%',
-      subtext: 'vs previous session',
+      trend: '+8.4% this year',
+      subtext: 'Across 5 health departments',
       isPositive: true,
       icon: <Users className="w-5 h-5 text-slate-400" />,
     },
     {
-      title: 'Fee Collections MTD',
+      title: 'School Fees Collected',
       value: '₦84.2M',
-      trend: '74.2%',
-      subtext: 'Harmattan budget target',
+      trend: '74% of target',
+      subtext: 'Target: ₦114M for session',
       isPositive: true,
       icon: <CreditCard className="w-5 h-5 text-slate-400" />,
     },
     {
-      title: 'Average Pass Rate',
+      title: 'Examination Pass Rate',
       value: '88.4%',
-      trend: '+2.1%',
-      subtext: 'Accredited examinations',
+      trend: '+2.1% improvement',
+      subtext: 'Harmattan semester results',
       isPositive: true,
       icon: <GraduationCap className="w-5 h-5 text-slate-400" />,
     },
     {
-      title: 'Defaulters / Overdue',
-      value: '142',
-      trend: 'Active',
-      subtext: 'Pending 2nd installment',
+      title: 'Outstanding Fees',
+      value: '₦18.4M',
+      trend: '142 students',
+      subtext: 'Overdue installment payments',
       isPositive: false,
-      icon: <Clock className="w-5 h-5 text-slate-400" />,
+      icon: <AlertCircle className="w-5 h-5 text-slate-400" />,
     },
   ];
 
-  const recentTransactions = [
+  // Monthly Revenue Chart Data
+  const monthlyRevenue = [
+    { month: 'Jun', amount: 8.5, label: '₦8.5M' },
+    { month: 'Jul', amount: 14.2, label: '₦14.2M' },
+    { month: 'Aug', amount: 11.0, label: '₦11.0M' },
+    { month: 'Sep', amount: 22.4, label: '₦22.4M' },
+    { month: 'Oct', amount: 18.1, label: '₦18.1M' },
+    { month: 'Nov', amount: 10.0, label: '₦10.0M' },
+  ];
+  const maxRevenue = 25;
+
+  // Department Enrollment Data
+  const departmentEnrollment = [
+    { name: 'Community Health (CHEW)', count: 480, percentage: 38, color: 'bg-[#0A77FE]' },
+    { name: 'Medical Laboratory (MLT)', count: 320, percentage: 26, color: 'bg-[#13A348]' },
+    { name: 'Pharmacy Technician', count: 260, percentage: 21, color: 'bg-amber-500' },
+    { name: 'Health Information (HIM)', count: 120, percentage: 10, color: 'bg-indigo-500' },
+    { name: 'Environmental Health', count: 68, percentage: 5, color: 'bg-slate-400' },
+  ];
+
+  const recentPayments = [
     {
-      id: 'tx-1',
-      date: '13 Nov 2026',
-      entity: 'Blessing Adeyemi',
-      matricNumber: 'CHE/2026/0014',
-      type: 'Tuition Settlement',
+      date: 'Today, 11:20 AM',
+      student: 'Blessing Adeyemi',
+      program: 'Community Health 200L',
+      item: 'First Semester Tuition',
+      channel: 'Paystack Card',
       amount: '₦100,000.00',
-      status: 'VERIFIED',
-      channel: 'Paystack',
     },
     {
-      id: 'tx-2',
-      date: '12 Nov 2026',
-      entity: 'Emmanuel Chukwuma',
-      matricNumber: 'MLT/2026/0029',
-      type: 'Tuition Settlement',
+      date: 'Today, 09:45 AM',
+      student: 'Emmanuel Chukwuma',
+      program: 'Medical Laboratory 100L',
+      item: 'Tuition Fee Balance',
+      channel: 'Remita Bank',
       amount: '₦140,000.00',
-      status: 'VERIFIED',
-      channel: 'Remita',
     },
     {
-      id: 'tx-3',
-      date: '12 Nov 2026',
-      entity: 'Khadijat Sani',
-      matricNumber: 'PHT/2026/0009',
-      type: 'Clinical Posting Levy',
+      date: 'Yesterday',
+      student: 'Khadijat Sani',
+      program: 'Pharmacy Technician 100L',
+      item: 'Clinical Posting Levy',
+      channel: 'Paystack Card',
       amount: '₦35,000.00',
-      status: 'VERIFIED',
-      channel: 'Paystack',
     },
     {
-      id: 'tx-4',
-      date: '11 Nov 2026',
-      entity: 'Amina Yusuf',
-      matricNumber: 'APP/2026/0142',
-      type: 'Application Fee',
+      date: 'Yesterday',
+      student: 'Amina Yusuf',
+      program: 'Applicant Screening',
+      item: 'Admission Application Fee',
+      channel: 'Bank Transfer',
       amount: '₦15,000.00',
-      status: 'VERIFIED',
-      channel: 'Direct Bank',
     },
-  ];
-
-  const systemServices = [
-    { name: 'CHPRBN Regulatory SPI', status: 'Operational', latency: '42ms' },
-    { name: 'MLSCN Examination Gateway', status: 'Operational', latency: '65ms' },
-    { name: 'PCN Licensing Registry', status: 'Operational', latency: '58ms' },
-    { name: 'Paystack Payment Settlement', status: 'Operational', latency: '120ms' },
-    { name: 'Termii Priority SMS Gateway', status: 'Operational', latency: '84ms' },
+    {
+      date: '11 Nov 2026',
+      student: 'David Adeleke',
+      program: 'Medical Laboratory 100L',
+      item: 'Laboratory Consumables',
+      channel: 'Paystack Card',
+      amount: '₦20,000.00',
+    },
   ];
 
   return (
     <div className="flex flex-col gap-6 font-sans">
-      {/* ─── TITLE & TIMEFRAME SELECTOR (UseOneID Style) ─── */}
+      {/* Page Title & Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-            Dashboard Overview
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+            School Performance Overview
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Bethsaida College of Health Tech • Harmattan 2026/2027 Session
+          <p className="text-sm text-slate-500 mt-0.5">
+            Bethsaida College of Health Tech • 2026/2027 Academic Session
           </p>
         </div>
 
-        {/* UseOneID Segmented Control Switches */}
+        {/* Unified Segmented Control Toggle (Matching UseOneID Design) */}
         <div className="flex flex-wrap items-center gap-2">
-          <div className="p-1 bg-slate-200/70 rounded-[4px] flex items-center gap-1">
-            {(['Harmattan', 'Rain', 'All'] as const).map((s) => (
-              <button
-                key={s}
-                onClick={() => setSemesterView(s)}
-                className={`px-3 py-1 text-xs font-semibold rounded-[4px] transition-all ${
-                  semesterView === s
-                    ? 'bg-white text-slate-900 shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                {s}
-              </button>
-            ))}
+          <div className="p-1 bg-slate-200/70 rounded-[4px] inline-flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setActiveTab('overview')}
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-[4px] transition-all ${
+                activeTab === 'overview'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              School Overview
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('finance')}
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-[4px] transition-all ${
+                activeTab === 'finance'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Fee Collections
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('academics')}
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-[4px] transition-all ${
+                activeTab === 'academics'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Exams & Grades
+            </button>
           </div>
 
-          <div className="p-1 bg-slate-200/70 rounded-[4px] flex items-center gap-1">
-            {(['7D', '30D', '90D', '1Y'] as const).map((t) => (
+          <div className="p-1 bg-slate-200/70 rounded-[4px] inline-flex items-center gap-1">
+            {(['30D', '90D', 'Session'] as const).map((t) => (
               <button
                 key={t}
+                type="button"
                 onClick={() => setTimeframe(t)}
-                className={`px-2.5 py-1 text-xs font-semibold rounded-[4px] transition-all ${
+                className={`px-3 py-1.5 text-xs font-semibold rounded-[4px] transition-all ${
                   timeframe === t
                     ? 'bg-white text-slate-900 shadow-sm'
                     : 'text-slate-600 hover:text-slate-900'
@@ -159,7 +185,7 @@ export const DashboardView: React.FC = () => {
         </div>
       </div>
 
-      {/* ─── KPI METRIC CARDS ROW (UseOneID Style) ─── */}
+      {/* 4 Core Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {kpis.map((kpi, idx) => (
           <div
@@ -167,7 +193,7 @@ export const DashboardView: React.FC = () => {
             className="bg-white rounded-[4px] border border-slate-200 p-5 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-150"
           >
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                 {kpi.title}
               </span>
               {kpi.icon}
@@ -178,7 +204,7 @@ export const DashboardView: React.FC = () => {
                 {kpi.value}
               </span>
               <span
-                className={`text-[11px] font-bold px-2 py-0.5 rounded-[4px] flex items-center gap-0.5 ${
+                className={`text-xs font-bold px-2 py-0.5 rounded-[4px] ${
                   kpi.isPositive
                     ? 'bg-emerald-50 text-[#13A348] border border-emerald-200'
                     : 'bg-rose-50 text-[#F83A20] border border-rose-200'
@@ -188,173 +214,213 @@ export const DashboardView: React.FC = () => {
               </span>
             </div>
 
-            <span className="text-xs text-slate-400 mt-2 block">
+            <span className="text-xs text-slate-500 mt-2 block">
               {kpi.subtext}
             </span>
           </div>
         ))}
       </div>
 
-      {/* ─── MAIN CONTENT 2/3 & 1/3 LAYOUT GRID (UseOneID Layout) ─── */}
+      {/* Primary Analytics Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column (2/3) */}
-        <div className="lg:col-span-2 flex flex-col gap-6">
-          {/* Card 1: Volume Activity Trends */}
-          <div className="bg-white rounded-[4px] border border-slate-200 p-5 shadow-sm flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-sm font-bold text-slate-900 tracking-tight">
-                  Academic & Fee Collection Velocity
-                </h2>
-                <p className="text-xs text-slate-400">Weekly progression across departments</p>
-              </div>
-              <Badge variant="primary">Harmattan Diet</Badge>
+        {/* Left (2/3): Revenue & Fee Collections Bar Chart */}
+        <div className="lg:col-span-2 bg-white rounded-[4px] border border-slate-200 p-6 shadow-sm flex flex-col justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
+            <div>
+              <h2 className="text-base font-bold text-slate-900">
+                Monthly School Fee Collections
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Total fees received across online card payments and bank transfers
+              </p>
             </div>
-
-            {/* Custom SVG Trend Bar Chart (Clean, No External Dependencies) */}
-            <div className="h-48 w-full flex items-end gap-3 pt-4 border-b border-slate-100">
-              {[
-                { label: 'Wk 1', height: '40%', val: '₦12M' },
-                { label: 'Wk 2', height: '65%', val: '₦18M' },
-                { label: 'Wk 3', height: '55%', val: '₦15M' },
-                { label: 'Wk 4', height: '85%', val: '₦24M' },
-                { label: 'Wk 5', height: '70%', val: '₦20M' },
-                { label: 'Wk 6', height: '95%', val: '₦28M' },
-              ].map((bar, i) => (
-                <div key={i} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group">
-                  <span className="text-[10px] font-bold text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {bar.val}
-                  </span>
-                  <div
-                    style={{ height: bar.height }}
-                    className="w-full bg-[#0A77FE] hover:bg-[#093774] rounded-[4px] transition-all duration-200"
-                  />
-                  <span className="text-[11px] font-medium text-slate-400">{bar.label}</span>
-                </div>
-              ))}
+            <div className="text-right">
+              <span className="text-lg font-extrabold text-[#13A348]">₦84,250,000</span>
+              <span className="text-xs text-slate-400 block">Total Collected to Date</span>
             </div>
           </div>
 
-          {/* Card 2: Recent Ledger Settlements Table */}
-          <div className="bg-white rounded-[4px] border border-slate-200 shadow-sm overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b border-slate-100">
-              <div>
-                <h2 className="text-sm font-bold text-slate-900 tracking-tight">
-                  Recent Verified Collections & Settlements
-                </h2>
-                <p className="text-xs text-slate-400">Directly posted to double-entry ledger</p>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate('/bursary')}
-                rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
-              >
-                View Full Ledger
-              </Button>
+          {/* Clean High-Legibility Bar Chart */}
+          <div className="pt-6">
+            <div className="h-56 w-full flex items-end gap-3 sm:gap-6 border-b border-slate-200 pb-2">
+              {monthlyRevenue.map((bar, i) => {
+                const heightPercent = Math.round((bar.amount / maxRevenue) * 100);
+                return (
+                  <div key={i} className="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
+                    <span className="text-xs font-bold text-slate-700 opacity-90 group-hover:text-[#0A77FE] transition-colors">
+                      {bar.label}
+                    </span>
+                    <div
+                      style={{ height: `${heightPercent}%` }}
+                      className="w-full bg-[#0A77FE] hover:bg-[#093774] rounded-[4px] transition-all duration-200 shadow-sm"
+                    />
+                    <span className="text-xs font-semibold text-slate-600">{bar.month}</span>
+                  </div>
+                );
+              })}
             </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-semibold text-[11px] uppercase tracking-wider">
-                  <tr>
-                    <th className="py-2.5 px-4">Date</th>
-                    <th className="py-2.5 px-4">Student</th>
-                    <th className="py-2.5 px-4">Category</th>
-                    <th className="py-2.5 px-4">Channel</th>
-                    <th className="py-2.5 px-4 text-right">Amount</th>
-                    <th className="py-2.5 px-4 text-center">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
-                  {recentTransactions.map((tx) => (
-                    <tr key={tx.id} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="py-3 px-4 text-slate-500">{tx.date}</td>
-                      <td className="py-3 px-4">
-                        <div className="font-bold text-slate-900">{tx.entity}</div>
-                        <div className="text-[11px] text-slate-400">{tx.matricNumber}</div>
-                      </td>
-                      <td className="py-3 px-4 text-slate-600">{tx.type}</td>
-                      <td className="py-3 px-4">
-                        <Badge variant="primary" size="sm">
-                          {tx.channel}
-                        </Badge>
-                      </td>
-                      <td className="py-3 px-4 text-right font-bold text-[#13A348]">
-                        {tx.amount}
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <Badge variant="success" size="sm">
-                          {tx.status}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="flex justify-between items-center text-xs text-slate-400 pt-2">
+              <span>June 2026</span>
+              <span>November 2026 (Harmattan Peak)</span>
             </div>
           </div>
         </div>
 
-        {/* Right Column (1/3) */}
-        <div className="flex flex-col gap-6">
-          {/* System Services Status (UseOneID Platform Status Card) */}
-          <div className="bg-white rounded-[4px] border border-slate-200 p-5 shadow-sm flex flex-col gap-3">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2">
-                <Activity className="w-4 h-4 text-[#13A348]" />
-                <h2 className="text-sm font-bold text-slate-900">Regulatory & Core Services</h2>
-              </div>
-              <span className="text-[10px] font-bold text-[#13A348] bg-emerald-50 px-2 py-0.5 rounded-[4px]">
-                All Systems Normal
-              </span>
+        {/* Right (1/3): Student Enrollment by Department */}
+        <div className="bg-white rounded-[4px] border border-slate-200 p-6 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="border-b border-slate-100 pb-4">
+              <h2 className="text-base font-bold text-slate-900">
+                Students by Department
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Distribution across accredited training programmes
+              </p>
             </div>
 
-            <div className="space-y-2.5 text-xs">
-              {systemServices.map((svc, i) => (
-                <div key={i} className="flex items-center justify-between py-1 border-b border-slate-50 last:border-none">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-[#13A348]" />
-                    <span className="font-medium text-slate-700">{svc.name}</span>
+            <div className="space-y-4 pt-4">
+              {departmentEnrollment.map((dept, i) => (
+                <div key={i} className="space-y-1.5">
+                  <div className="flex justify-between text-xs">
+                    <span className="font-semibold text-slate-800">{dept.name}</span>
+                    <span className="font-bold text-slate-900">{dept.count} students</span>
                   </div>
-                  <span className="text-[11px] text-slate-400">{svc.latency}</span>
+                  <div className="w-full h-2.5 bg-slate-100 rounded-[4px] overflow-hidden">
+                    <div
+                      style={{ width: `${dept.percentage}%` }}
+                      className={`h-full ${dept.color} rounded-[4px]`}
+                    />
+                  </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Action Required Queue */}
-          <div className="bg-white rounded-[4px] border border-slate-200 p-5 shadow-sm flex flex-col gap-3">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h2 className="text-sm font-bold text-slate-900">Pending Actions</h2>
-              <Badge variant="warning" size="sm">3 Items</Badge>
+          <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
+            <span className="text-slate-500">Total Enrollment</span>
+            <span className="font-bold text-slate-900 text-sm">1,248 Students</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom Grid: Recent School Payments & Pending Approvals */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left (2/3): Recent School Payments */}
+        <div className="lg:col-span-2 bg-white rounded-[4px] border border-slate-200 shadow-sm overflow-hidden">
+          <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-bold text-slate-900">
+                Recent Student Fee Payments
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Real-time verified settlements processed through school accounts
+              </p>
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => navigate('/bursary')}
+              rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
+            >
+              View Full Bursary Ledger
+            </Button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
+                <tr>
+                  <th className="py-3 px-4">Date & Time</th>
+                  <th className="py-3 px-4">Student Name</th>
+                  <th className="py-3 px-4">Department / Level</th>
+                  <th className="py-3 px-4">Fee Item</th>
+                  <th className="py-3 px-4">Payment Method</th>
+                  <th className="py-3 px-4 text-right">Amount Paid</th>
+                  <th className="py-3 px-4 text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
+                {recentPayments.map((p, idx) => (
+                  <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-3.5 px-4 text-slate-500 whitespace-nowrap">{p.date}</td>
+                    <td className="py-3.5 px-4 font-bold text-slate-900 whitespace-nowrap">{p.student}</td>
+                    <td className="py-3.5 px-4 text-slate-600 whitespace-nowrap">{p.program}</td>
+                    <td className="py-3.5 px-4 text-slate-700 whitespace-nowrap">{p.item}</td>
+                    <td className="py-3.5 px-4 whitespace-nowrap">
+                      <Badge variant="primary" size="sm">{p.channel}</Badge>
+                    </td>
+                    <td className="py-3.5 px-4 text-right font-bold text-[#13A348] whitespace-nowrap">
+                      {p.amount}
+                    </td>
+                    <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                      <Badge variant="success" size="sm">Verified</Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Right (1/3): Action Required Workflow Items */}
+        <div className="bg-white rounded-[4px] border border-slate-200 p-5 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-bold text-slate-900">
+                  Tasks Awaiting Approval
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">Items requiring Provost or Admin sign-off</p>
+              </div>
+              <Badge variant="warning">3 Pending</Badge>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div className="p-2.5 bg-slate-50 rounded-[4px] border border-slate-200 flex flex-col gap-1.5">
-                <span className="font-bold text-slate-800">CHEW 200L Broadsheet Sign-off</span>
-                <p className="text-[11px] text-slate-500">Submitted by HOD • Requires final approval</p>
-                <div className="flex justify-end">
+            <div className="space-y-3.5 pt-4">
+              <div className="p-3 bg-slate-50 rounded-[4px] border border-slate-200 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="font-bold text-slate-900 text-xs">
+                    Harmattan Exam Results Broadsheet
+                  </span>
+                  <Badge variant="warning" size="sm">Review</Badge>
+                </div>
+                <p className="text-xs text-slate-600">
+                  Community Health (CHEW 200L) scores submitted by department for final publication.
+                </p>
+                <div className="pt-1 flex justify-end">
                   <Button size="sm" onClick={() => navigate('/academics')}>
-                    Review Broadsheet
+                    Review & Publish Results
                   </Button>
                 </div>
               </div>
 
-              <div className="p-2.5 bg-slate-50 rounded-[4px] border border-slate-200 flex flex-col gap-1.5">
-                <span className="font-bold text-slate-800">Batch Admissions Approval</span>
-                <p className="text-[11px] text-slate-500">45 screened candidates ready for matriculation</p>
-                <div className="flex justify-end">
+              <div className="p-3 bg-slate-50 rounded-[4px] border border-slate-200 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="font-bold text-slate-900 text-xs">
+                    Batch 2026 Admission List
+                  </span>
+                  <Badge variant="neutral" size="sm">45 Students</Badge>
+                </div>
+                <p className="text-xs text-slate-600">
+                  Entrance test completed. Screened candidates ready for admission letter issuance.
+                </p>
+                <div className="pt-1 flex justify-end">
                   <Button size="sm" variant="secondary" onClick={() => navigate('/admissions')}>
-                    Approve List
+                    Approve Admission List
                   </Button>
                 </div>
               </div>
 
-              <div className="p-2.5 bg-slate-50 rounded-[4px] border border-slate-200 flex flex-col gap-1.5">
-                <span className="font-bold text-slate-800">Rural Clinical Allocations</span>
-                <p className="text-[11px] text-slate-500">60 trainees assigned to UCH & PHC centers</p>
-                <div className="flex justify-end">
+              <div className="p-3 bg-slate-50 rounded-[4px] border border-slate-200 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="font-bold text-slate-900 text-xs">
+                    Hospital Clinical Postings
+                  </span>
+                  <Badge variant="neutral" size="sm">60 Students</Badge>
+                </div>
+                <p className="text-xs text-slate-600">
+                  Trainees allocated to UCH Ibadan and Adeoyo State Hospital for rural fieldwork.
+                </p>
+                <div className="pt-1 flex justify-end">
                   <Button size="sm" variant="secondary" onClick={() => navigate('/postings')}>
                     Open Allocations
                   </Button>

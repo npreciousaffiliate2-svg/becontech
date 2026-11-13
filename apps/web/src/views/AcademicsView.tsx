@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext.tsx';
 import {
   Card,
@@ -11,13 +12,9 @@ import {
   Tabs,
 } from '@campusone/ui';
 import {
-  GraduationCap,
   CheckCircle2,
   Lock,
-  FileSpreadsheet,
   Printer,
-  AlertTriangle,
-  Send,
   Eye,
 } from 'lucide-react';
 import {
@@ -37,8 +34,21 @@ interface StudentScoreRecord {
 export const AcademicsView: React.FC = () => {
   const { session, recordAudit, isDense } = useApp();
   const { showToast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [activeTab, setActiveTab] = useState<'scores' | 'broadsheet' | 'transcript' | 'curriculum'>('scores');
+  const tabParam = searchParams.get('tab') as 'scores' | 'broadsheet' | 'transcript' | 'curriculum' | null;
+  const [activeTab, setActiveTab] = useState<'scores' | 'broadsheet' | 'transcript' | 'curriculum'>(tabParam || 'scores');
+
+  useEffect(() => {
+    if (tabParam) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
+
+  const handleTabChange = (id: string) => {
+    setActiveTab(id as any);
+    setSearchParams({ tab: id });
+  };
   const [selectedCourse, setSelectedCourse] = useState('CHE201');
   const [workflowStatus, setWorkflowStatus] = useState<'DRAFT' | 'HOD_APPROVED' | 'DEAN_APPROVED' | 'PUBLISHED'>('DRAFT');
 
@@ -182,9 +192,9 @@ export const AcademicsView: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Academics & Examination (EXM)</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Curriculum Structure • CA/Exam Scores • Approval Chain • Deterministic GPA/CGPA • Transcripts
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Academics & Examination</h1>
+          <p className="text-sm text-slate-500 mt-0.5">
+            Course grades, examination broadsheets, transcripts, and curriculum
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -198,11 +208,11 @@ export const AcademicsView: React.FC = () => {
                 ? 'Submit to HOD'
                 : workflowStatus === 'HOD_APPROVED'
                 ? 'Approve as Dean'
-                : 'Publish Broadsheet'}
+                : 'Publish Results'}
             </Button>
           ) : (
             <Badge variant="success" size="md">
-              <Lock className="w-3 h-3 inline mr-1" /> Broadsheet Published & Locked
+              <Lock className="w-3 h-3 inline mr-1" /> Results Published
             </Badge>
           )}
         </div>
@@ -212,12 +222,12 @@ export const AcademicsView: React.FC = () => {
       <Tabs
         tabs={[
           { id: 'scores', label: 'Score Entry Grid' },
-          { id: 'broadsheet', label: 'Session Broadsheet' },
-          { id: 'transcript', label: 'Transcripts & Statements' },
-          { id: 'curriculum', label: 'Health Programmes & Curriculum' },
+          { id: 'broadsheet', label: 'Examination Broadsheets' },
+          { id: 'transcript', label: 'Student Transcripts' },
+          { id: 'curriculum', label: 'Courses & Curriculum' },
         ]}
         activeTab={activeTab}
-        onChange={(id: any) => setActiveTab(id)}
+        onChange={handleTabChange}
       />
 
       {/* Tab 1: Scores Grid */}

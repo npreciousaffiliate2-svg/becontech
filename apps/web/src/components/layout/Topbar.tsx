@@ -35,8 +35,8 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
 
   return (
     <header
-      className={`h-14 fixed top-0 right-0 z-30 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-6 transition-all duration-200 ${
-        isSidebarCollapsed ? 'left-[68px]' : 'left-0 lg:left-[240px]'
+      className={`h-14 fixed top-0 right-0 z-30 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-6 transition-all duration-200 rounded-none ${
+        isSidebarCollapsed ? 'left-[68px]' : 'left-0 lg:left-[260px]'
       }`}
     >
       {/* Left side: Mobile hamburger & Search */}

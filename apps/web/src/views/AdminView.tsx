@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext.tsx';
 import {
   Card,
@@ -7,27 +8,35 @@ import {
   Badge,
   Modal,
   Input,
-  Select,
   useToast,
   Tabs,
 } from '@campusone/ui';
 import {
-  ShieldAlert,
   ShieldCheck,
-  KeyRound,
-  History,
   Lock,
   Download,
-  Terminal,
 } from 'lucide-react';
 import { AuditEventRecord } from '@campusone/contracts';
 
 export const AdminView: React.FC = () => {
-  const { auditLogs, session, isDense } = useApp();
+  const { auditLogs, isDense } = useApp();
   const { showToast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [activeTab, setActiveTab] = useState<'audit' | 'rbac' | 'tenant' | 'security'>('audit');
+  const tabParam = searchParams.get('tab') as 'audit' | 'rbac' | 'tenant' | 'security' | null;
+  const [activeTab, setActiveTab] = useState<'audit' | 'rbac' | 'tenant' | 'security'>(tabParam || 'audit');
   const [selectedAuditLog, setSelectedAuditLog] = useState<AuditEventRecord | null>(null);
+
+  useEffect(() => {
+    if (tabParam) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
+
+  const handleTabChange = (id: string) => {
+    setActiveTab(id as any);
+    setSearchParams({ tab: id });
+  };
 
   const auditColumns = [
     {
@@ -84,27 +93,27 @@ export const AdminView: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Platform Core Administration (CORE)</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Identity & Access • Tamper-Evident Audit Log • Tenant Configuration • Security Enforcement
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Platform Administration</h1>
+          <p className="text-sm text-slate-500 mt-0.5">
+            System activity history, staff permissions, and school configurations
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="success" size="md">
-            <ShieldCheck className="w-3.5 h-3.5 inline mr-1" /> Audit Log Integrity Verified
+            <ShieldCheck className="w-3.5 h-3.5 inline mr-1" /> System Secure
           </Badge>
         </div>
       </div>
 
       <Tabs
         tabs={[
-          { id: 'audit', label: 'Tamper-Evident Audit Explorer (PRD §6.1)' },
-          { id: 'rbac', label: 'RBAC & Scope Permissions' },
-          { id: 'tenant', label: 'Tenant Academic Configuration' },
-          { id: 'security', label: 'Security & 2FA Enforcement' },
+          { id: 'audit', label: 'Activity History' },
+          { id: 'rbac', label: 'User Roles & Permissions' },
+          { id: 'tenant', label: 'School Settings' },
+          { id: 'security', label: 'Security & Logins' },
         ]}
         activeTab={activeTab}
-        onChange={(id: any) => setActiveTab(id)}
+        onChange={handleTabChange}
       />
 
       {/* Tab 1: Audit Explorer */}

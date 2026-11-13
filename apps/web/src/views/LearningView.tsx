@@ -1,38 +1,51 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext.tsx';
 import {
   Card,
   Button,
-  Table,
   Badge,
   useToast,
   Tabs,
 } from '@campusone/ui';
-import { BookOpen, FileText, CheckCircle2, Clock, Play } from 'lucide-react';
 
 export const LearningView: React.FC = () => {
-  const { isDense } = useApp();
   const { showToast } = useToast();
-  const [activeTab, setActiveTab] = useState<'materials' | 'cbt'>('materials');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab') as 'materials' | 'cbt' | null;
+  const [activeTab, setActiveTab] = useState<'materials' | 'cbt'>(
+    tabParam === 'cbt' ? 'cbt' : 'materials'
+  );
+
+  useEffect(() => {
+    if (tabParam && ['materials', 'cbt'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
+
+  const handleTabChange = (id: 'materials' | 'cbt') => {
+    setActiveTab(id);
+    setSearchParams({ tab: id });
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">E-Learning & CBT Practice (LMS)</h1>
+          <h1 className="text-xl font-bold text-slate-900">Online Learning & Practice Tests</h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Course Repository • Lab Guides • CHPRBN/MLSCN Board Exam CBT Practice Console
+            Lecture notes, laboratory guides, and board examination computer-based practice tests.
           </p>
         </div>
       </div>
 
       <Tabs
         tabs={[
-          { id: 'materials', label: 'Course Spaces & Materials' },
-          { id: 'cbt', label: 'Board Exam CBT Practice Console' },
+          { id: 'materials', label: 'Course Materials' },
+          { id: 'cbt', label: 'Computer-Based Practice Tests' },
         ]}
         activeTab={activeTab}
-        onChange={(id: any) => setActiveTab(id)}
+        onChange={(id: any) => handleTabChange(id)}
       />
 
       {activeTab === 'materials' && (
@@ -47,15 +60,15 @@ export const LearningView: React.FC = () => {
             <div className="divide-y divide-slate-100">
               <div className="py-2.5 flex items-center justify-between">
                 <div>
-                  <p className="font-semibold text-slate-800">Module 1 — Maternal and Child Health in Rural Settings</p>
-                  <p className="text-slate-400 text-[10px]">PDF • 3.2 MB • Uploaded by Dr. K. Bello</p>
+                  <p className="font-semibold text-slate-800">Module 1: Maternal and Child Health in Rural Settings</p>
+                  <p className="text-slate-400 text-[10px]">PDF (3.2 MB) • Uploaded by Dr. K. Bello</p>
                 </div>
                 <Button size="sm" variant="secondary">Download</Button>
               </div>
               <div className="py-2.5 flex items-center justify-between">
                 <div>
-                  <p className="font-semibold text-slate-800">Module 2 — Cold Chain and Vaccine Preservation Manual</p>
-                  <p className="text-slate-400 text-[10px]">PDF • 5.1 MB • Uploaded by Dr. K. Bello</p>
+                  <p className="font-semibold text-slate-800">Module 2: Cold Chain and Vaccine Preservation Manual</p>
+                  <p className="text-slate-400 text-[10px]">PDF (5.1 MB) • Uploaded by Dr. K. Bello</p>
                 </div>
                 <Button size="sm" variant="secondary">Download</Button>
               </div>
@@ -72,8 +85,8 @@ export const LearningView: React.FC = () => {
             <div className="divide-y divide-slate-100">
               <div className="py-2.5 flex items-center justify-between">
                 <div>
-                  <p className="font-semibold text-slate-800">Laboratory Standard Operating Procedures (SOPs)</p>
-                  <p className="text-slate-400 text-[10px]">PDF • 4.8 MB • Uploaded by Mr. O. Adebisi</p>
+                  <p className="font-semibold text-slate-800">Laboratory Standard Operating Procedures</p>
+                  <p className="text-slate-400 text-[10px]">PDF (4.8 MB) • Uploaded by Mr. O. Adebisi</p>
                 </div>
                 <Button size="sm" variant="secondary">Download</Button>
               </div>
@@ -88,21 +101,20 @@ export const LearningView: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-slate-900 text-sm">
-                  CHPRBN National Qualifying Practice Exam (Mock Diet 2026)
+                  Community Health Board Qualifying Practice Exam (Mock 2026)
                 </h3>
                 <p className="text-slate-500">
-                  Timed simulation mirroring the official Community Health Practitioners Registration Board CBT.
+                  Timed simulation mirroring the official national board computer test.
                 </p>
               </div>
-              <Badge variant="primary">100 Questions • 90 Mins</Badge>
+              <Badge variant="primary">100 Questions • 90 Minutes</Badge>
             </div>
             <div className="flex justify-end">
               <Button
                 size="sm"
-                leftIcon={<Play className="w-3.5 h-3.5" />}
-                onClick={() => showToast({ type: 'info', title: 'CBT Session Initialized', message: 'Exam timer locked to Lagos timezone' })}
+                onClick={() => showToast({ type: 'info', title: 'Practice Test Started', message: 'Exam timer has commenced.' })}
               >
-                Launch Mock Exam
+                Start Practice Exam
               </Button>
             </div>
           </div>

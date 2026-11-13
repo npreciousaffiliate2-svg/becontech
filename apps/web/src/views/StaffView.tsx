@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext.tsx';
 import {
   Card,
@@ -8,14 +9,28 @@ import {
   useToast,
   Tabs,
 } from '@campusone/ui';
-import { Briefcase, FileCheck, Lock, CheckCircle } from 'lucide-react';
+import { Lock, CheckCircle } from 'lucide-react';
 import { formatNaira } from '@campusone/contracts';
 
 export const StaffView: React.FC = () => {
   const { isDense, recordAudit } = useApp();
   const { showToast } = useToast();
-  const [activeTab, setActiveTab] = useState<'directory' | 'payroll' | 'leave'>('directory');
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const tabParam = searchParams.get('tab') as 'directory' | 'payroll' | 'leave' | null;
+  const [activeTab, setActiveTab] = useState<'directory' | 'payroll' | 'leave'>(tabParam || 'directory');
   const [isPayrollLocked, setIsPayrollLocked] = useState(false);
+
+  useEffect(() => {
+    if (tabParam) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
+
+  const handleTabChange = (id: string) => {
+    setActiveTab(id as any);
+    setSearchParams({ tab: id });
+  };
 
   const staffMembers = [
     {
@@ -78,21 +93,21 @@ export const StaffView: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Staff & Human Resources (HRM)</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Faculty Directory • Professional Health Licenses • Leave Approvals • Locked Payroll Runs
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Staff & Human Resources</h1>
+          <p className="text-sm text-slate-500 mt-0.5">
+            Faculty directory, monthly staff salaries, and leave requests
           </p>
         </div>
       </div>
 
       <Tabs
         tabs={[
-          { id: 'directory', label: 'Faculty & Administrative Staff' },
-          { id: 'payroll', label: 'Monthly Payroll Runs' },
-          { id: 'leave', label: 'Staff Leave Ledger' },
+          { id: 'directory', label: 'Staff Directory' },
+          { id: 'payroll', label: 'Monthly Salaries' },
+          { id: 'leave', label: 'Staff Leaves' },
         ]}
         activeTab={activeTab}
-        onChange={(id: any) => setActiveTab(id)}
+        onChange={handleTabChange}
       />
 
       {activeTab === 'directory' && (

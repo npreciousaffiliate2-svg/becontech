@@ -1,24 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext.tsx';
 import {
   Card,
   Button,
   Table,
   Badge,
-  Modal,
-  Input,
-  Select,
   useToast,
   Tabs,
 } from '@campusone/ui';
-import {
-  UserPlus,
-  CheckCircle,
-  FileText,
-  Search,
-  Filter,
-  Download,
-} from 'lucide-react';
+import { Download } from 'lucide-react';
 
 interface Candidate {
   id: string;
@@ -32,10 +23,23 @@ interface Candidate {
 }
 
 export const AdmissionsView: React.FC = () => {
-  const { session, recordAudit, isDense } = useApp();
+  const { recordAudit, isDense } = useApp();
   const { showToast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [activeTab, setActiveTab] = useState<'applications' | 'screening' | 'admission_lists'>('applications');
+  const tabParam = searchParams.get('tab') as 'applications' | 'screening' | 'admission_lists' | null;
+  const [activeTab, setActiveTab] = useState<'applications' | 'screening' | 'admission_lists'>(tabParam || 'applications');
+
+  useEffect(() => {
+    if (tabParam) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
+
+  const handleTabChange = (id: string) => {
+    setActiveTab(id as any);
+    setSearchParams({ tab: id });
+  };
 
   const [candidates, setCandidates] = useState<Candidate[]>([
     {
@@ -148,9 +152,9 @@ export const AdmissionsView: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Admissions & Enrollment (ADM)</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Application Screening • CBT Results • Batch Admissions • Auto-Matriculation (PRD §5.1)
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Admissions & Enrollment</h1>
+          <p className="text-sm text-slate-500 mt-0.5">
+            Student applications, screening tests, and admission lists
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -167,12 +171,12 @@ export const AdmissionsView: React.FC = () => {
 
       <Tabs
         tabs={[
-          { id: 'applications', label: 'Applications Pool' },
-          { id: 'screening', label: 'Screening & CBT Verification' },
-          { id: 'admission_lists', label: 'Published Admission Lists' },
+          { id: 'applications', label: 'All Applications' },
+          { id: 'screening', label: 'Screening & Tests' },
+          { id: 'admission_lists', label: 'Admission Lists' },
         ]}
         activeTab={activeTab}
-        onChange={(id: any) => setActiveTab(id)}
+        onChange={handleTabChange}
       />
 
       <Card>
