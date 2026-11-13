@@ -789,9 +789,9 @@ export const StaffView: React.FC = () => {
 
       {/* ─── Institutional Stat Cards (Spacious, No Squeezing) ─── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
+        <div className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] flex flex-col justify-between h-full min-w-0">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
               Total Employees
             </span>
             <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center shrink-0">
@@ -806,11 +806,11 @@ export const StaffView: React.FC = () => {
               <span className="text-[11px] text-slate-400">20 Support staff</span>
             </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
+        <div className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] flex flex-col justify-between h-full min-w-0">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
               Monthly Payroll
             </span>
             <div className="w-8 h-8 rounded-[4px] bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
@@ -825,11 +825,11 @@ export const StaffView: React.FC = () => {
               <span className="text-[11px] text-slate-400">PAYE: ₦1.8M</span>
             </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
+        <div className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] flex flex-col justify-between h-full min-w-0">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
               License Compliance
             </span>
             <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#13A348] flex items-center justify-center shrink-0">
@@ -844,11 +844,11 @@ export const StaffView: React.FC = () => {
               <span className="text-[11px] text-slate-400">1 Due renewal</span>
             </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
+        <div className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] flex flex-col justify-between h-full min-w-0">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
               Staff on Leave
             </span>
             <div className="w-8 h-8 rounded-[4px] bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
@@ -863,7 +863,7 @@ export const StaffView: React.FC = () => {
               <span className="text-[11px] text-slate-400">Handover verified</span>
             </div>
           </div>
-        </Card>
+        </div>
       </div>
 
       {/* ─── Navigation Tabs ─── */}

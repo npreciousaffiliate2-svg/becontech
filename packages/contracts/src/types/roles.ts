@@ -20,15 +20,15 @@ export interface UserRoleAssignment {
 
 export type PermissionCode =
   | 'adm:read' | 'adm:write' | 'adm:approve'
-  | 'sis:read' | 'sis:write' | 'sis:status_change'
-  | 'fin:read' | 'fin:write' | 'fin:reversal' | 'fin:reconciliation'
-  | 'exm:read' | 'exm:score_entry' | 'exm:approve_hod' | 'exm:approve_dean' | 'exm:publish' | 'exm:amend'
-  | 'att:read' | 'att:mark' | 'att:override'
-  | 'cln:read' | 'cln:allocate' | 'cln:assess' | 'cln:clearance'
-  | 'lms:read' | 'lms:write' | 'lms:grade'
+  | 'sis:read' | 'sis:read_own' | 'sis:write' | 'sis:status_change'
+  | 'fin:read' | 'fin:read_own' | 'fin:write' | 'fin:reversal' | 'fin:reconciliation'
+  | 'exm:read' | 'exm:read_own' | 'exm:score_entry' | 'exm:approve_hod' | 'exm:approve_dean' | 'exm:publish' | 'exm:amend'
+  | 'att:read' | 'att:read_own' | 'att:mark' | 'att:override'
+  | 'cln:read' | 'cln:read_own' | 'cln:allocate' | 'cln:assess' | 'cln:clearance'
+  | 'lms:read' | 'lms:read_own' | 'lms:write' | 'lms:grade'
   | 'hrm:read' | 'hrm:write' | 'hrm:payroll'
-  | 'hst:read' | 'hst:allocate'
-  | 'tts:read' | 'tts:write'
+  | 'hst:read' | 'hst:read_own' | 'hst:allocate'
+  | 'tts:read' | 'tts:read_own' | 'tts:write'
   | 'com:read' | 'com:broadcast'
   | 'rpt:read' | 'rpt:export' | 'rpt:audit'
   | 'core:admin' | 'core:users' | 'core:tenant_config';

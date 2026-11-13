@@ -95,7 +95,8 @@ interface StudentAttempt {
 }
 
 export const LearningView: React.FC = () => {
-  const { recordAudit, isDense } = useApp();
+  const { session, recordAudit, isDense } = useApp();
+  const isStaff = session.activeRole !== 'STU' && session.activeRole !== 'SPON';
   const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -795,7 +796,7 @@ export const LearningView: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {activeTab === 'materials' && (
+          {activeTab === 'materials' && isStaff && (
             <Button
               size="sm"
               onClick={() => setIsUploadModalOpen(true)}
@@ -820,9 +821,9 @@ export const LearningView: React.FC = () => {
 
       {/* ─── Institutional Stat Cards ─── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
+        <div className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] flex flex-col justify-between h-full min-w-0">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
               Learning Modules
             </span>
             <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center shrink-0">
@@ -837,11 +838,11 @@ export const LearningView: React.FC = () => {
               <span className="text-[11px] text-slate-400">Accredited notes & lab guides</span>
             </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
+        <div className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] flex flex-col justify-between h-full min-w-0">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
               Practice Mock Tests
             </span>
             <div className="w-8 h-8 rounded-[4px] bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
@@ -853,48 +854,52 @@ export const LearningView: React.FC = () => {
             <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
               <span className="text-slate-600 font-semibold">Active suites</span>
               <span className="text-slate-300">•</span>
-              <span className="text-[11px] text-slate-400">CHPRBN & MLSCN exam format</span>
+              <span className="text-[11px] text-slate-400">Exam format</span>
             </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
+        <div className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] flex flex-col justify-between h-full min-w-0">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Student Submissions
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
+              {isStaff ? 'Student Submissions' : 'Completed Mocks'}
             </span>
             <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#13A348] flex items-center justify-center shrink-0">
               <FileCheck className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">2,480</div>
+            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">
+              {isStaff ? '2,480' : '4'}
+            </div>
             <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
-              <span className="text-[#13A348] font-semibold">78.4% pass rate</span>
+              <span className="text-[#13A348] font-semibold">{isStaff ? '78.4% pass rate' : '100% Passed'}</span>
               <span className="text-slate-300">•</span>
-              <span className="text-[11px] text-slate-400">Mock attempts logged</span>
+              <span className="text-[11px] text-slate-400">Logged attempts</span>
             </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
+        <div className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] flex flex-col justify-between h-full min-w-0">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Average Mock Score
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
+              {isStaff ? 'Average Mock Score' : 'My Average Score'}
             </span>
             <div className="w-8 h-8 rounded-[4px] bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
               <Award className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">74.8%</div>
+            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">
+              {isStaff ? '74.8%' : '88.5%'}
+            </div>
             <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
-              <span className="text-[#13A348] font-semibold">+5.2% vs last term</span>
+              <span className="text-[#13A348] font-semibold">Licensing ready</span>
               <span className="text-slate-300">•</span>
-              <span className="text-[11px] text-slate-400">Licensing exam readiness</span>
+              <span className="text-[11px] text-slate-400">Exam preparation</span>
             </div>
           </div>
-        </Card>
+        </div>
       </div>
 
       {/* ─── Navigation Tabs ─── */}
@@ -902,8 +907,8 @@ export const LearningView: React.FC = () => {
         tabs={[
           { id: 'materials', label: 'Course Materials & Notes' },
           { id: 'cbt', label: 'Computer-Based Practice Tests' },
-          { id: 'questions', label: 'Question Bank' },
-          { id: 'results', label: 'Student Results' },
+          ...(isStaff ? [{ id: 'questions', label: 'Question Bank' }] : []),
+          { id: 'results', label: isStaff ? 'Student Results' : 'My Practice Results' },
         ]}
         activeTab={activeTab}
         onChange={(id: any) => handleTabChange(id)}
@@ -1096,12 +1101,22 @@ export const LearningView: React.FC = () => {
       {activeTab === 'results' && (
         <div className="space-y-4">
           <p className="text-xs text-slate-500">
-            Real-time transcript of student practice test submissions, timing diagnostics, and pass status.
+            {isStaff
+              ? 'Real-time transcript of student practice test submissions, timing diagnostics, and pass status.'
+              : 'Your personal transcript of completed computer-based practice exams and licensing readiness scores.'}
           </p>
           <Card>
             <Table
               columns={resultColumns}
-              data={studentAttempts}
+              data={
+                isStaff
+                  ? studentAttempts
+                  : studentAttempts.filter(
+                      (r) =>
+                        r.matricNumber === 'BCHT/2026/0142' ||
+                        r.studentName.toLowerCase().includes('blessing')
+                    )
+              }
               keyExtractor={(r) => r.id}
               isDense={isDense}
             />

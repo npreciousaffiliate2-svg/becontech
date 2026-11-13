@@ -459,14 +459,14 @@ export const AdminView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* ─── MODULE HEADER (Responsive Anti-Wrap) ─── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight">Settings & Platform Governance</h1>
           <p className="text-xs text-slate-500 mt-0.5">
             Cryptographic Activity Log • RBAC Separation of Duties • Academic Policies • Integration Gateways
           </p>
         </div>
-        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto shrink-0">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap shrink-0">
           <Button
             variant="secondary"
             onClick={() => {
@@ -477,14 +477,14 @@ export const AdminView: React.FC = () => {
               });
             }}
             leftIcon={<ShieldCheck className="w-3.5 h-3.5 text-[#13A348]" />}
-            className="whitespace-nowrap text-xs w-full sm:w-auto"
+            className="whitespace-nowrap text-xs"
           >
             Run Security Audit
           </Button>
           <Button
             onClick={() => setIsEditSchoolModalOpen(true)}
             leftIcon={<Edit3 className="w-4 h-4" />}
-            className="whitespace-nowrap text-xs bg-[#0F7640] hover:bg-[#093322] w-full sm:w-auto"
+            className="whitespace-nowrap text-xs bg-[#0F7640] hover:bg-[#093322]"
           >
             Edit School Profile
           </Button>
@@ -493,9 +493,9 @@ export const AdminView: React.FC = () => {
 
       {/* ─── TOP STAT CARDS (UNIFORM HEIGHT, ZERO WORD-WRAP SQUEEZING) ─── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
+        <div className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] flex flex-col justify-between h-full min-w-0">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
               Security Posture
             </span>
             <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#13A348] flex items-center justify-center shrink-0">
@@ -512,11 +512,11 @@ export const AdminView: React.FC = () => {
               <span className="text-[11px] text-slate-400">2FA Enforced</span>
             </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
+        <div className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] flex flex-col justify-between h-full min-w-0">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
               Configured Roles
             </span>
             <div className="w-8 h-8 rounded-[4px] bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
@@ -533,11 +533,11 @@ export const AdminView: React.FC = () => {
               <span className="text-[11px] text-slate-400">64 Staff Assigned</span>
             </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
+        <div className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] flex flex-col justify-between h-full min-w-0">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
               Audit Event Log
             </span>
             <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center shrink-0">
@@ -554,11 +554,11 @@ export const AdminView: React.FC = () => {
               <span className="text-[11px] text-slate-400">SHA-256 Chained</span>
             </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
+        <div className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] flex flex-col justify-between h-full min-w-0">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
               Live Integrations
             </span>
             <div className="w-8 h-8 rounded-[4px] bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
@@ -575,7 +575,7 @@ export const AdminView: React.FC = () => {
               <span className="text-[11px] text-slate-400">Paystack, Remita, Termii</span>
             </div>
           </div>
-        </Card>
+        </div>
       </div>
 
       {/* ─── NAVIGATION TABS ─── */}

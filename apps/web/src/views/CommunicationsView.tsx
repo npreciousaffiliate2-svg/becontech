@@ -108,12 +108,15 @@ export interface NotificationTrigger {
 export const CommunicationsView: React.FC = () => {
   const { tab } = useParams<{ tab?: string }>();
   const navigate = useNavigate();
-  const { isDense, recordAudit } = useApp();
+  const { session, isDense, recordAudit } = useApp();
+  const isStaff = session.activeRole !== 'STU' && session.activeRole !== 'SPON';
   const { showToast } = useToast();
 
   /* ─── TAB ROUTING STATE ─── */
-  const validTabs = ['broadcasts', 'notices', 'logs', 'triggers'];
-  const activeTab = tab && validTabs.includes(tab) ? tab : 'broadcasts';
+  const validTabs = isStaff
+    ? ['broadcasts', 'notices', 'logs', 'triggers']
+    : ['notices'];
+  const activeTab = tab && validTabs.includes(tab) ? tab : isStaff ? 'broadcasts' : 'notices';
 
   const handleTabChange = (newTab: string) => {
     navigate(`/messages/${newTab}`);
@@ -784,98 +787,108 @@ export const CommunicationsView: React.FC = () => {
       {/* ─── MODULE HEADER ─── */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">Communication & Notifications (COM)</h1>
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight">Communication & Notifications</h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Bulk SMS (Termii SPI) • Transactional Email • Official Digital Noticeboard • Automated Event Triggers
+            {isStaff
+              ? 'Bulk SMS (Termii SPI) • Transactional Email • Official Digital Noticeboard • Automated Event Triggers'
+              : 'Official Institutional Circulars, Memoranda & Academic Directives'}
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button
-            variant="secondary"
-            onClick={() => {
-              showToast({
-                type: 'info',
-                title: 'Termii Gateway Health',
-                message: 'Termii SMS Gateway connection active. Route: DND Tier-1 Bypass. Latency: 140ms.',
-              });
-            }}
-            leftIcon={<Radio className="w-3.5 h-3.5 text-[#0F7640]" />}
-            className="whitespace-nowrap text-xs"
-          >
-            Gateway Status
-          </Button>
-          <Button
-            onClick={() => setIsNewNoticeModalOpen(true)}
-            leftIcon={<Plus className="w-4 h-4" />}
-            className="whitespace-nowrap text-xs bg-[#0F7640] hover:bg-[#093322]"
-          >
-            Publish Circular
-          </Button>
-        </div>
+        {isStaff && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                showToast({
+                  type: 'info',
+                  title: 'Termii Gateway Health',
+                  message: 'Termii SMS Gateway connection active. Route: DND Tier-1 Bypass. Latency: 140ms.',
+                });
+              }}
+              leftIcon={<Radio className="w-3.5 h-3.5 text-[#0F7640]" />}
+              className="whitespace-nowrap text-xs"
+            >
+              Gateway Status
+            </Button>
+            <Button
+              onClick={() => setIsNewNoticeModalOpen(true)}
+              leftIcon={<Plus className="w-4 h-4" />}
+              className="whitespace-nowrap text-xs bg-[#0F7640] hover:bg-[#093322]"
+            >
+              Publish Circular
+            </Button>
+          </div>
+        )}
       </div>
 
-      {/* ─── TOP STAT CARDS (VERTICAL STACKING, STRICT 4PX BORDER RADIUS) ─── */}
+      {/* ─── TOP STAT CARDS (UNIFORM HEIGHT, ZERO SQUEEZING) ─── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
+        <div className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] flex flex-col justify-between h-full min-w-0">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Total Dispatches
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
+              {isStaff ? 'Total Dispatches' : 'Campus Notices'}
             </span>
             <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center shrink-0">
               <MessageSquare className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">14,820</div>
+            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">
+              {isStaff ? '14,820' : notices.length}
+            </div>
             <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
-              <span className="text-[#0F7640] font-semibold">+18.5% this session</span>
+              <span className="text-[#0F7640] font-semibold">{isStaff ? '+18.5% this session' : 'Live Bulletins'}</span>
               <span className="text-slate-300">•</span>
-              <span className="text-[11px] text-slate-400">SMS & Email</span>
+              <span className="text-[11px] text-slate-400">{isStaff ? 'SMS & Email' : 'Official releases'}</span>
             </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
+        <div className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] flex flex-col justify-between h-full min-w-0">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              SMS Delivery Rate
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
+              {isStaff ? 'SMS Delivery Rate' : 'Pinned Directives'}
             </span>
             <div className="w-8 h-8 rounded-[4px] bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
               <CheckCircle2 className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">99.4%</div>
+            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">
+              {isStaff ? '99.4%' : '2 Active'}
+            </div>
             <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
-              <span className="text-[#13A348] font-semibold">Tier-1 DND Active</span>
+              <span className="text-[#13A348] font-semibold">{isStaff ? 'Tier-1 DND Active' : 'Urgent priority'}</span>
               <span className="text-slate-300">•</span>
-              <span className="text-[11px] text-slate-400">All Nigerian Telcos</span>
+              <span className="text-[11px] text-slate-400">{isStaff ? 'All Nigerian Telcos' : 'Must read'}</span>
             </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
+        <div className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] flex flex-col justify-between h-full min-w-0">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Termii SMS Balance
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
+              {isStaff ? 'Termii SMS Balance' : 'Verified Publisher'}
             </span>
             <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#13A348] flex items-center justify-center shrink-0">
               <ShieldCheck className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">₦142,500.00</div>
+            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">
+              {isStaff ? '₦142,500.00' : 'Senate & Provost'}
+            </div>
             <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
-              <span className="text-[#13A348] font-semibold">35,625 Units</span>
+              <span className="text-[#13A348] font-semibold">{isStaff ? '35,625 Units' : 'Official seal'}</span>
               <span className="text-slate-300">•</span>
-              <span className="text-[11px] text-slate-400">BETHSAIDA Sender ID</span>
+              <span className="text-[11px] text-slate-400">{isStaff ? 'BETHSAIDA Sender ID' : 'Cryptographic log'}</span>
             </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
+        <div className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] flex flex-col justify-between h-full min-w-0">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
               Active Circulars
             </span>
             <div className="w-8 h-8 rounded-[4px] bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
@@ -892,17 +905,21 @@ export const CommunicationsView: React.FC = () => {
               <span className="text-[11px] text-slate-400">Student Portal</span>
             </div>
           </div>
-        </Card>
+        </div>
       </div>
 
       {/* ─── NAVIGATION TABS ─── */}
       <Tabs
-        tabs={[
-          { id: 'broadcasts', label: 'Broadcast Dispatch' },
-          { id: 'notices', label: 'Official Circulars' },
-          { id: 'logs', label: 'Delivery Logs' },
-          { id: 'triggers', label: 'Automated Triggers' },
-        ]}
+        tabs={
+          isStaff
+            ? [
+                { id: 'broadcasts', label: 'Broadcast Dispatch' },
+                { id: 'notices', label: 'Official Circulars' },
+                { id: 'logs', label: 'Delivery Logs' },
+                { id: 'triggers', label: 'Automated Triggers' },
+              ]
+            : [{ id: 'notices', label: 'Official Circulars & Memoranda' }]
+        }
         activeTab={activeTab}
         onChange={(id: any) => handleTabChange(id)}
       />

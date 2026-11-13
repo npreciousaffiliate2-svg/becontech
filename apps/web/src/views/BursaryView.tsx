@@ -69,7 +69,7 @@ interface FeeStructureItem {
   id: string;
   programmeName: string;
   departmentCode: string;
-  version: string;
+  sessionSchedule: string;
   tuitionKobo: number;
   clinicalLevyKobo: number;
   labBenchKobo: number;
@@ -225,7 +225,7 @@ export const BursaryView: React.FC = () => {
       id: 'fs-01',
       programmeName: 'Community Health Extension Worker (CHEW)',
       departmentCode: 'CHE',
-      version: 'v2026.1 (Active)',
+      sessionSchedule: '2026/2027 Approved Schedule',
       tuitionKobo: 12000000,
       clinicalLevyKobo: 3500000,
       labBenchKobo: 2000000,
@@ -237,7 +237,7 @@ export const BursaryView: React.FC = () => {
       id: 'fs-02',
       programmeName: 'Medical Laboratory Technician (MLT)',
       departmentCode: 'MLT',
-      version: 'v2026.1 (Active)',
+      sessionSchedule: '2026/2027 Approved Schedule',
       tuitionKobo: 14000000,
       clinicalLevyKobo: 4000000,
       labBenchKobo: 3000000,
@@ -249,7 +249,7 @@ export const BursaryView: React.FC = () => {
       id: 'fs-03',
       programmeName: 'Pharmacy Technician Studies (PHT)',
       departmentCode: 'PHT',
-      version: 'v2026.1 (Active)',
+      sessionSchedule: '2026/2027 Approved Schedule',
       tuitionKobo: 13500000,
       clinicalLevyKobo: 3500000,
       labBenchKobo: 2500000,
@@ -261,7 +261,7 @@ export const BursaryView: React.FC = () => {
       id: 'fs-04',
       programmeName: 'Health Information Management (HIM)',
       departmentCode: 'HIM',
-      version: 'v2026.1 (Active)',
+      sessionSchedule: '2026/2027 Approved Schedule',
       tuitionKobo: 11000000,
       clinicalLevyKobo: 3000000,
       labBenchKobo: 2000000,
@@ -273,7 +273,7 @@ export const BursaryView: React.FC = () => {
       id: 'fs-05',
       programmeName: 'Environmental Health Sciences (EHT)',
       departmentCode: 'EHT',
-      version: 'v2026.1 (Active)',
+      sessionSchedule: '2026/2027 Approved Schedule',
       tuitionKobo: 10500000,
       clinicalLevyKobo: 3000000,
       labBenchKobo: 1500000,
@@ -760,66 +760,74 @@ export const BursaryView: React.FC = () => {
 
       {/* ─── Institutional Stat Cards (Spacious, No Squeezing) ─── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
+        <div className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] flex flex-col justify-between h-full min-w-0">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Total Revenue
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
+              {isStudent ? 'Assessed Tuition' : 'Total Revenue'}
             </span>
             <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#13A348] flex items-center justify-center shrink-0">
               <DollarSign className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">₦84.25M</div>
+            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">
+              {isStudent ? '₦140,000' : '₦84.25M'}
+            </div>
             <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
-              <span className="text-[#13A348] font-semibold">74.0% recovery</span>
+              <span className="text-[#13A348] font-semibold">{isStudent ? '2026/2027 Session' : '74.0% recovery'}</span>
               <span className="text-slate-300">•</span>
-              <span className="text-[11px] text-slate-400">Target ₦114M</span>
+              <span className="text-[11px] text-slate-400">{isStudent ? 'Standard Tariff' : 'Target ₦114M'}</span>
             </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
+        <div className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] flex flex-col justify-between h-full min-w-0">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Overdue Receivables
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
+              {isStudent ? 'Outstanding Balance' : 'Overdue Receivables'}
             </span>
-            <div className="w-8 h-8 rounded-[4px] bg-rose-50 text-[#F83A20] flex items-center justify-center shrink-0">
+            <div className={`w-8 h-8 rounded-[4px] flex items-center justify-center shrink-0 ${isStudent ? 'bg-emerald-50 text-[#13A348]' : 'bg-rose-50 text-[#F83A20]'}`}>
               <AlertTriangle className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold text-[#F83A20] font-sans tracking-tight">₦18.40M</div>
+            <div className={`text-2xl font-bold font-sans tracking-tight ${isStudent ? 'text-[#13A348]' : 'text-[#F83A20]'}`}>
+              {isStudent ? '₦0.00' : '₦18.40M'}
+            </div>
             <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
-              <span className="text-[#F83A20] font-semibold">142 debtors</span>
+              <span className={`font-semibold ${isStudent ? 'text-[#13A348]' : 'text-[#F83A20]'}`}>
+                {isStudent ? 'Zero Debt' : '142 debtors'}
+              </span>
               <span className="text-slate-300">•</span>
-              <span className="text-[11px] text-slate-400">Overdue plans</span>
+              <span className="text-[11px] text-slate-400">{isStudent ? 'No liabilities' : 'Overdue plans'}</span>
             </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
+        <div className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] flex flex-col justify-between h-full min-w-0">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Settlements Reconciled
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
+              {isStudent ? 'Total Remitted' : 'Settlements Reconciled'}
             </span>
             <div className="w-8 h-8 rounded-[4px] bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
               <CheckCircle2 className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">384</div>
+            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">
+              {isStudent ? '₦140,000' : '384'}
+            </div>
             <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
-              <span className="text-[#13A348] font-semibold">100% matched</span>
+              <span className="text-[#13A348] font-semibold">{isStudent ? '100% Paid' : '100% matched'}</span>
               <span className="text-slate-300">•</span>
-              <span className="text-[11px] text-slate-400">Zero discrepancy</span>
+              <span className="text-[11px] text-slate-400">{isStudent ? 'Remita Confirmed' : 'Zero discrepancy'}</span>
             </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
+        <div className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] flex flex-col justify-between h-full min-w-0">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
               Exam Fee Clearance
             </span>
             <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center shrink-0">
@@ -827,14 +835,16 @@ export const BursaryView: React.FC = () => {
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">88.6%</div>
+            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">
+              {isStudent ? 'CLEARED' : '88.6%'}
+            </div>
             <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
-              <span className="text-[#13A348] font-semibold">Trainees cleared</span>
+              <span className="text-[#13A348] font-semibold">{isStudent ? 'Docket Valid' : 'Trainees cleared'}</span>
               <span className="text-slate-300">•</span>
-              <span className="text-[11px] text-slate-400">Gate Pass active</span>
+              <span className="text-[11px] text-slate-400">{isStudent ? 'Gate Pass Issued' : 'Gate Pass active'}</span>
             </div>
           </div>
-        </Card>
+        </div>
       </div>
 
       {/* ─── Navigation Tabs (Filtered by Persona Role) ─── */}
@@ -947,7 +957,7 @@ export const BursaryView: React.FC = () => {
               <Card key={fs.id} className="p-4 bg-white border border-slate-200 rounded-[4px] space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="font-extrabold text-[#0F7640] text-xs uppercase">{fs.departmentCode}</span>
-                  <Badge variant="success" size="sm">{fs.version}</Badge>
+                  <Badge variant="success" size="sm">Active Schedule</Badge>
                 </div>
 
                 <h3 className="font-bold text-slate-900 text-sm leading-snug">

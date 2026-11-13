@@ -16,6 +16,14 @@ export interface AppContextType {
   session: UserSession;
   persona: PersonaProfile;
   switchRole: (role: RoleCode) => void;
+  updateProfile?: (updates: {
+    fullName?: string;
+    phone?: string;
+    address?: string;
+    bio?: string;
+    emergencyContact?: string;
+    avatarUrl?: string;
+  }) => Promise<void>;
   isDense: boolean;
   toggleDense: () => void;
   ledgerEntries: StudentLedgerEntry[];
@@ -57,9 +65,9 @@ const INITIAL_AUDIT_LOGS: AuditEventRecord[] = [
     actorRole: 'BURSAR',
     action: 'FEE_SCHEDULE_VERSION_PUBLISHED',
     entityType: 'FEE_STRUCTURE',
-    entityId: 'fee-sched-2026-v1',
+    entityId: 'fee-sched-2026/2027',
     beforeSnapshot: null,
-    afterSnapshot: { version: '2026.1', tuitionKobo: 15000000 },
+    afterSnapshot: { schedule: '2026/2027 Approved Schedule', tuitionKobo: 15000000 },
     ipAddress: '102.89.44.18',
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
     timestamp: '2026-11-02T09:30:00Z',
@@ -183,14 +191,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [ledgerEntries, setLedgerEntries] = useState<StudentLedgerEntry[]>(INITIAL_LEDGER_ENTRIES);
   const [receipts, setReceipts] = useState<OfficialReceipt[]>(INITIAL_RECEIPTS);
   const [auditLogs, setAuditLogs] = useState<AuditEventRecord[]>(INITIAL_AUDIT_LOGS);
+  const [customProfiles, setCustomProfiles] = useState<Record<string, Partial<PersonaProfile>>>({});
 
-  const persona = PERSONA_PROFILES[activeRole] || PERSONA_PROFILES.PROVOST;
+  const basePersona = PERSONA_PROFILES[activeRole] || PERSONA_PROFILES.PROVOST;
+  const personaOverrides = customProfiles[activeRole] || {};
+  const persona: PersonaProfile = {
+    ...basePersona,
+    ...personaOverrides,
+    permissions: personaOverrides.permissions || basePersona.permissions,
+  };
 
   const session: UserSession = {
     userId: `usr-${activeRole.toLowerCase()}-01`,
     collegeId: 'bethsaida',
     email: persona.email,
     fullName: persona.fullName,
+    avatarUrl: persona.avatarUrl,
     activeRole,
     roles: [
       { role: 'PROVOST', scope: 'college' },
@@ -207,15 +223,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     permissions: persona.permissions,
   };
 
-  // ─── Live Hydration from Supabase Remote Database ───
+  // ─── Live Hydration from Supabase Remote Database (Single Source of Truth) ───
   useEffect(() => {
     async function loadSupabaseData() {
       try {
-        const [ledgersRes, receiptsRes, auditsRes] = await Promise.all([
+        const [ledgersRes, receiptsRes, auditsRes, profilesRes] = await Promise.all([
           supabase.from('student_ledgers').select('*').order('created_at', { ascending: false }),
           supabase.from('official_receipts').select('*').order('paid_at', { ascending: false }),
           supabase.from('audit_logs').select('*').order('timestamp', { ascending: false }),
+          supabase.from('profiles').select('*'),
         ]);
+
+        if (profilesRes.data && profilesRes.data.length > 0) {
+          const loadedOverrides: Record<string, Partial<PersonaProfile>> = {};
+          profilesRes.data.forEach((p: any) => {
+            if (p.role) {
+              loadedOverrides[p.role] = {
+                fullName: p.full_name || undefined,
+                phone: p.phone || undefined,
+                address: p.address || undefined,
+                bio: p.bio || undefined,
+                emergencyContact: p.emergency_contact || undefined,
+                avatarUrl: p.avatar_url || undefined,
+                permissions: (p.permissions && p.permissions.length > 0) ? p.permissions : undefined,
+              };
+            }
+          });
+          setCustomProfiles((prev) => ({ ...prev, ...loadedOverrides }));
+        }
 
         if (ledgersRes.data && ledgersRes.data.length > 0) {
           setLedgerEntries(
@@ -434,6 +469,51 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return newReceipt;
   };
 
+  const updateProfile = async (updates: {
+    fullName?: string;
+    phone?: string;
+    address?: string;
+    bio?: string;
+    emergencyContact?: string;
+    avatarUrl?: string;
+  }) => {
+    // 1. Update local reactive state
+    setCustomProfiles((prev) => ({
+      ...prev,
+      [activeRole]: {
+        ...prev[activeRole],
+        ...updates,
+      },
+    }));
+
+    // 2. Persist directly to Supabase profiles table (Single Source of Truth)
+    const profilePayload: any = { updated_at: new Date().toISOString() };
+    if (updates.fullName !== undefined) profilePayload.full_name = updates.fullName;
+    if (updates.phone !== undefined) profilePayload.phone = updates.phone;
+    if (updates.address !== undefined) profilePayload.address = updates.address;
+    if (updates.bio !== undefined) profilePayload.bio = updates.bio;
+    if (updates.emergencyContact !== undefined) profilePayload.emergency_contact = updates.emergencyContact;
+    if (updates.avatarUrl !== undefined) profilePayload.avatar_url = updates.avatarUrl;
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update(profilePayload)
+        .eq('email', persona.email);
+
+      if (error) {
+        console.warn('[CampusOne] Supabase profile update error:', error.message);
+      }
+    } catch (err) {
+      console.warn('[CampusOne] Supabase profile update failed:', err);
+    }
+
+    recordAudit('PROFILE_UPDATED', 'USER_PROFILE', persona.email, {
+      role: activeRole,
+      updatedFields: Object.keys(updates),
+    });
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -443,6 +523,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setActiveRole(role);
           recordAudit('ROLE_SWITCHED', 'USER_SESSION', role);
         },
+        updateProfile,
         isDense,
         toggleDense: () => setIsDense(!isDense),
         ledgerEntries,

@@ -6,6 +6,11 @@ export interface PersonaProfile {
   fullName: string;
   initials: string;
   email: string;
+  phone?: string;
+  address?: string;
+  bio?: string;
+  emergencyContact?: string;
+  avatarUrl?: string;
   department?: string;
   matricNumber?: string;
   scopeBadge: string;
@@ -125,9 +130,9 @@ export const PERSONA_PROFILES: Record<RoleCode, PersonaProfile> = {
       '/messages',
     ],
     permissions: [
-      'exm:read', 'exm:score_entry', 'exm:approve_hod', 'exm:approve_dean', 'exm:publish', 'exm:amend',
+      'exm:read', 'exm:publish', 'exm:amend',
       'att:read', 'att:override',
-      'lms:read', 'lms:write',
+      'lms:read',
       'rpt:read', 'rpt:export',
       'com:read',
     ],
@@ -180,7 +185,7 @@ export const PERSONA_PROFILES: Record<RoleCode, PersonaProfile> = {
       '/messages',
     ],
     permissions: [
-      'exm:read', 'exm:score_entry',
+      'exm:score_entry',
       'att:read', 'att:mark',
       'lms:read', 'lms:write', 'lms:grade',
       'tts:read',
@@ -213,6 +218,10 @@ export const PERSONA_PROFILES: Record<RoleCode, PersonaProfile> = {
     fullName: 'Blessing Adeyemi',
     initials: 'BA',
     email: 'che.2026.0014@bethsaida.edu.ng',
+    phone: '+234 814 555 0192',
+    address: 'Florence Nightingale Hall, Block B, Room 104, Bed A',
+    bio: 'Community Health Extension Worker (CHEW) Trainee • Distinction Track',
+    emergencyContact: 'Chief Michael Adeyemi (+234 803 999 1122)',
     matricNumber: 'CHE/2026/0014',
     department: 'Community Health Extension (CHEW)',
     scopeBadge: 'Student Portal',
@@ -229,14 +238,14 @@ export const PERSONA_PROFILES: Record<RoleCode, PersonaProfile> = {
       '/messages',
     ],
     permissions: [
-      'sis:read',
-      'fin:read',
-      'exm:read',
-      'att:read',
-      'cln:read',
-      'lms:read',
-      'hst:read',
-      'tts:read',
+      'sis:read_own',
+      'fin:read_own',
+      'exm:read_own',
+      'att:read_own',
+      'cln:read_own',
+      'lms:read_own',
+      'hst:read_own',
+      'tts:read_own',
       'com:read',
     ],
   },
@@ -246,6 +255,8 @@ export const PERSONA_PROFILES: Record<RoleCode, PersonaProfile> = {
     fullName: 'Chief Michael Adeyemi',
     initials: 'MA',
     email: 'm.adeyemi@gmail.com',
+    phone: '+234 803 999 1122',
+    address: '14 Hospital Road, Ijebu-Ode, Ogun State',
     scopeBadge: 'Parent / Sponsor',
     description: 'Ward progress monitoring: view verified academic broadsheet results, tuition receipts, and college notifications.',
     allowedModules: [
@@ -257,11 +268,11 @@ export const PERSONA_PROFILES: Record<RoleCode, PersonaProfile> = {
       '/messages',
     ],
     permissions: [
-      'sis:read',
-      'fin:read',
-      'exm:read',
-      'att:read',
-      'cln:read',
+      'sis:read_own',
+      'fin:read_own',
+      'exm:read_own',
+      'att:read_own',
+      'cln:read_own',
       'com:read',
     ],
   },

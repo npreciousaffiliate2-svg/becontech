@@ -21,7 +21,7 @@ export const AppLayout: React.FC = () => {
       />
       <main
         className={`flex-1 pt-14 transition-all duration-200 ${
-          isSidebarCollapsed ? 'pl-[68px]' : 'pl-0 lg:pl-[260px]'
+          isSidebarCollapsed ? 'pl-0 lg:pl-[68px]' : 'pl-0 lg:pl-[260px]'
         }`}
       >
         <div className="w-full max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
