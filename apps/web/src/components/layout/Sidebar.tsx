@@ -81,6 +81,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
       group: 'General',
       items: [
         { name: 'Overview', path: '/', icon: <LayoutDashboard size={19} /> },
+        {
+          name: 'Analytics & Insights',
+          path: '/analytics',
+          icon: <BarChart3 size={19} />,
+          subItems: [
+            { name: 'Enrollment & Growth', path: '/analytics?tab=enrollment' },
+            { name: 'Fee Recovery', path: '/analytics?tab=financial' },
+            { name: 'Academic Pass Rates', path: '/analytics?tab=academic' },
+            { name: 'Clinical Compliance', path: '/analytics?tab=clinical' },
+          ],
+        },
       ],
     },
     {
@@ -94,6 +105,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             { name: 'Department Directory', path: '/departments?tab=directory' },
             { name: 'Accredited Programmes', path: '/departments?tab=programmes' },
             { name: 'Heads of Department', path: '/departments?tab=hods' },
+            { name: 'Faculty Roster', path: '/departments?tab=faculty' },
+            { name: 'Curriculum & Courses', path: '/departments?tab=courses' },
           ],
         },
         {
@@ -188,17 +201,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     {
       group: 'Administration & System',
       items: [
-        {
-          name: 'Analytics & Insights',
-          path: '/analytics',
-          icon: <BarChart3 size={19} />,
-          subItems: [
-            { name: 'Enrollment & Growth', path: '/analytics?tab=enrollment' },
-            { name: 'Fee Recovery', path: '/analytics?tab=financial' },
-            { name: 'Academic Pass Rates', path: '/analytics?tab=academic' },
-            { name: 'Clinical Compliance', path: '/analytics?tab=clinical' },
-          ],
-        },
+        { name: 'Reports & Accreditation', path: '/reports', icon: <FileCheck size={19} /> },
+        { name: 'Messages & Notices', path: '/messages', icon: <MessageSquare size={19} /> },
         {
           name: 'Platform Admin',
           path: '/admin',
@@ -210,8 +214,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             { name: 'Security & 2FA', path: '/admin?tab=security' },
           ],
         },
-        { name: 'Reports & Accreditation', path: '/reports', icon: <FileCheck size={19} /> },
-        { name: 'Messages & Notices', path: '/messages', icon: <MessageSquare size={19} /> },
       ],
     },
   ];
@@ -269,7 +271,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           {/* Grouped Navigation Links with WordPress-style Submenus */}
-          <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-4">
+          <nav className="flex-1 overflow-y-auto px-2 py-3 pb-10 space-y-4">
             {navGroups.map((group) => (
               <div key={group.group} className="space-y-1">
                 {!isCollapsed ? (
@@ -302,21 +304,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             }
                             onCloseMobile();
                           }}
-                          className={({ isActive }) =>
-                            `flex-1 flex items-center justify-between px-3.5 py-2.5 rounded-[4px] text-[14px] transition-all duration-150 ${
-                              isActive || (isBasePathActive && !hasSubItems)
+                          className={({ isActive }) => {
+                            const isCurrentActive = isActive || isBasePathActive;
+                            return `flex-1 flex items-center justify-between px-3.5 py-2.5 rounded-[4px] text-[14px] transition-all duration-150 ${
+                              isCurrentActive
                                 ? 'bg-white text-[#093322] font-bold shadow-sm'
                                 : 'text-white/85 hover:text-white hover:bg-white/10 font-medium'
-                            } ${isCollapsed ? 'justify-center px-0' : ''}`
-                          }
+                            } ${isCollapsed ? 'justify-center px-0' : ''}`;
+                          }}
                           title={isCollapsed ? item.name : undefined}
                         >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <span className={isBasePathActive && !hasSubItems ? 'text-[#0F7640]' : 'text-white/90'}>
-                              {item.icon}
-                            </span>
-                            {!isCollapsed && <span className="truncate">{item.name}</span>}
-                          </div>
+                          {({ isActive }) => {
+                            const isCurrentActive = isActive || isBasePathActive;
+                            return (
+                              <div className="flex items-center gap-3 min-w-0">
+                                <span className={isCurrentActive ? 'text-[#0F7640]' : 'text-white/90'}>
+                                  {item.icon}
+                                </span>
+                                {!isCollapsed && <span className="truncate">{item.name}</span>}
+                              </div>
+                            );
+                          }}
                         </NavLink>
 
                         {/* Expand/Collapse Chevron */}

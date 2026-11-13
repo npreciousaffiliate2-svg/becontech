@@ -135,16 +135,19 @@ export const AdmissionsView: React.FC = () => {
       key: 'action',
       header: 'Action',
       align: 'right' as const,
-      render: (c: Candidate) =>
-        c.status === 'SCREENED' ? (
-          <Button size="sm" onClick={() => handleAdmitCandidate(c.id)}>
-            Grant Admission
-          </Button>
-        ) : (
-          <Button size="sm" variant="ghost" disabled>
-            Processed
-          </Button>
-        ),
+      render: (c: Candidate) => (
+        <div className="whitespace-nowrap flex justify-end">
+          {c.status === 'SCREENED' ? (
+            <Button size="sm" onClick={() => handleAdmitCandidate(c.id)}>
+              Grant Admission
+            </Button>
+          ) : (
+            <Button size="sm" variant="ghost" disabled>
+              Processed
+            </Button>
+          )}
+        </div>
+      ),
     },
   ];
 
