@@ -111,7 +111,7 @@ export const BursaryView: React.FC = () => {
   ];
 
   const receiptColumns = [
-    { key: 'receiptNumber', header: 'Receipt No.', render: (r: any) => <span className="font-bold text-[#0A77FE]">{r.receiptNumber}</span> },
+    { key: 'receiptNumber', header: 'Receipt No.', render: (r: any) => <span className="font-bold text-[#0F7640]">{r.receiptNumber}</span> },
     { key: 'paidAt', header: 'Date & Time', render: (r: any) => r.paidAt.replace('T', ' ').slice(0, 16) },
     { key: 'studentName', header: 'Student Name' },
     { key: 'matricNumber', header: 'Matric No.' },
@@ -413,7 +413,7 @@ export const BursaryView: React.FC = () => {
               <p className="text-[11px] text-slate-500">
                 P.M.B. 1042, Oyo State, Nigeria • accredited by NBTE & Health Boards
               </p>
-              <div className="mt-2 inline-block px-3 py-1 bg-slate-100 rounded-[4px] text-xs font-bold text-[#0A77FE]">
+              <div className="mt-2 inline-block px-3 py-1 bg-emerald-50 rounded-[4px] text-xs font-bold text-[#0F7640] border border-emerald-200">
                 RECEIPT NO: {selectedReceipt.receiptNumber}
               </div>
             </div>

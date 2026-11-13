@@ -225,8 +225,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="h-14 px-4 border-b border-white/10 flex items-center justify-between shrink-0">
             {!isCollapsed ? (
               <div className="flex flex-col min-w-0">
-                <span className="text-base font-extrabold tracking-wider text-white uppercase font-sans flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block shrink-0 shadow-sm shadow-emerald-400/50" />
+                <span className="text-base font-extrabold tracking-wider text-white uppercase font-sans">
                   CampusOne
                 </span>
                 <span className="text-[11px] text-emerald-200/80 truncate font-sans">
@@ -311,7 +310,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         )}
                       </div>
 
-                      {/* Clean Sub-Menu Items */}
+                      {/* Clean Sub-Menu Items (Subtle Low-Opacity Background, No Left Line) */}
                       {!isCollapsed && hasSubItems && isMenuOpen && (
                         <div className="py-1 space-y-0.5">
                           {item.subItems!.map((sub) => {
@@ -326,8 +325,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 onClick={onCloseMobile}
                                 className={`block pl-10 pr-3 py-2 text-[13px] rounded-[4px] transition-colors truncate ${
                                   isSubActive
-                                    ? 'text-white bg-white/20 font-bold border-l-2 border-emerald-400'
-                                    : 'text-white/75 hover:text-white hover:bg-white/10 font-medium'
+                                    ? 'text-white bg-white/[0.08] font-semibold'
+                                    : 'text-white/70 hover:text-white hover:bg-white/[0.05] font-normal'
                                 }`}
                               >
                                 {sub.name}

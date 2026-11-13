@@ -144,12 +144,12 @@ export const AdminView: React.FC = () => {
               Enforced Permissions & Hard Rules Matrix
             </span>
             <p className="text-xs text-slate-500 mt-0.5">
-              Governed by PRD Section 3 (Rules P1, P2, P3, P4, P5)
+              School governance rules and separation of duties enforcement
             </p>
           </div>
           <div className="space-y-3 text-xs">
             <div className="p-3 rounded-[4px] border border-slate-200 bg-slate-50 flex items-start gap-3">
-              <Lock className="w-4 h-4 text-[#0A77FE] shrink-0 mt-0.5" />
+              <Lock className="w-4 h-4 text-[#0F7640] shrink-0 mt-0.5" />
               <div>
                 <p className="font-semibold text-slate-800">Rule P1 — Zero Self-Approval</p>
                 <p className="text-slate-500 text-[11px]">

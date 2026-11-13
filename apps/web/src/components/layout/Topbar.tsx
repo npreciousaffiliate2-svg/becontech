@@ -251,21 +251,19 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
           <Menu className="w-5 h-5 text-slate-800" />
         </button>
 
-        {/* Mobile Header: Clean & Uncluttered Logo/Title */}
-        <div className="sm:hidden flex items-center gap-1.5 min-w-0">
-          <span className="w-2 h-2 rounded-full bg-[#107C41] inline-block shrink-0" />
+        {/* Mobile Header: Clean & Uncluttered Logo/Title (No decorative dot) */}
+        <div className="sm:hidden flex items-center min-w-0">
           <span className="text-xs font-bold text-slate-900 truncate">
             {breadcrumbs[breadcrumbs.length - 1]?.label || 'Overview'}
           </span>
         </div>
 
-        {/* Desktop / Tablet Breadcrumbs (Xiroly Style) */}
+        {/* Desktop / Tablet Breadcrumbs (Xiroly Style — Clean, No Dots) */}
         <nav className="hidden sm:flex items-center gap-1.5 text-xs font-medium text-slate-500 min-w-0">
           <Link
             to="/"
-            className="text-slate-400 hover:text-[#0F7640] transition-colors shrink-0 flex items-center gap-1"
+            className="text-slate-400 hover:text-[#0F7640] transition-colors shrink-0"
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-[#107C41]" />
             CampusOne
           </Link>
           {breadcrumbs.map((crumb, idx) => (
@@ -390,7 +388,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
                           </div>
                         )}
                         {n.type === 'info' && (
-                          <div className="w-6 h-6 rounded-[4px] bg-blue-100 text-[#0A77FE] flex items-center justify-center">
+                          <div className="w-6 h-6 rounded-[4px] bg-emerald-100 text-[#0F7640] flex items-center justify-center">
                             <FileCheck className="w-3.5 h-3.5" />
                           </div>
                         )}

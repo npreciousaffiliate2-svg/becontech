@@ -128,7 +128,7 @@ export const AdmissionsView: React.FC = () => {
       key: 'matricNumber',
       header: 'Matric No.',
       render: (c: Candidate) => (
-        c.matricNumber ? <span className="font-bold text-[#0A77FE]">{c.matricNumber}</span> : <span className="text-slate-400">—</span>
+        c.matricNumber ? <span className="font-bold text-[#0F7640]">{c.matricNumber}</span> : <span className="text-slate-400">—</span>
       ),
     },
     {
@@ -181,11 +181,11 @@ export const AdmissionsView: React.FC = () => {
 
       <Card>
         <div className="mb-4 flex items-center justify-between">
-          <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
+          <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
             2026/2027 Admission Screening Queue
           </span>
-          <span className="text-xs text-slate-500">
-            Rule §5.1: Serialized &lt;PROGRAMME&gt;/&lt;YEAR&gt;/&lt;SERIAL&gt;
+          <span className="text-xs text-slate-500 font-medium">
+            Verified Candidates
           </span>
         </div>
         <Table

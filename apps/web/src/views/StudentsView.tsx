@@ -83,7 +83,7 @@ export const StudentsView: React.FC = () => {
   ]);
 
   const columns = [
-    { key: 'matricNumber', header: 'Matric No.', render: (s: Student) => <span className="font-bold text-[#0A77FE]">{s.matricNumber}</span> },
+    { key: 'matricNumber', header: 'Matric No.', render: (s: Student) => <span className="font-bold text-[#0F7640]">{s.matricNumber}</span> },
     { key: 'fullName', header: 'Full Name' },
     { key: 'programme', header: 'Programme' },
     { key: 'level', header: 'Level' },

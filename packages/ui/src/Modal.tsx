@@ -1,6 +1,5 @@
 import React, { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
-import { Button } from './Button.tsx';
 
 export interface ModalProps {
   isOpen: boolean;
@@ -29,14 +28,18 @@ export const Modal: React.FC<ModalProps> = ({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
+
     if (isOpen) {
+      // Prevent background page from scrolling (Xiroly modal standard)
+      const prevOverflow = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
       window.addEventListener('keydown', handleKeyDown);
+
+      return () => {
+        document.body.style.overflow = prevOverflow;
+        window.removeEventListener('keydown', handleKeyDown);
+      };
     }
-    return () => {
-      document.body.style.overflow = 'unset';
-      window.removeEventListener('keydown', handleKeyDown);
-    };
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
@@ -50,7 +53,7 @@ export const Modal: React.FC<ModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-md overflow-y-auto transition-all duration-200"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
@@ -60,11 +63,12 @@ export const Modal: React.FC<ModalProps> = ({
     >
       <div
         ref={modalRef}
-        className={`w-full ${sizeClasses} rounded-[4px] bg-white shadow-xl border border-slate-200 flex flex-col max-h-[90vh] overflow-hidden`}
+        className={`w-full ${sizeClasses} rounded-[4px] bg-white shadow-2xl border border-slate-200 flex flex-col max-h-[92vh] overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150`}
       >
-        <div className="px-6 py-4 border-b border-slate-100 flex items-start justify-between bg-slate-50">
+        {/* Modal Header */}
+        <div className="px-6 py-4 border-b border-slate-100 flex items-start justify-between bg-slate-50/80">
           <div>
-            <h2 id="modal-title" className="text-base font-semibold text-slate-900">
+            <h2 id="modal-title" className="text-base font-bold text-slate-900 tracking-tight">
               {title}
             </h2>
             {description && <p className="mt-0.5 text-xs text-slate-500">{description}</p>}
@@ -72,16 +76,20 @@ export const Modal: React.FC<ModalProps> = ({
           {showCloseButton && (
             <button
               onClick={onClose}
-              className="text-slate-400 hover:text-slate-600 p-1 rounded-[4px] hover:bg-slate-200/50 transition-colors"
+              className="text-slate-400 hover:text-slate-700 p-1 rounded-[4px] hover:bg-slate-200/60 transition-colors ml-4"
               aria-label="Close dialog"
             >
               <X className="w-4 h-4" />
             </button>
           )}
         </div>
-        <div className="p-6 overflow-y-auto space-y-4">{children}</div>
+
+        {/* Modal Body */}
+        <div className="p-6 overflow-y-auto space-y-4 text-xs text-slate-700 flex-1">{children}</div>
+
+        {/* Modal Footer */}
         {footer && (
-          <div className="px-6 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-end gap-2.5">
+          <div className="px-6 py-3.5 border-t border-slate-100 bg-slate-50 flex items-center justify-end gap-2.5">
             {footer}
           </div>
         )}

@@ -34,7 +34,7 @@ export const ForgotPasswordView: React.FC = () => {
           <ArrowLeft size={14} /> Back to Sign In
         </Link>
 
-        <div className="w-10 h-10 rounded-[4px] bg-blue-50 text-[#0A77FE] flex items-center justify-center mb-4">
+        <div className="w-10 h-10 rounded-[4px] bg-emerald-50 text-[#0F7640] border border-emerald-200 flex items-center justify-center mb-4">
           <KeyRound size={20} />
         </div>
 

@@ -73,28 +73,28 @@ export const LoginView: React.FC = () => {
 
   return (
     <div className="min-h-screen w-full flex bg-white font-sans">
-      {/* ─── LEFT: AUTH HERO SIDEBAR (UseOneID Style) ─── */}
+      {/* ─── LEFT: AUTH HERO SIDEBAR (UseOneID Style — Bethsaida Health Green) ─── */}
       <div
         style={{
-          background: 'linear-gradient(180deg, #093774 0%, #06234d 100%)',
+          background: 'linear-gradient(180deg, #093322 0%, #052015 100%)',
         }}
         className="hidden lg:flex w-1/2 relative items-center justify-center p-12 overflow-hidden select-none"
       >
         {/* Soft Background blur circles */}
-        <div className="absolute top-1/4 left-1/4 w-[350px] h-[350px] bg-blue-500/10 rounded-full blur-[90px] pointer-events-none" />
-        <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-[#0A77FE]/15 rounded-full blur-[100px] pointer-events-none" />
+        <div className="absolute top-1/4 left-1/4 w-[350px] h-[350px] bg-emerald-500/10 rounded-full blur-[90px] pointer-events-none" />
+        <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-emerald-500/15 rounded-full blur-[100px] pointer-events-none" />
 
         <div className="max-w-md flex flex-col justify-between h-full relative z-10 py-8">
           {/* Brand Logo Header */}
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-[4px] bg-white text-[#093774] font-bold text-sm flex items-center justify-center shadow-md">
+            <div className="w-9 h-9 rounded-[4px] bg-white text-[#093322] font-bold text-sm flex items-center justify-center shadow-md">
               C1
             </div>
             <div>
               <span className="text-xl font-extrabold tracking-wider text-white uppercase block leading-none">
                 CampusOne
               </span>
-              <span className="text-[11px] text-blue-200 block mt-0.5">
+              <span className="text-[11px] text-emerald-200 block mt-0.5">
                 Bethsaida College of Health Tech
               </span>
             </div>
@@ -139,7 +139,7 @@ export const LoginView: React.FC = () => {
 
               <div className="flex gap-3">
                 <div className="w-8 h-8 rounded-[4px] bg-white/10 border border-white/20 flex items-center justify-center text-white shrink-0">
-                  <LockKeyhole className="w-4 h-4 text-[#0A77FE]" />
+                  <LockKeyhole className="w-4 h-4 text-emerald-400" />
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <span className="font-bold text-white">Double-Entry Fee Ledger & E-Receipts</span>
@@ -218,7 +218,7 @@ export const LoginView: React.FC = () => {
                   </label>
                   <Link
                     to="/forgot-password"
-                    className="text-xs text-[#0A77FE] hover:underline font-medium"
+                    className="text-xs text-[#0F7640] hover:underline font-medium"
                   >
                     Forgot password?
                   </Link>
@@ -228,7 +228,7 @@ export const LoginView: React.FC = () => {
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full h-9 rounded-[4px] border border-slate-300 bg-white px-3 pr-9 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#0A77FE]"
+                    className="w-full h-9 rounded-[4px] border border-slate-300 bg-white px-3 pr-9 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#0F7640]"
                     required
                   />
                   <button
@@ -247,7 +247,7 @@ export const LoginView: React.FC = () => {
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    className="w-4 h-4 rounded-[4px] text-[#0A77FE] border-slate-300 focus:ring-[#0A77FE]"
+                    className="w-4 h-4 rounded-[4px] text-[#0F7640] border-slate-300 focus:ring-[#0F7640]"
                   />
                   <span>Keep me signed in</span>
                 </label>
@@ -268,7 +268,7 @@ export const LoginView: React.FC = () => {
                     variant="secondary"
                     size="sm"
                     onClick={() => handleQuickLogin('PROVOST')}
-                    leftIcon={<UserCheck size={14} className="text-[#0A77FE]" />}
+                    leftIcon={<UserCheck size={14} className="text-[#0F7640]" />}
                   >
                     Provost
                   </Button>
@@ -335,7 +335,7 @@ export const LoginView: React.FC = () => {
                 <select
                   value={programme}
                   onChange={(e) => setProgramme(e.target.value)}
-                  className="w-full h-9 rounded-[4px] border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#0A77FE]"
+                  className="w-full h-9 rounded-[4px] border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#0F7640]"
                 >
                   <option value="CHEW">Community Health Extension Worker (CHEW)</option>
                   <option value="MLT">Medical Laboratory Technician (MLT)</option>

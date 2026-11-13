@@ -129,7 +129,7 @@ export const ClinicalPostingsView: React.FC = () => {
       showToast({
         type: 'danger',
         title: 'Clearance Blocked',
-        message: 'Posting fee must be settled on the financial ledger before clearance generation (PRD §5.5).',
+        message: 'Posting fee must be settled on the financial ledger before clearance can be generated.',
       });
       return;
     }

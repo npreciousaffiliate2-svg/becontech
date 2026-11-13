@@ -78,7 +78,7 @@ export const CommunicationsView: React.FC = () => {
                   rows={4}
                   value={messageText}
                   onChange={(e) => setMessageText(e.target.value)}
-                  className="w-full rounded-[4px] border border-slate-300 p-2.5 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#0A77FE]"
+                  className="w-full rounded-[4px] border border-slate-300 p-2.5 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
                 />
                 <div className="flex justify-between items-center text-[10px] text-slate-400 mt-1">
                   <span>Standard Nigerian SMS Billing Unit: 160 Chars</span>

@@ -131,7 +131,7 @@ export const AcademicsView: React.FC = () => {
           disabled={workflowStatus === 'PUBLISHED'}
           value={s.caScore}
           onChange={(e) => handleScoreChange(idx, 'caScore', e.target.value)}
-          className="w-16 h-7 text-right px-2 border border-slate-300 rounded-[4px] text-xs font-tabular focus:outline-none focus:ring-1 focus:ring-[#0A77FE] disabled:bg-slate-50"
+          className="w-16 h-7 text-right px-2 border border-slate-300 rounded-[4px] text-xs font-tabular focus:outline-none focus:ring-1 focus:ring-[#0F7640] disabled:bg-slate-50"
         />
       ),
     },
@@ -147,7 +147,7 @@ export const AcademicsView: React.FC = () => {
           disabled={workflowStatus === 'PUBLISHED'}
           value={s.examScore}
           onChange={(e) => handleScoreChange(idx, 'examScore', e.target.value)}
-          className="w-16 h-7 text-right px-2 border border-slate-300 rounded-[4px] text-xs font-tabular focus:outline-none focus:ring-1 focus:ring-[#0A77FE] disabled:bg-slate-50"
+          className="w-16 h-7 text-right px-2 border border-slate-300 rounded-[4px] text-xs font-tabular focus:outline-none focus:ring-1 focus:ring-[#0F7640] disabled:bg-slate-50"
         />
       ),
     },
@@ -313,7 +313,7 @@ export const AcademicsView: React.FC = () => {
                   <td className="p-2.5 text-center">53% (C)</td>
                   <td className="p-2.5 text-right font-tabular">9</td>
                   <td className="p-2.5 text-right font-tabular">35.0</td>
-                  <td className="p-2.5 text-right font-bold text-[#0A77FE] font-tabular">3.89</td>
+                  <td className="p-2.5 text-right font-bold text-[#0F7640] font-tabular">3.89</td>
                   <td className="p-2.5 text-center"><Badge variant="success" size="sm">PASS</Badge></td>
                 </tr>
                 <tr className="hover:bg-slate-50">

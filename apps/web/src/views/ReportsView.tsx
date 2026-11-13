@@ -45,9 +45,9 @@ export const ReportsView: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Reports, Analytics & Accreditation (RPT)</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Executive KPIs • Regulatory Compliance Exports • NBTE & Health Board Datasets (PRD §6.15)
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Reports & Accreditation</h1>
+          <p className="text-sm text-slate-500 mt-0.5">
+            Institutional performance statistics, regulatory compliance summaries, and accreditation reports
           </p>
         </div>
       </div>
