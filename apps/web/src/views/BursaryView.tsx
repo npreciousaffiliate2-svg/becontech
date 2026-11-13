@@ -79,11 +79,15 @@ interface FeeStructureItem {
 }
 
 export const BursaryView: React.FC = () => {
-  const { ledgerEntries, receipts, addLedgerPayment, isDense, recordAudit } = useApp();
+  const { session, persona, ledgerEntries, receipts, addLedgerPayment, isDense, recordAudit } = useApp();
   const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { tab: routeTab } = useParams<{ tab: string }>();
+
+  // Role Scope Enforcer: Students & Sponsors only view their own records
+  const isStudent = session.activeRole === 'STU' || session.activeRole === 'SPON';
+  const userMatric = persona?.matricNumber || 'CHE/2026/0014';
 
   // Tab synchronization
   const resolveTab = (tabStr?: string | null): BursaryTab => {
@@ -391,8 +395,16 @@ export const BursaryView: React.FC = () => {
     });
   };
 
-  /* ─── DERIVED FILTERED LISTS ─── */
-  const filteredLedgerEntries = ledgerEntries.filter((l) => {
+  /* ─── DERIVED FILTERED LISTS (Scoped by Role & User Tenancy) ─── */
+  const scopedLedgerEntries = isStudent
+    ? ledgerEntries.filter((l) => l.matricNumber === userMatric)
+    : ledgerEntries;
+
+  const scopedReceipts = isStudent
+    ? receipts.filter((r) => r.matricNumber === userMatric)
+    : receipts;
+
+  const filteredLedgerEntries = scopedLedgerEntries.filter((l) => {
     if (ledgerCategoryFilter !== 'ALL' && l.category !== ledgerCategoryFilter) return false;
     if (ledgerTypeFilter !== 'ALL' && l.entryType !== ledgerTypeFilter) return false;
     if (searchQuery.trim()) {
@@ -404,7 +416,7 @@ export const BursaryView: React.FC = () => {
     return true;
   });
 
-  const filteredReceipts = receipts.filter((r) => {
+  const filteredReceipts = scopedReceipts.filter((r) => {
     if (receiptGatewayFilter !== 'ALL' && r.paymentMethod !== receiptGatewayFilter) return false;
     if (receiptSearchQuery.trim()) {
       const q = receiptSearchQuery.toLowerCase();
@@ -825,15 +837,22 @@ export const BursaryView: React.FC = () => {
         </Card>
       </div>
 
-      {/* ─── Navigation Tabs ─── */}
+      {/* ─── Navigation Tabs (Filtered by Persona Role) ─── */}
       <Tabs
-        tabs={[
-          { id: 'ledger', label: 'Student Master Ledger' },
-          { id: 'receipts', label: 'Payment Receipts' },
-          { id: 'structure', label: 'Fee Schedules & Levies' },
-          { id: 'debtors', label: 'Debtors & Installments' },
-          { id: 'reconciliation', label: 'Bank Reconciliation' },
-        ]}
+        tabs={
+          isStudent
+            ? [
+                { id: 'ledger', label: 'My Tuition Ledger' },
+                { id: 'receipts', label: 'My Official Receipts' },
+              ]
+            : [
+                { id: 'ledger', label: 'Student Master Ledger' },
+                { id: 'receipts', label: 'Payment Receipts' },
+                { id: 'structure', label: 'Fee Schedules & Levies' },
+                { id: 'debtors', label: 'Debtors & Installments' },
+                { id: 'reconciliation', label: 'Bank Reconciliation' },
+              ]
+        }
         activeTab={activeTab}
         onChange={(id: any) => handleTabChange(id)}
       />

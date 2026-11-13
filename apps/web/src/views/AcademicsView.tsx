@@ -64,13 +64,20 @@ interface CurriculumCourse {
 }
 
 export const AcademicsView: React.FC = () => {
-  const { session, recordAudit, isDense } = useApp();
+  const { session, persona, recordAudit, isDense } = useApp();
   const { showToast } = useToast();
   const { tab: routeTab } = useParams();
   const navigate = useNavigate();
 
-  // Industry-standard page routing
-  const activeTab = routeTab || 'scores';
+  // Role Scope Enforcer: Students & Sponsors view personal broadsheet & transcripts only
+  const isStudent = session.activeRole === 'STU' || session.activeRole === 'SPON';
+
+  // Industry-standard page routing with role defaults
+  const activeTab = isStudent
+    ? routeTab === 'transcript'
+      ? 'transcript'
+      : 'broadsheet'
+    : routeTab || 'scores';
 
   const handleTabChange = (id: string) => {
     if (id === 'scores') {
@@ -473,14 +480,21 @@ export const AcademicsView: React.FC = () => {
         </Card>
       </div>
 
-      {/* Institutional Nav Tabs */}
+      {/* Institutional Nav Tabs (Scoped by Role) */}
       <Tabs
-        tabs={[
-          { id: 'scores', label: 'Score Entry' },
-          { id: 'broadsheet', label: 'Examination Broadsheets' },
-          { id: 'transcript', label: 'Student Transcripts' },
-          { id: 'curriculum', label: 'Curriculum & Courses' },
-        ]}
+        tabs={
+          isStudent
+            ? [
+                { id: 'broadsheet', label: 'My Semester Results' },
+                { id: 'transcript', label: 'My Official Transcript' },
+              ]
+            : [
+                { id: 'scores', label: 'Score Entry' },
+                { id: 'broadsheet', label: 'Examination Broadsheets' },
+                { id: 'transcript', label: 'Student Transcripts' },
+                { id: 'curriculum', label: 'Curriculum & Courses' },
+              ]
+        }
         activeTab={activeTab}
         onChange={handleTabChange}
       />
@@ -662,7 +676,12 @@ export const AcademicsView: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {broadsheetData.map((row) => (
+                  {(isStudent
+                    ? broadsheetData.filter(
+                        (b) => b.matricNumber === (persona?.matricNumber || 'CHE/2026/0014')
+                      )
+                    : broadsheetData
+                  ).map((row) => (
                     <tr key={row.matricNumber} className="hover:bg-slate-50/50">
                       <td className="p-3 font-extrabold text-[#0F7640] whitespace-nowrap">{row.matricNumber}</td>
                       <td className="p-3 font-bold text-slate-900 whitespace-nowrap">{row.studentName}</td>

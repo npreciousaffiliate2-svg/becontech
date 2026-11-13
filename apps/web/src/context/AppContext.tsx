@@ -7,6 +7,7 @@ import {
   formatNaira,
 } from '@campusone/contracts';
 import { PERSONA_PROFILES, PersonaProfile } from './personas.ts';
+import { supabase } from '../lib/supabase.ts';
 
 export { PERSONA_PROFILES };
 export type { PersonaProfile };
@@ -206,6 +207,85 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     permissions: persona.permissions,
   };
 
+  // ─── Live Hydration from Supabase Remote Database ───
+  useEffect(() => {
+    async function loadSupabaseData() {
+      try {
+        const [ledgersRes, receiptsRes, auditsRes] = await Promise.all([
+          supabase.from('student_ledgers').select('*').order('created_at', { ascending: false }),
+          supabase.from('official_receipts').select('*').order('paid_at', { ascending: false }),
+          supabase.from('audit_logs').select('*').order('timestamp', { ascending: false }),
+        ]);
+
+        if (ledgersRes.data && ledgersRes.data.length > 0) {
+          setLedgerEntries(
+            ledgersRes.data.map((row: any) => ({
+              id: row.id,
+              collegeId: row.college_id,
+              studentId: row.student_id,
+              matricNumber: row.matric_number,
+              entryType: row.entry_type,
+              category: row.category,
+              description: row.description,
+              amountKobo: Number(row.amount_kobo),
+              balanceAfterKobo: Number(row.balance_after_kobo),
+              referenceId: row.reference_id,
+              createdAt: row.created_at,
+            }))
+          );
+        }
+
+        if (receiptsRes.data && receiptsRes.data.length > 0) {
+          setReceipts(
+            receiptsRes.data.map((row: any) => ({
+              receiptNumber: row.receipt_number,
+              collegeId: row.college_id,
+              studentId: row.student_id,
+              studentName: row.student_name,
+              matricNumber: row.matric_number,
+              programme: row.programme,
+              level: row.level,
+              category: row.category,
+              amountKobo: Number(row.amount_kobo),
+              formattedAmount: formatNaira(Number(row.amount_kobo)),
+              paymentMethod: row.payment_method,
+              transactionReference: row.transaction_reference,
+              gatewayReference: row.gateway_reference,
+              paidAt: row.paid_at,
+              qrVerificationHash: row.qr_verification_hash,
+              issuer: row.issuer,
+            }))
+          );
+        }
+
+        if (auditsRes.data && auditsRes.data.length > 0) {
+          setAuditLogs(
+            auditsRes.data.map((row: any) => ({
+              id: row.id,
+              collegeId: row.college_id,
+              actorId: row.actor_id,
+              actorRole: row.actor_role,
+              action: row.action,
+              entityType: row.entity_type,
+              entityId: row.entity_id,
+              beforeSnapshot: row.before_snapshot,
+              afterSnapshot: row.after_snapshot,
+              ipAddress: row.ip_address,
+              userAgent: row.user_agent,
+              timestamp: row.timestamp,
+              chainHash: row.chain_hash,
+              prevHash: row.prev_hash,
+            }))
+          );
+        }
+      } catch (err) {
+        console.warn('[CampusOne] Supabase live hydration fallback active:', err);
+      }
+    }
+
+    loadSupabaseData();
+  }, []);
+
   const recordAudit = (action: string, entityType: string, entityId: string, details?: any) => {
     const prev = auditLogs[auditLogs.length - 1];
     const prevHash = prev ? prev.chainHash : '0000000000000000000000000000000000000000000000000000000000000000';
@@ -230,6 +310,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setAuditLogs((prevList) => [newLog, ...prevList]);
+
+    // Live Supabase Sync
+    supabase.from('audit_logs').insert({
+      id: newLog.id,
+      college_id: newLog.collegeId,
+      actor_id: newLog.actorId,
+      actor_role: newLog.actorRole,
+      action: newLog.action,
+      entity_type: newLog.entityType,
+      entity_id: newLog.entityId,
+      before_snapshot: newLog.beforeSnapshot,
+      after_snapshot: newLog.afterSnapshot,
+      ip_address: newLog.ipAddress,
+      user_agent: newLog.userAgent,
+      chain_hash: newLog.chainHash,
+      prev_hash: newLog.prevHash,
+      timestamp: newLog.timestamp,
+    }).then(({ error }) => {
+      if (error) console.warn('[CampusOne] Supabase audit sync:', error.message);
+    });
   };
 
   const addLedgerPayment = (entry: {
@@ -287,6 +387,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setLedgerEntries((prev) => [newLedgerEntry, ...prev]);
     setReceipts((prev) => [newReceipt, ...prev]);
+
+    // Live Supabase Sync
+    supabase.from('student_ledgers').insert({
+      id: newLedgerEntry.id,
+      college_id: newLedgerEntry.collegeId,
+      student_id: newLedgerEntry.studentId,
+      matric_number: newLedgerEntry.matricNumber,
+      entry_type: newLedgerEntry.entryType,
+      category: newLedgerEntry.category,
+      description: newLedgerEntry.description,
+      amount_kobo: newLedgerEntry.amountKobo,
+      balance_after_kobo: newLedgerEntry.balanceAfterKobo,
+      reference_id: newLedgerEntry.referenceId,
+      created_at: newLedgerEntry.createdAt,
+    }).then(({ error }) => {
+      if (error) console.warn('[CampusOne] Supabase ledger sync:', error.message);
+    });
+
+    supabase.from('official_receipts').insert({
+      receipt_number: newReceipt.receiptNumber,
+      college_id: newReceipt.collegeId,
+      student_id: newReceipt.studentId,
+      student_name: newReceipt.studentName,
+      matric_number: newReceipt.matricNumber,
+      programme: newReceipt.programme,
+      level: newReceipt.level,
+      category: newReceipt.category,
+      amount_kobo: newReceipt.amountKobo,
+      payment_method: newReceipt.paymentMethod,
+      transaction_reference: newReceipt.transactionReference,
+      gateway_reference: newReceipt.gatewayReference,
+      qr_verification_hash: newReceipt.qrVerificationHash,
+      issuer: newReceipt.issuer,
+      paid_at: newReceipt.paidAt,
+    }).then(({ error }) => {
+      if (error) console.warn('[CampusOne] Supabase receipt sync:', error.message);
+    });
+
     recordAudit('PAYMENT_POSTED', 'FIN_LEDGER', newLedgerEntry.id, {
       matricNumber: entry.matricNumber,
       amountKobo: entry.amountKobo,
