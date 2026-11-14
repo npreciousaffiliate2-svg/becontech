@@ -23,6 +23,7 @@ import { ReportsView } from './views/ReportsView.tsx';
 import { DepartmentsView } from './views/DepartmentsView.tsx';
 import { AnalyticsView } from './views/AnalyticsView.tsx';
 import { AdminView } from './views/AdminView.tsx';
+import { ProfileView } from './views/ProfileView.tsx';
 
 export const App: React.FC = () => {
   return (
@@ -282,6 +283,22 @@ export const App: React.FC = () => {
                 element={
                   <ProtectedRoute path="/settings" moduleName="Settings & Platform Governance">
                     <AdminView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/profile"
+                element={
+                  <ProtectedRoute path="/profile" moduleName="My Profile & Account">
+                    <ProfileView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/profile/:tab"
+                element={
+                  <ProtectedRoute path="/profile" moduleName="My Profile & Account">
+                    <ProfileView />
                   </ProtectedRoute>
                 }
               />

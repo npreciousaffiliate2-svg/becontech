@@ -298,8 +298,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           boxShadow: 'none',
           borderRadius: '0px',
         }}
-        className={`fixed top-0 bottom-0 left-0 z-40 flex flex-col justify-between text-white border-r border-white/10 transition-all duration-200 select-none rounded-none ${
-          isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        className={`fixed top-0 bottom-0 left-0 z-40 flex flex-col justify-between text-white transition-all duration-200 select-none rounded-none ${
+          isMobileOpen
+            ? 'translate-x-0 opacity-100 pointer-events-auto border-r border-white/10 visible'
+            : '-translate-x-full opacity-0 pointer-events-none lg:opacity-100 lg:pointer-events-auto lg:translate-x-0 lg:border-r lg:border-white/10 lg:visible invisible'
         }`}
       >
         <div className="flex flex-col flex-1 min-h-0">
@@ -432,17 +434,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </nav>
         </div>
 
-        {/* User Profile Footer */}
+        {/* User Profile Footer (Synchronized with Header Profile & Navigation to /profile) */}
         <div className="border-t border-white/10 p-3 bg-black/20 shrink-0">
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-[4px] bg-[#107C41] text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-sm border border-emerald-400/30">
-                {persona?.initials || 'C1'}
+            <div
+              onClick={() => {
+                onCloseMobile();
+                navigate('/profile');
+              }}
+              className="flex items-center gap-2.5 min-w-0 cursor-pointer hover:bg-white/[0.08] p-1.5 -m-1.5 rounded-[4px] transition-colors flex-1"
+              title="View & Edit My Profile"
+            >
+              <div className="w-8 h-8 rounded-[4px] bg-[#107C41] text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-sm border border-emerald-400/30 overflow-hidden">
+                {persona?.avatarUrl ? (
+                  <img
+                    src={persona.avatarUrl}
+                    alt={persona.fullName || session.fullName}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  persona?.initials || 'C1'
+                )}
               </div>
               {!isCollapsed && (
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="text-[13px] font-bold text-white truncate leading-tight">
-                    {session.fullName}
+                    {persona.fullName || session.fullName}
                   </p>
                   <p className="text-[11px] text-emerald-300/80 truncate leading-tight">
                     {persona?.scopeBadge || session.activeRole}
@@ -452,7 +469,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
 
             {!isCollapsed && (
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 shrink-0">
                 <button
                   onClick={handleSignOut}
                   className="p-1.5 text-emerald-200/70 hover:text-white hover:bg-white/10 rounded-[4px] transition-colors"

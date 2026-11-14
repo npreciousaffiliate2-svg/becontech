@@ -20,7 +20,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const navigate = useNavigate();
 
   const currentPersona = PERSONA_PROFILES[session.activeRole] || PERSONA_PROFILES.STU;
-  const isAllowed = currentPersona.allowedModules.includes(path);
+  const isAllowed = path === '/profile' || currentPersona.allowedModules.includes(path);
 
   if (!isAllowed) {
     const defaultModule = currentPersona.allowedModules[0] || '/';

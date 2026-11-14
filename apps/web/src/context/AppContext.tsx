@@ -16,7 +16,7 @@ export interface AppContextType {
   session: UserSession;
   persona: PersonaProfile;
   switchRole: (role: RoleCode) => void;
-  updateProfile?: (updates: {
+  updateProfile: (updates: {
     fullName?: string;
     phone?: string;
     address?: string;

@@ -19,7 +19,6 @@ import {
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext.tsx';
 import { PERSONA_PROFILES } from '../../context/personas.ts';
-import { UserProfileModal } from '../profile/UserProfileModal.tsx';
 
 interface TopbarProps {
   onOpenMobile: () => void;
@@ -81,7 +80,6 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
   const navigate = useNavigate();
 
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [isUserProfileModalOpen, setIsUserProfileModalOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isRoleSwitcherOpen, setIsRoleSwitcherOpen] = useState(false);
   const [notificationTab, setNotificationTab] = useState<'all' | 'unread'>('all');
@@ -651,7 +649,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
               <button
                 onClick={() => {
                   setIsProfileOpen(false);
-                  setIsUserProfileModalOpen(true);
+                  navigate('/profile');
                 }}
                 className="w-full px-3 py-2 text-left text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors font-medium"
               >
@@ -687,12 +685,6 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
           )}
         </div>
       </div>
-
-      {/* User Personal Profile & Account Settings Modal */}
-      <UserProfileModal
-        isOpen={isUserProfileModalOpen}
-        onClose={() => setIsUserProfileModalOpen(false)}
-      />
     </header>
   );
 };
