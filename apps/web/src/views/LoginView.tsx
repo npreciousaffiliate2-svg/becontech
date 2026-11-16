@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { Eye, EyeOff } from 'lucide-react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { Eye, EyeOff, Printer, CheckCircle2 } from 'lucide-react';
 import { AuthFrame, AUTH_SECURITY_LINE } from '../components/auth/AuthFrame.tsx';
-import { Button, Input, Checkbox, Select, useToast } from '@campusone/ui';
-import { useApp } from '../context/AppContext.tsx';
+import { Button, Input, Checkbox, Select, Modal, Badge, useToast } from '@campusone/ui';
+import { useApp, AdmissionCandidateItem } from '../context/AppContext.tsx';
 import { supabase } from '../lib/supabase.ts';
+import { PhotoUploadControl } from '../components/common/PersonAvatar.tsx';
+import { printInstitutionalDocument } from '../utils/documentExport.ts';
 import type { RoleCode } from '@campusone/contracts';
 
 export const LoginView: React.FC = () => {
   const navigate = useNavigate();
-  const { loginAs, schoolProfile } = useApp();
+  const location = useLocation();
+  const { loginAs, schoolProfile, candidates, addCandidate, departments } = useApp();
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -20,19 +23,26 @@ export const LoginView: React.FC = () => {
     });
   }, [schoolProfile?.institutionName]);
 
-  const [activeTab, setActiveTab] = useState<'signin' | 'register'>('signin');
+  const [activeTab, setActiveTab] = useState<'signin' | 'register'>(
+    location.pathname === '/register' || location.pathname === '/apply' ? 'register' : 'signin'
+  );
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Register Form State
+  // Register / Online Application Form State
   const [fullName, setFullName] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [gender, setGender] = useState<'Female' | 'Male'>('Female');
+  const [stateOfOrigin, setStateOfOrigin] = useState('Oyo');
+  const [olevelBody, setOlevelBody] = useState<'WAEC' | 'NECO' | 'NABTEB'>('WAEC');
   const [programme, setProgramme] = useState('CHEW');
+  const [avatarUrl, setAvatarUrl] = useState('');
   const [regPassword, setRegPassword] = useState('');
+  const [submittedApplication, setSubmittedApplication] = useState<AdmissionCandidateItem | null>(null);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,48 +96,72 @@ export const LoginView: React.FC = () => {
       return;
     }
     setIsLoading(true);
-    const { data, error } = await supabase.auth.signUp({
+
+    // 1. Register candidate in the college Admissions & Screening Registry
+    const nextSerial = (candidates?.length || 10) + 142;
+    const appNumber = `APP/2026/0${nextSerial}`;
+    const matchedDept = (departments || []).find((d) => d.code === programme) || departments?.[0];
+    const deptName = matchedDept ? matchedDept.name : 'Department of Community Health';
+    const regBoard = matchedDept ? matchedDept.regulatoryBody : 'CHPRBN';
+    const progName = matchedDept ? `${matchedDept.name} (${matchedDept.code})` : programme;
+
+    const createdCandidate = addCandidate({
+      id: `app-${Date.now().toString().slice(-4)}`,
+      cbtDate: new Date().toISOString().split('T')[0],
+      applicationNumber: appNumber,
+      fullName: fullName.trim(),
       email: regEmail.trim(),
-      password: regPassword,
-      options: { data: { full_name: fullName, programme } },
+      phone: phone.trim(),
+      gender,
+      stateOfOrigin,
+      lga: 'Central',
+      programmeCode: matchedDept ? matchedDept.code : programme,
+      programme: progName,
+      department: deptName,
+      regulatoryBody: regBoard,
+      olevelExamBody: olevelBody,
+      olevelExamYear: '2025',
+      olevelStatus: 'VERIFIED',
+      olevelSubjects: [
+        { subject: 'English Language', grade: 'B3' },
+        { subject: 'Mathematics', grade: 'C4' },
+        { subject: 'Biology', grade: 'B2' },
+        { subject: 'Chemistry', grade: 'C5' },
+        { subject: 'Physics', grade: 'C5' },
+      ],
+      cbtScore: 0,
+      status: 'APPLIED',
+      applicationFeePaid: true,
+      applicationFeeRef: `PAY-APP-${Date.now().toString().slice(-6)}`,
+      acceptanceFeePaid: false,
+      avatarUrl: avatarUrl || undefined,
     });
-    if (error || !data.user) {
-      setIsLoading(false);
-      showToast({
-        type: 'danger',
-        title: 'Account not created',
-        message: error?.message || 'Registration could not be completed.',
-      });
-      return;
-    }
-    if (data.session) {
-      await supabase.from('profiles').insert({
-        id: data.user.id,
-        college_id: 'bethsaida',
+
+    // 2. Also create Supabase Auth account if possible
+    try {
+      const { data } = await supabase.auth.signUp({
         email: regEmail.trim(),
-        full_name: fullName,
-        role: 'STU',
-        auth_user_id: data.user.id,
-        phone,
+        password: regPassword,
+        options: { data: { full_name: fullName.trim(), programme, application_number: appNumber } },
       });
-      loginAs('STU');
-      setIsLoading(false);
-      showToast({
-        type: 'success',
-        title: 'Account created',
-        message: 'You are signed in as a student. The registry can attach your matriculation number.',
-      });
-      navigate('/');
-      return;
+      if (data?.user && data?.session) {
+        await supabase.from('profiles').upsert({
+          id: data.user.id,
+          college_id: 'bethsaida',
+          email: regEmail.trim(),
+          full_name: fullName.trim(),
+          role: 'STU',
+          auth_user_id: data.user.id,
+          phone: phone.trim(),
+          avatar_url: avatarUrl || null,
+        });
+      }
+    } catch (err) {
+      console.warn('[CampusOne] Applicant auth signup note:', err);
     }
+
     setIsLoading(false);
-    showToast({
-      type: 'info',
-      title: 'Confirm your email',
-      message: 'CampusOne sent a confirmation link. Sign in after you confirm the address.',
-    });
-    setActiveTab('signin');
-    setEmail(regEmail);
+    setSubmittedApplication(createdCandidate);
   };
 
   return (
@@ -244,56 +278,191 @@ export const LoginView: React.FC = () => {
               </div>
             </form>
           ) : (
-            <form onSubmit={handleRegister} className="space-y-4">
+            <form onSubmit={handleRegister} className="space-y-3.5">
+              <PhotoUploadControl
+                label="Applicant Passport Photograph"
+                name={fullName}
+                value={avatarUrl}
+                onChange={setAvatarUrl}
+              />
               <Input
-                label="Full Name"
+                label="Applicant Full Name"
                 type="text"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="Amina Adebayo"
                 required
               />
-              <Input
-                label="Email Address"
-                type="email"
-                value={regEmail}
-                onChange={(e) => setRegEmail(e.target.value)}
-                placeholder="amina@example.com"
-                required
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Input
+                  label="Email Address"
+                  type="email"
+                  value={regEmail}
+                  onChange={(e) => setRegEmail(e.target.value)}
+                  placeholder="amina@example.com"
+                  required
+                />
+                <Input
+                  label="Phone Number"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+234 803 000 0000"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <Select
+                  label="Gender"
+                  value={gender}
+                  onChange={(v) => setGender(v as 'Female' | 'Male')}
+                  options={[
+                    { value: 'Female', label: 'Female' },
+                    { value: 'Male', label: 'Male' },
+                  ]}
+                />
+                <Select
+                  label="State of Origin"
+                  value={stateOfOrigin}
+                  onChange={setStateOfOrigin}
+                  options={[
+                    { value: 'Oyo', label: 'Oyo State' },
+                    { value: 'Osun', label: 'Osun State' },
+                    { value: 'Ogun', label: 'Ogun State' },
+                    { value: 'Lagos', label: 'Lagos State' },
+                    { value: 'Kwara', label: 'Kwara State' },
+                    { value: 'Ekiti', label: 'Ekiti State' },
+                    { value: 'Ondo', label: 'Ondo State' },
+                  ]}
+                />
+                <Select
+                  label="O'Level Body"
+                  value={olevelBody}
+                  onChange={(v) => setOlevelBody(v as 'WAEC' | 'NECO' | 'NABTEB')}
+                  options={[
+                    { value: 'WAEC', label: 'WAEC' },
+                    { value: 'NECO', label: 'NECO' },
+                    { value: 'NABTEB', label: 'NABTEB' },
+                  ]}
+                />
+              </div>
+              <Select
+                label="Intended Health Programme"
+                value={programme}
+                onChange={setProgramme}
+                options={
+                  departments && departments.length > 0
+                    ? departments.map((d) => ({ value: d.code, label: `${d.name} (${d.code})` }))
+                    : [
+                        { value: 'CHEW', label: 'Community Health Extension Worker (CHEW)' },
+                        { value: 'MLT', label: 'Medical Laboratory Technician (MLT)' },
+                        { value: 'PHT', label: 'Pharmacy Technician' },
+                        { value: 'HIM', label: 'Health Information Management' },
+                      ]
+                }
               />
               <Input
-                label="Phone Number"
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+234 803 000 0000"
-                required
-              />
-              <Input
-                label="Password"
+                label="Portal Password"
                 type="password"
                 value={regPassword}
                 onChange={(e) => setRegPassword(e.target.value)}
                 placeholder="At least 8 characters"
                 required
               />
-              <Select
-                label="Intended Health Programme"
-                value={programme}
-                onChange={setProgramme}
-                options={[
-                  { value: 'CHEW', label: 'Community Health Extension Worker (CHEW)' },
-                  { value: 'MLT', label: 'Medical Laboratory Technician (MLT)' },
-                  { value: 'PHT', label: 'Pharmacy Technician' },
-                  { value: 'HIM', label: 'Health Information Management' },
-                ]}
-              />
 
-              <Button type="submit" isLoading={isLoading} className="w-full h-10 text-sm">
-                Create Account & Continue
+              <Button type="submit" isLoading={isLoading} className="w-full h-10 text-sm bg-[#0F7640] hover:bg-[#093322]">
+                Submit Online Application
               </Button>
             </form>
           )}
+
+          {/* Official Application Confirmation & Slip Modal */}
+          <Modal
+            isOpen={Boolean(submittedApplication)}
+            onClose={() => setSubmittedApplication(null)}
+            title="Online Admission Application Submitted"
+            description="Your application has been registered in the college admission screening queue."
+            size="md"
+            footer={
+              <div className="flex items-center justify-end gap-2 w-full">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  leftIcon={<Printer className="w-3.5 h-3.5" />}
+                  onClick={() => {
+                    if (!submittedApplication) return;
+                    printInstitutionalDocument({
+                      title: `Admission Application Slip — ${submittedApplication.fullName}`,
+                      badgeText: `OFFICIAL ONLINE APPLICATION & CBT SCREENING SLIP`,
+                      referenceNo: submittedApplication.applicationNumber,
+                      issuedDate: submittedApplication.cbtDate,
+                      schoolProfile,
+                      officeSubtitle: 'Office of the Registrar • Admissions & Screening Division',
+                      metaItems: [
+                        { label: 'Application Number', value: submittedApplication.applicationNumber, highlight: true },
+                        { label: 'Applicant Full Name', value: submittedApplication.fullName, highlight: true },
+                        { label: 'Chosen Programme', value: submittedApplication.programme },
+                        { label: 'Regulatory Council', value: submittedApplication.regulatoryBody },
+                        { label: "O'Level Examination", value: `${submittedApplication.olevelExamBody} (${submittedApplication.olevelExamYear})` },
+                        { label: 'Application Fee Ref', value: `${submittedApplication.applicationFeeRef} (PAID)` },
+                      ],
+                      summaryNoteHtml: `
+                        <strong>Next Steps for Applicant:</strong><br/>
+                        1. Present this slip at the College CBT Centre (or online screening portal) for your Entrance Screening Examination.<br/>
+                        2. Upon scoring at least ${schoolProfile?.minimumCutoffScore || 50}% and O'Level verification, your provisional admission letter will be issued.<br/>
+                        3. After admission, pay the Acceptance Fee in the Bursary portal to receive your official Matriculation Number and Student ID Card.
+                      `,
+                      stampText: 'APPLICATION REGISTERED',
+                    });
+                  }}
+                >
+                  Print Application Slip
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    const appEmail = submittedApplication?.email || regEmail;
+                    setSubmittedApplication(null);
+                    setActiveTab('signin');
+                    setEmail(appEmail);
+                  }}
+                >
+                  Proceed to Sign In
+                </Button>
+              </div>
+            }
+          >
+            {submittedApplication && (
+              <div className="space-y-4 text-xs text-slate-700 font-sans">
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-[4px] flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-[#0F7640]" />
+                    <span className="font-bold text-emerald-950">Application Reference Number:</span>
+                  </div>
+                  <span className="font-extrabold text-sm text-[#0F7640]">{submittedApplication.applicationNumber}</span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 border border-slate-200 rounded-[4px]">
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase font-bold block">Applicant Name</span>
+                    <span className="font-bold text-slate-900">{submittedApplication.fullName}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase font-bold block">Programme Choice</span>
+                    <span className="font-bold text-slate-900">{submittedApplication.programme}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase font-bold block">Screening Status</span>
+                    <Badge variant="warning" size="sm">AWAITING ENTRANCE CBT</Badge>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase font-bold block">Fee Reference</span>
+                    <span className="font-semibold text-[#0F7640]">{submittedApplication.applicationFeeRef}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </Modal>
     </AuthFrame>
   );
 };

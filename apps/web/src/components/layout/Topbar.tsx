@@ -193,6 +193,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
     session,
     persona,
     isImpersonating,
+    schoolProfile,
     notifications,
     unreadNotificationsCount,
     markNotificationAsRead,
@@ -322,9 +323,11 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
       ? notifications.filter((n) => !n.isRead)
       : notifications;
 
+  const hasTopBanner = isImpersonating || Boolean(schoolProfile?.maintenanceMode);
+
   return (
     <header
-      style={{ top: isImpersonating ? '36px' : '0' }}
+      style={{ top: hasTopBanner ? '36px' : '0' }}
       className={`h-14 fixed right-0 z-30 bg-white border-b border-slate-200 flex items-center justify-between px-3 sm:px-6 transition-all duration-200 rounded-none ${
         isSidebarCollapsed ? 'left-0 lg:left-[68px]' : 'left-0 lg:left-[260px]'
       }`}

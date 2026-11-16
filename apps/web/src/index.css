@@ -30,3 +30,19 @@ html, body, #root, aside, header {
   -ms-overflow-style: none !important;
   scrollbar-width: none !important;
 }
+
+@media print {
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  aside,
+  header,
+  .no-print {
+    display: none !important;
+  }
+  main {
+    padding-left: 0 !important;
+    padding-top: 0 !important;
+  }
+}

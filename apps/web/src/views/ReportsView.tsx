@@ -34,6 +34,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { formatNaira } from '@campusone/contracts';
+import { escapeHtml, exportToCsv, printInstitutionalDocument } from '../utils/documentExport.ts';
 
 /* ─── TYPE DEFINITIONS ─── */
 export type AccreditationStatus = 'FULL_ACCREDITATION' | 'INTERIM_ACCREDITATION' | 'RENEWAL_DUE';
@@ -396,6 +397,52 @@ export const ReportsView: React.FC = () => {
   /* ─── ACTION HANDLERS ─── */
   const handleDownloadReport = (title: string, format: string) => {
     recordAudit('STATUTORY_REPORT_DOWNLOADED', 'ACCREDITATION_REPORT', title, { format });
+    const upperFmt = format.toUpperCase();
+    if (upperFmt.includes('PDF')) {
+      printInstitutionalDocument({
+        title,
+        badgeText: `OFFICIAL STATUTORY REPORT • ${schoolProfile?.activeSession || '2026/2027'} SESSION`,
+        schoolProfile,
+        officeSubtitle: 'Directorate of Academic Planning & Regulatory Compliance',
+        metaItems: [
+          { label: 'Report Title', value: title, highlight: true },
+          { label: 'Academic Session', value: schoolProfile?.activeSession || '2026/2027' },
+          { label: 'Active Semester', value: schoolProfile?.activeSemester || 'Harmattan' },
+          { label: 'Compliance Standing', value: '100% Verified Current', highlight: true },
+        ],
+        tableColumns: [
+          { key: 'matricNo', header: 'Matric No.', highlight: true },
+          { key: 'fullName', header: 'Candidate Name', bold: true },
+          { key: 'departmentName', header: 'Department' },
+          { key: 'councilIndexNo', header: 'Council Index No.' },
+          { key: 'cgpa', header: 'CGPA', align: 'center', bold: true },
+          { key: 'boardEligibility', header: 'Eligibility', align: 'center', highlight: true },
+        ],
+        tableData: filteredRoster,
+        stampText: 'OFFICIAL COLLEGE SEAL',
+        signatures: [
+          { title: 'Director of Academic Planning', subtitle: 'Quality Assurance & Compliance' },
+          { title: 'College Provost', subtitle: schoolProfile?.institutionName || 'Bethsaida College of Health Tech' },
+        ],
+      });
+    } else {
+      exportToCsv({
+        filename: `BCHT_${title.replace(/[^a-zA-Z0-9]+/g, '_')}_${new Date().toISOString().slice(0, 10)}.csv`,
+        columns: [
+          { key: 'matricNo', header: 'Matriculation Number' },
+          { key: 'fullName', header: 'Candidate Full Name' },
+          { key: 'departmentCode', header: 'Department Code' },
+          { key: 'departmentName', header: 'Department Name' },
+          { key: 'level', header: 'Level' },
+          { key: 'cgpa', header: 'Cumulative GPA' },
+          { key: 'feeClearanceStatus', header: 'Fee Clearance' },
+          { key: 'logbookStatus', header: 'Clinical Logbook' },
+          { key: 'councilIndexNo', header: 'Council Exam Index No.' },
+          { key: 'boardEligibility', header: 'Board Eligibility' },
+        ],
+        data: filteredRoster,
+      });
+    }
     showToast({
       type: 'success',
       title: 'Report Compiled & Exported',
@@ -638,10 +685,26 @@ export const ReportsView: React.FC = () => {
           <Button
             size="sm"
             onClick={() => {
+              exportToCsv({
+                filename: `BCHT_Accreditation_Dossiers_${new Date().toISOString().slice(0, 10)}.csv`,
+                columns: [
+                  { key: 'councilCode', header: 'Council Code' },
+                  { key: 'councilName', header: 'Regulatory Body' },
+                  { key: 'programmesCovered', header: 'Accredited Programmes' },
+                  { key: 'status', header: 'Accreditation Status' },
+                  { key: 'inspectionScore', header: 'Audit Score (%)', format: (v) => `${v}%` },
+                  { key: 'statutoryQuota', header: 'Approved Student Quota' },
+                  { key: 'accreditedDate', header: 'Accredited Date' },
+                  { key: 'expiryDate', header: 'Renewal / Expiry Date' },
+                  { key: 'chiefInspector', header: 'Lead Council Inspector' },
+                  { key: 'approvedLabs', header: 'Certified Laboratories', format: (v) => (Array.isArray(v) ? v.join(' | ') : '') },
+                ],
+                data: filteredAccreditations,
+              });
               showToast({
                 type: 'success',
-                title: 'Accreditation Packet Compiled',
-                message: 'All 6 regulatory dossiers bundled into certified ZIP archive.',
+                title: 'Accreditation Packet Exported',
+                message: `Exported ${filteredAccreditations.length} regulatory council dossiers to CSV.`,
               });
             }}
             leftIcon={<Download className="w-3.5 h-3.5" />}
@@ -1016,10 +1079,35 @@ export const ReportsView: React.FC = () => {
               </Button>
               <Button
                 onClick={() => {
-                  showToast({
-                    type: 'success',
-                    title: 'Dossier Exported',
-                    message: `Official accreditation certificate for ${selectedAccreditation.councilCode} downloaded.`,
+                  if (!selectedAccreditation) return;
+                  printInstitutionalDocument({
+                    title: `Accreditation Dossier — ${selectedAccreditation.councilCode}`,
+                    badgeText: `OFFICIAL REGULATORY ACCREDITATION CERTIFICATE • ${selectedAccreditation.councilCode}`,
+                    referenceNo: `BCHT/ACC/${selectedAccreditation.councilCode}/2026`,
+                    issuedDate: selectedAccreditation.accreditedDate,
+                    schoolProfile,
+                    officeSubtitle: selectedAccreditation.councilName,
+                    certificateStyle: true,
+                    metaItems: [
+                      { label: 'Regulatory Council', value: `${selectedAccreditation.councilCode} (${selectedAccreditation.councilName})`, highlight: true },
+                      { label: 'Accredited Programmes', value: selectedAccreditation.programmesCovered, highlight: true },
+                      { label: 'Inspection Score', value: `${selectedAccreditation.inspectionScore}% (Full Standing)`, highlight: true },
+                      { label: 'Approved Student Quota', value: `${selectedAccreditation.statutoryQuota} Trainees / Session` },
+                      { label: 'Accreditation Date', value: selectedAccreditation.accreditedDate },
+                      { label: 'Renewal / Expiry Date', value: selectedAccreditation.expiryDate },
+                    ],
+                    bodyHtml: `
+                      <div class="callout-green">
+                        <div style="font-weight:800; text-transform:uppercase; margin-bottom:4px;">Council Certified Laboratories &amp; Clinical Facilities:</div>
+                        <div>${(selectedAccreditation.approvedLabs || []).map((l) => `&bull; ${escapeHtml(l)}`).join('<br/>')}</div>
+                      </div>
+                      <p style="margin-top:8px;">Lead Council Verifier / Chief Inspector: <strong>${escapeHtml(selectedAccreditation.chiefInspector)}</strong></p>
+                    `,
+                    stampText: 'FULL ACCREDITATION',
+                    signatures: [
+                      { title: selectedAccreditation.chiefInspector, subtitle: `Lead Inspector, ${selectedAccreditation.councilCode}` },
+                      { title: 'Dr. Timothy Balogun (Provost)', subtitle: schoolProfile?.institutionName || 'Bethsaida College of Health Tech' },
+                    ],
                   });
                 }}
                 leftIcon={<Download className="w-3.5 h-3.5" />}
@@ -1112,7 +1200,37 @@ export const ReportsView: React.FC = () => {
               Close
             </Button>
             <Button
-              onClick={() => window.print()}
+              onClick={() => {
+                const qualified = rosterCandidates.filter((c) => c.boardEligibility === 'QUALIFIED');
+                printInstitutionalDocument({
+                  title: 'Official Regulatory Council Examination Nominal Roll',
+                  badgeText: `OFFICIAL NATIONAL BOARD CANDIDATE NOMINAL ROLL • ${schoolProfile?.activeSession || '2026/2027'} SESSION`,
+                  referenceNo: `BCHT/EXM/NOM/${schoolProfile?.activeSession?.split('/')[0] || '2026'}/01`,
+                  schoolProfile,
+                  officeSubtitle: 'Directorate of Academic Planning & Regulatory Council Examination Board',
+                  metaItems: [
+                    { label: 'Academic Session', value: schoolProfile?.activeSession || '2026/2027', highlight: true },
+                    { label: 'Qualified Candidates', value: `${qualified.length} Cleared Trainees`, highlight: true },
+                    { label: 'Minimum CGPA Threshold', value: '2.00 / 4.00 Met' },
+                    { label: 'Bursary & Logbooks', value: '100% Verified' },
+                  ],
+                  tableColumns: [
+                    { key: 'sn', header: 'S/N', align: 'center', format: (_, __, idx) => idx + 1 },
+                    { key: 'matricNo', header: 'Matric No.', highlight: true },
+                    { key: 'fullName', header: 'Candidate Full Name', bold: true },
+                    { key: 'departmentName', header: 'Department' },
+                    { key: 'councilIndexNo', header: 'Council Index No.', bold: true },
+                    { key: 'cgpa', header: 'CGPA', align: 'center', bold: true },
+                    { key: 'boardEligibility', header: 'Status', align: 'center', highlight: true },
+                  ],
+                  tableData: qualified,
+                  stampText: 'BOARD CLEARED SEAL',
+                  signatures: [
+                    { title: 'College Examination Officer', subtitle: schoolProfile?.institutionName || 'Bethsaida College of Health Tech' },
+                    { title: 'Registrar & Provost', subtitle: 'National Board Sign-Off Seal' },
+                  ],
+                });
+              }}
               leftIcon={<Printer className="w-3.5 h-3.5" />}
               className="whitespace-nowrap bg-[#0F7640] hover:bg-[#093322]"
             >

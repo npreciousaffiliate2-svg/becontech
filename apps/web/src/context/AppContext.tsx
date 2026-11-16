@@ -50,6 +50,11 @@ export interface SchoolProfile {
   applicationFeeKobo: number;
   acceptanceFeeKobo: number;
   minimumCutoffScore: number;
+  // Maintenance System Configuration
+  maintenanceMode?: boolean;
+  maintenanceTitle?: string;
+  maintenanceMessage?: string;
+  maintenanceEta?: string;
 }
 
 export interface DepartmentItem {
@@ -60,6 +65,7 @@ export interface DepartmentItem {
   hodTitle: string;
   hodEmail: string;
   hodPhone: string;
+  hodAvatarUrl?: string;
   office: string;
   approvedQuota: number;
   programmesCount: number;
@@ -115,6 +121,7 @@ export interface AdmissionCandidateItem {
   acceptanceFeePaid: boolean;
   acceptanceFeeRef?: string;
   admittedAt?: string;
+  avatarUrl?: string;
 }
 
 export interface AppContextType {
@@ -212,6 +219,16 @@ export interface AppContextType {
   addNotification: (item: Omit<RealNotificationItem, 'id' | 'createdAt' | 'isRead' | 'time'>) => Promise<void>;
   markNotificationAsRead: (id: string) => Promise<void>;
   markAllNotificationsAsRead: () => Promise<void>;
+  // Unified Avatar Resolution & Registration
+  resolveAvatarUrl: (query: {
+    avatarUrl?: string;
+    email?: string;
+    matricNumber?: string;
+    staffId?: string;
+    name?: string;
+    role?: string;
+  }) => string | undefined;
+  registerPersonAvatar: (keys: (string | undefined)[], avatarUrl: string) => void;
 }
 
 export interface SupportTicketReply {
@@ -318,6 +335,11 @@ const DEFAULT_SCHOOL_PROFILE: SchoolProfile = {
   applicationFeeKobo: 1000000, // N10,000
   acceptanceFeeKobo: 3500000, // N35,000
   minimumCutoffScore: 50,
+  maintenanceMode: false,
+  maintenanceTitle: 'Scheduled System Maintenance',
+  maintenanceMessage:
+    'The college portal is currently undergoing scheduled maintenance and system upgrades. Normal access will resume shortly.',
+  maintenanceEta: 'Within 2 hours',
 };
 
 const DEFAULT_DEPARTMENTS: DepartmentItem[] = [
@@ -833,6 +855,64 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [departments, setDepartmentsState] = useState<DepartmentItem[]>([]);
   const [courses, setCoursesState] = useState<CurriculumCourseItem[]>([]);
   const [candidates, setCandidatesState] = useState<AdmissionCandidateItem[]>([]);
+  const [avatarDirectory, setAvatarDirectory] = useState<Record<string, string>>({});
+
+  const normalizeAvatarKey = (raw?: string): string => {
+    if (!raw) return '';
+    return raw
+      .replace(/^(Dr\.|Pharm\.|Prof\.|Mrs\.|Mr\.|Ms\.|Miss|Nurse|Sanitarian|Chief)\s+/i, '')
+      .trim()
+      .toLowerCase();
+  };
+
+  const registerPersonAvatar = (keys: (string | undefined)[], avatarUrl: string) => {
+    const validKeys = keys.map((k) => normalizeAvatarKey(k)).filter(Boolean);
+    if (validKeys.length === 0) return;
+    setAvatarDirectory((prev) => {
+      const next = { ...prev };
+      validKeys.forEach((k) => {
+        if (avatarUrl) {
+          next[k] = avatarUrl;
+        } else {
+          delete next[k];
+        }
+      });
+      const rows = Object.entries(next).map(([id, url]) => ({ id, url }));
+      void persistRecords('registry.avatars', rows);
+      return next;
+    });
+  };
+
+  const resolveAvatarUrl = (query: {
+    avatarUrl?: string;
+    email?: string;
+    matricNumber?: string;
+    staffId?: string;
+    name?: string;
+    role?: string;
+  }): string | undefined => {
+    if (query.avatarUrl) return query.avatarUrl;
+    const candidatesKeys = [
+      normalizeAvatarKey(query.email),
+      normalizeAvatarKey(query.matricNumber),
+      normalizeAvatarKey(query.staffId),
+      normalizeAvatarKey(query.name),
+      query.name ? query.name.trim().toLowerCase() : '',
+    ].filter(Boolean);
+    for (const key of candidatesKeys) {
+      if (avatarDirectory[key]) return avatarDirectory[key];
+    }
+    if (query.name) {
+      const matchedDept = departments.find(
+        (d) => normalizeAvatarKey(d.hod) === normalizeAvatarKey(query.name) && d.hodAvatarUrl
+      );
+      if (matchedDept?.hodAvatarUrl) return matchedDept.hodAvatarUrl;
+    }
+    if (query.role && customProfiles[query.role]?.avatarUrl) {
+      return customProfiles[query.role]?.avatarUrl;
+    }
+    return undefined;
+  };
 
   const setSchoolProfile = (updater: (prev: SchoolProfile) => SchoolProfile) => {
     setSchoolProfileState((prev) => updater(prev));
@@ -929,6 +1009,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         acceptanceFeeKobo: Number(t.acceptance_fee_kobo || prev.acceptanceFeeKobo),
         minimumCutoffScore: t.minimum_cutoff_score ?? prev.minimumCutoffScore,
         logoUrl: t.logo_url || prev.logoUrl,
+        maintenanceMode: t.maintenance_mode ?? prev.maintenanceMode ?? false,
+        maintenanceTitle: t.maintenance_title || prev.maintenanceTitle || 'Scheduled System Maintenance',
+        maintenanceMessage:
+          t.maintenance_message ||
+          prev.maintenanceMessage ||
+          'The college portal is currently undergoing scheduled maintenance and system upgrades. Normal access will resume shortly.',
+        maintenanceEta: t.maintenance_eta || prev.maintenanceEta || 'Within 2 hours',
       }));
   };
 
@@ -950,6 +1037,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             institutionName: b.institution_name || prev.institutionName,
             institutionAcronym: b.institution_acronym || prev.institutionAcronym,
             logoUrl: b.logo_url || prev.logoUrl,
+            campusAddress: b.campus_address || prev.campusAddress,
+            officialEmail: b.official_email || prev.officialEmail,
+            officialPhone: b.official_phone || prev.officialPhone,
+            maintenanceMode: b.maintenance_mode ?? prev.maintenanceMode ?? false,
+            maintenanceTitle: b.maintenance_title || prev.maintenanceTitle,
+            maintenanceMessage: b.maintenance_message || prev.maintenanceMessage,
+            maintenanceEta: b.maintenance_eta || prev.maintenanceEta,
           }));
         }
       } catch (err) {
@@ -1082,14 +1176,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         console.warn('[CampusOne] Supabase live hydration fallback active:', err);
       }
 
-      const [remoteDepartments, remoteCourses, remoteCandidates] = await Promise.all([
+      const [remoteDepartments, remoteCourses, remoteCandidates, remoteAvatars] = await Promise.all([
         loadRecords<DepartmentItem>('registry.departments'),
         loadRecords<CurriculumCourseItem>('registry.courses'),
         loadRecords<AdmissionCandidateItem>('admissions.candidates'),
+        loadRecords<{ id: string; url: string }>('registry.avatars'),
       ]);
       if (remoteDepartments) setDepartmentsState(remoteDepartments);
       if (remoteCourses) setCoursesState(remoteCourses);
       if (remoteCandidates) setCandidatesState(remoteCandidates);
+      if (remoteAvatars && remoteAvatars.length > 0) {
+        setAvatarDirectory((prev) => {
+          const next = { ...prev };
+          remoteAvatars.forEach((row) => {
+            if (row?.id && row?.url) next[row.id] = row.url;
+          });
+          return next;
+        });
+      }
     }
 
     loadSupabaseData();
@@ -1231,6 +1335,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (updates.acceptanceFeeKobo !== undefined) payload.acceptance_fee_kobo = updates.acceptanceFeeKobo;
       if (updates.minimumCutoffScore !== undefined) payload.minimum_cutoff_score = updates.minimumCutoffScore;
       if (updates.logoUrl !== undefined) payload.logo_url = updates.logoUrl;
+      if (updates.maintenanceMode !== undefined) payload.maintenance_mode = updates.maintenanceMode;
+      if (updates.maintenanceTitle !== undefined) payload.maintenance_title = updates.maintenanceTitle;
+      if (updates.maintenanceMessage !== undefined) payload.maintenance_message = updates.maintenanceMessage;
+      if (updates.maintenanceEta !== undefined) payload.maintenance_eta = updates.maintenanceEta;
 
       const { data: savedRows, error } = await supabase
         .from('tenant_settings')
@@ -1561,6 +1669,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return next;
     });
 
+    if (updates.avatarUrl !== undefined) {
+      registerPersonAvatar(
+        [persona.email, persona.matricNumber, updates.fullName || persona.fullName],
+        updates.avatarUrl
+      );
+    }
+
     const profilePayload: any = {
       id: session.userId,
       college_id: 'bethsaida',
@@ -1600,8 +1715,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { data: authData } = await supabase.auth.getUser();
     const myEmail = authData?.user?.email;
     const loaded: Record<string, Partial<PersonaProfile>> = {};
+    const profileAvatars: Record<string, string> = {};
     // Own row wins over other people who share the same role.
     [...data].sort((a: any, b: any) => Number(a.email === myEmail) - Number(b.email === myEmail)).forEach((p: any) => {
+      if (p.avatar_url) {
+        if (p.email) profileAvatars[normalizeAvatarKey(p.email)] = p.avatar_url;
+        if (p.matric_number) profileAvatars[normalizeAvatarKey(p.matric_number)] = p.avatar_url;
+        if (p.full_name) {
+          profileAvatars[normalizeAvatarKey(p.full_name)] = p.avatar_url;
+          profileAvatars[String(p.full_name).trim().toLowerCase()] = p.avatar_url;
+        }
+      }
       if (!p.role) return;
       loaded[p.role] = {
         fullName: p.full_name || undefined,
@@ -1614,6 +1738,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     });
     setCustomProfiles((prev) => ({ ...prev, ...loaded }));
+    if (Object.keys(profileAvatars).length > 0) {
+      setAvatarDirectory((prev) => ({ ...profileAvatars, ...prev }));
+    }
   };
 
   const addNotification = async (item: Omit<RealNotificationItem, 'id' | 'createdAt' | 'isRead' | 'time'>) => {
@@ -1989,6 +2116,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addNotification,
         markNotificationAsRead,
         markAllNotificationsAsRead,
+        resolveAvatarUrl,
+        registerPersonAvatar,
       }}
     >
       {children}

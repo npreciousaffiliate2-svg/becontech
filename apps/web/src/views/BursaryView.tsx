@@ -38,6 +38,8 @@ import {
   Trash2,
 } from 'lucide-react';
 import { formatNaira, nairaToKobo, FeeCategory, PaymentMethod } from '@campusone/contracts';
+import { exportToCsv, printInstitutionalDocument } from '../utils/documentExport.ts';
+import { PersonAvatar, pluralize } from '../components/common/PersonAvatar.tsx';
 
 /* ─── TYPES ─── */
 type BursaryTab = 'ledger' | 'receipts' | 'structure' | 'debtors' | 'reconciliation';
@@ -808,9 +810,12 @@ export const BursaryView: React.FC = () => {
       key: 'studentName',
       header: 'Student Name',
       render: (r: any) => (
-        <div>
-          <span className="font-semibold text-slate-900 block">{r.studentName}</span>
-          <span className="text-[11px] text-slate-500">{r.matricNumber}</span>
+        <div className="flex items-center gap-2.5">
+          <PersonAvatar name={r.studentName} code={r.matricNumber} size="sm" />
+          <div>
+            <span className="font-semibold text-slate-900 block">{r.studentName}</span>
+            <span className="text-[11px] text-slate-500">{r.matricNumber}</span>
+          </div>
         </div>
       ),
     },
@@ -868,9 +873,12 @@ export const BursaryView: React.FC = () => {
       key: 'studentName',
       header: 'Student & Department',
       render: (d: DebtorRecord) => (
-        <div>
-          <span className="font-semibold text-slate-900 block">{d.studentName}</span>
-          <span className="text-[11px] text-slate-500">{d.departmentName} • {d.level}</span>
+        <div className="flex items-center gap-2.5">
+          <PersonAvatar name={d.studentName} code={d.matricNumber} size="sm" />
+          <div>
+            <span className="font-semibold text-slate-900 block">{d.studentName}</span>
+            <span className="text-[11px] text-slate-500">{d.departmentName} • {d.level}</span>
+          </div>
         </div>
       ),
     },
@@ -969,7 +977,7 @@ export const BursaryView: React.FC = () => {
       header: 'Transactions',
       nowrap: true,
       render: (rec: ReconciliationRecord) => (
-        <span className="font-semibold text-slate-800">{rec.transactionsCount} Settlements</span>
+        <span className="font-semibold text-slate-800">{pluralize(rec.transactionsCount, 'Settlement')}</span>
       ),
     },
     {
@@ -1368,10 +1376,28 @@ export const BursaryView: React.FC = () => {
                 size="sm"
                 variant="secondary"
                 onClick={() => {
+                  exportToCsv({
+                    filename: `BCHT_Bank_Reconciliation_Statement_${new Date().toISOString().slice(0, 10)}.csv`,
+                    columns: [
+                      { key: 'date', header: 'Settlement Date' },
+                      { key: 'gatewayReference', header: 'Settlement Reference' },
+                      { key: 'gateway', header: 'Payment Gateway' },
+                      { key: 'transactionsCount', header: 'Transactions Count' },
+                      { key: 'grossAmountKobo', header: 'Gross Amount', format: (v) => formatNaira(Number(v)) },
+                      {
+                        key: 'fee',
+                        header: 'Gateway Charges',
+                        format: (_, r) => formatNaira(Math.max(0, Number(r.grossAmountKobo) - Number(r.netSettledKobo))),
+                      },
+                      { key: 'netSettledKobo', header: 'Net Bank Credit', format: (v) => formatNaira(Number(v)) },
+                      { key: 'status', header: 'Reconciliation Status' },
+                    ],
+                    data: filteredReconciliations,
+                  });
                   showToast({
-                    type: 'info',
-                    title: 'Reconciliation Statement Export',
-                    message: 'Exporting audited bank reconciliation statement for the Bursar.',
+                    type: 'success',
+                    title: 'Reconciliation Statement Exported',
+                    message: `Exported ${filteredReconciliations.length} bank settlement batches to CSV.`,
                   });
                 }}
                 leftIcon={<Download className="w-3.5 h-3.5" />}
@@ -1506,8 +1532,14 @@ export const BursaryView: React.FC = () => {
                 <h2 className="text-base font-bold text-slate-900 tracking-wide uppercase">
                   {schoolProfile?.institutionName || 'Bethsaida College of Health Technology'}
                 </h2>
-                <p className="text-[11px] text-slate-500">
-                  Accredited by {schoolProfile?.regulatoryCouncils?.join(' • ') || 'NBTE • CHPRBN • EHORECON • DTRBN • PCN • HRORBN'} • {schoolProfile?.campusAddress || 'Ikolaba Aladan layout, off Ayegun Yemetu Road, along CAC grammar school, Ogbomoso, Oyo State'}
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  {schoolProfile?.campusAddress || 'Ikolaba Aladan layout, off Ayegun Yemetu Road, along CAC grammar school, Ogbomoso, Oyo State'}
+                </p>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  Email: {schoolProfile?.officialEmail || 'info@becohtech.edu.ng'} &bull; Tel: {schoolProfile?.officialPhone || '+234 907 578 9045'} &bull; Web: {schoolProfile?.websiteUrl || 'www.becohtech.edu.ng'}
+                </p>
+                <p className="text-[10px] font-bold text-[#0F7640] uppercase tracking-wider mt-1">
+                  Bursary &amp; Treasury Directorate &bull; Official Payment Receipt
                 </p>
                 <div className="mt-2 inline-block px-3 py-1 bg-emerald-50 rounded-[4px] text-xs font-bold text-[#0F7640] border border-emerald-200 uppercase">
                   OFFICIAL RECEIPT NO: {selectedReceipt.receiptNumber}
@@ -1584,7 +1616,61 @@ export const BursaryView: React.FC = () => {
                 Close
               </Button>
               <Button
-                onClick={() => window.print()}
+                onClick={() => {
+                  if (!selectedReceipt) return;
+                  const amountFormatted =
+                    selectedReceipt.formattedAmount || formatNaira(selectedReceipt.amountKobo || 5500000);
+                  const categoryLabel = selectedReceipt.category
+                    ? selectedReceipt.category.replace('_', ' ').toUpperCase()
+                    : 'TUITION FEE';
+                  const paidDate = selectedReceipt.paidAt
+                    ? selectedReceipt.paidAt.replace('T', ' ').slice(0, 16)
+                    : '2026-11-13 14:20';
+                  const gatewayRef =
+                    selectedReceipt.gatewayReference ||
+                    `PSTK-${schoolProfile?.institutionAcronym || 'BCHT'}-8890214`;
+                  printInstitutionalDocument({
+                    title: `Official Payment Receipt — ${selectedReceipt.receiptNumber}`,
+                    badgeText: `OFFICIAL BURSARY RECEIPT NO: ${selectedReceipt.receiptNumber}`,
+                    referenceNo: gatewayRef,
+                    issuedDate: paidDate,
+                    schoolProfile,
+                    officeSubtitle: 'Bursary & Treasury Directorate • Double-Entry Verified Receipt',
+                    metaItems: [
+                      { label: 'Trainee Paid By', value: selectedReceipt.studentName, highlight: true },
+                      { label: 'Matriculation Number', value: selectedReceipt.matricNumber, highlight: true },
+                      { label: 'Programme & Level', value: `${selectedReceipt.programme || 'Health Technology'} (${selectedReceipt.level || '100 Level'})` },
+                      { label: 'Payment Channel', value: (selectedReceipt.paymentMethod || 'PAYSTACK').replace('_', ' ').toUpperCase() },
+                      { label: 'Gateway Reference', value: gatewayRef },
+                      { label: 'Amount Settled', value: amountFormatted, highlight: true },
+                    ],
+                    tableColumns: [
+                      { key: 'sn', header: 'S/N', align: 'center' },
+                      { key: 'description', header: 'Line Item Description', bold: true },
+                      { key: 'category', header: 'Fee Category', align: 'center' },
+                      { key: 'amount', header: 'Amount Settled', align: 'right', highlight: true },
+                    ],
+                    tableData: [
+                      {
+                        sn: 1,
+                        description:
+                          selectedReceipt.description ||
+                          `${schoolProfile?.activeSemester || 'Harmattan'} ${schoolProfile?.activeSession || '2026/2027'} Statutory Fee Settlement`,
+                        category: categoryLabel,
+                        amount: amountFormatted,
+                      },
+                    ],
+                    summaryNoteHtml: `
+                      <strong>Verification &amp; Audit Notice:</strong> This receipt is cryptographically signed in the College double-entry ledger.
+                      Verification Hash: <strong>${selectedReceipt.qrVerificationHash || gatewayRef}</strong> &bull; Issuer: ${selectedReceipt.issuer || 'Bursary Department'}.
+                    `,
+                    stampText: 'OFFICIALLY PAID & CLEARED',
+                    signatures: [
+                      { title: 'Student / Payer Signature', subtitle: selectedReceipt.studentName },
+                      { title: 'College Bursar', subtitle: schoolProfile?.institutionName || 'Bethsaida College of Health Tech' },
+                    ],
+                  });
+                }}
                 leftIcon={<Printer className="w-3.5 h-3.5" />}
                 className="whitespace-nowrap bg-[#0F7640] hover:bg-[#093322]"
               >

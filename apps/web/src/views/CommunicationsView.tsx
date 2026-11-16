@@ -39,6 +39,7 @@ import {
   Radio,
 } from 'lucide-react';
 import { formatNaira } from '@campusone/contracts';
+import { escapeHtml, printInstitutionalDocument } from '../utils/documentExport.ts';
 
 /* ─── TYPE DEFINITIONS ─── */
 export type ChannelType = 'SMS_AND_INAPP' | 'SMS_ONLY' | 'EMAIL_ONLY' | 'INAPP_ONLY';
@@ -1442,7 +1443,41 @@ export const CommunicationsView: React.FC = () => {
                 </>
               )}
               <Button
-                onClick={() => window.print()}
+                onClick={() => {
+                  if (!selectedNoticeForView) return;
+                  printInstitutionalDocument({
+                    title: `Official Circular — ${selectedNoticeForView.memoRef}`,
+                    badgeText: 'OFFICIAL ADMINISTRATIVE CIRCULAR & SENATE MEMO',
+                    referenceNo: selectedNoticeForView.memoRef,
+                    issuedDate: selectedNoticeForView.publishedDate,
+                    schoolProfile,
+                    officeSubtitle: 'Office of the Registrar & Academic Secretary',
+                    metaItems: [
+                      { label: 'Circular Reference', value: selectedNoticeForView.memoRef, highlight: true },
+                      { label: 'Category', value: selectedNoticeForView.category },
+                      { label: 'Priority Classification', value: selectedNoticeForView.priority, highlight: true },
+                      { label: 'Target Recipients', value: selectedNoticeForView.targetAudience },
+                      { label: 'Date of Release', value: selectedNoticeForView.publishedDate },
+                      { label: 'Authorizing Signatory', value: selectedNoticeForView.signedBy || 'Academic Registry' },
+                    ],
+                    bodyHtml: `
+                      <div style="margin-bottom:10px;">
+                        <span style="font-size:9.5px; text-transform:uppercase; color:#64748b; font-weight:700;">Subject Directive:</span>
+                        <div style="font-size:13px; font-weight:800; color:#0f172a; text-transform:uppercase; margin-top:2px;">
+                          ${escapeHtml(selectedNoticeForView.title)}
+                        </div>
+                      </div>
+                      <div class="callout-box" style="white-space:pre-line; line-height:1.65; font-size:11.5px;">
+                        ${escapeHtml(selectedNoticeForView.bodyContent)}
+                      </div>
+                    `,
+                    stampText: 'OFFICIAL REGISTRY SEAL',
+                    signatures: [
+                      { title: 'Registrar & Academic Secretary', subtitle: 'Academic Affairs Directorate' },
+                      { title: 'College Provost', subtitle: schoolProfile?.institutionName || 'Bethsaida College of Health Tech' },
+                    ],
+                  });
+                }}
                 leftIcon={<Printer className="w-3.5 h-3.5" />}
                 className="whitespace-nowrap bg-[#0F7640] hover:bg-[#093322]"
               >

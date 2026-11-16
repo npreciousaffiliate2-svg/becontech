@@ -30,7 +30,10 @@ import {
   Award,
   Layers,
   GraduationCap,
+  Download,
 } from 'lucide-react';
+import { escapeHtml, exportToCsv, printGraduationCertificate, printInstitutionalDocument, printStudentIdCards } from '../utils/documentExport.ts';
+import { PersonAvatar, PhotoUploadControl, pluralize } from '../components/common/PersonAvatar.tsx';
 
 interface Student {
   id: string;
@@ -57,10 +60,11 @@ interface Student {
   status: 'ACTIVE' | 'PROBATION' | 'SUSPENDED' | 'DEFERRED' | 'GRADUATED';
   statusReason?: string;
   dateEnrolled: string;
+  avatarUrl?: string;
 }
 
 // Industry Standard Code 128 / Code 39 Linear Barcode (Strictly font-sans)
-const Barcode: React.FC<{ value: string; className?: string }> = ({ value, className = '' }) => {
+const Barcode: React.FC<{ value: string; className?: string }> = ({ className = '' }) => {
   const bars = [
     2, 1, 2, 1, 1, 2, 1, 2, 2, 1, 1, 2, 2, 1, 1, 2, 1, 2, 2, 1, 2, 1, 1, 2,
     1, 2, 1, 1, 2, 1, 1, 2, 1, 1, 2, 2, 1, 2, 1, 2, 1, 1, 2, 1, 2, 1,
@@ -77,15 +81,12 @@ const Barcode: React.FC<{ value: string; className?: string }> = ({ value, class
           />
         ))}
       </div>
-      <span className="text-[9px] font-semibold tracking-wider text-slate-700 mt-0.5 font-sans">
-        *{value}*
-      </span>
     </div>
   );
 };
 
 export const StudentsView: React.FC = () => {
-  const { isDense, recordAudit, schoolProfile, departments, session, persona } = useApp();
+  const { isDense, recordAudit, schoolProfile, departments, candidates, session, persona, resolveAvatarUrl, registerPersonAvatar } = useApp();
   const isStudent = session.activeRole === 'STU' || session.activeRole === 'SPON';
   const studentMatric = persona?.matricNumber || 'CHE/2026/0014';
   const { showToast } = useToast();
@@ -114,6 +115,51 @@ export const StudentsView: React.FC = () => {
   // Modals State
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [selectedIdCard, setSelectedIdCard] = useState<Student | null>(null);
+  const [certificateStudent, setCertificateStudent] = useState<Student | null>(null);
+  const [flippedCards, setFlippedCards] = useState<Record<string, boolean>>({});
+  const [showAllBackSides, setShowAllBackSides] = useState(false);
+
+  const computeDiplomaClass = (cgpa: number): string => {
+    if (cgpa >= 3.5) return 'Distinction';
+    if (cgpa >= 3.0) return 'Upper Credit';
+    if (cgpa >= 2.5) return 'Lower Credit';
+    if (cgpa >= 2.0) return 'Pass';
+    return 'Academic Probation';
+  };
+
+  const handlePromoteStudentLevel = (student: Student) => {
+    const nextLevelMap: Record<string, { level: Student['level']; status: Student['status'] }> = {
+      '100 Level': { level: '200 Level', status: 'ACTIVE' },
+      '200 Level': { level: '300 Level', status: 'ACTIVE' },
+      '300 Level': { level: '300 Level', status: 'GRADUATED' },
+    };
+    const next = nextLevelMap[student.level] || { level: '300 Level', status: 'GRADUATED' };
+    const updated: Student = {
+      ...student,
+      level: next.level,
+      status: next.status,
+      statusReason:
+        next.status === 'GRADUATED'
+          ? 'Completed statutory training and clinical rotations; ratified for graduation by Academic Board.'
+          : `Promoted to ${next.level} in good academic standing.`,
+    };
+    setStudents((prev) => prev.map((s) => (s.id === student.id ? updated : s)));
+    setSelectedStudent(updated);
+    recordAudit(
+      next.status === 'GRADUATED' ? 'STUDENT_GRADUATED' : 'STUDENT_PROMOTED_LEVEL',
+      'SIS_STUDENT',
+      student.matricNumber,
+      { level: updated.level, status: updated.status }
+    );
+    showToast({
+      type: 'success',
+      title: next.status === 'GRADUATED' ? 'Trainee Graduated' : `Promoted to ${updated.level}`,
+      message:
+        next.status === 'GRADUATED'
+          ? `${student.fullName} (${student.matricNumber}) has been graduated. Diploma certificate is ready to issue.`
+          : `${student.fullName} has been promoted to ${updated.level}.`,
+    });
+  };
   const [statusStudent, setStatusStudent] = useState<Student | null>(null);
   const [isNewStudentOpen, setIsNewStudentOpen] = useState(false);
 
@@ -126,6 +172,13 @@ export const StudentsView: React.FC = () => {
   const handleSaveEditStudent = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingStudent) return;
+
+    if (editingStudent.avatarUrl !== undefined) {
+      registerPersonAvatar(
+        [editingStudent.fullName, editingStudent.email, editingStudent.matricNumber],
+        editingStudent.avatarUrl || ''
+      );
+    }
 
     setStudents((prev) =>
       prev.map((s) => (s.id === editingStudent.id ? editingStudent : s))
@@ -191,6 +244,7 @@ export const StudentsView: React.FC = () => {
     bloodGroup: 'O+',
     genotype: 'AA',
     hepatitisBStatus: 'VACCINATED',
+    avatarUrl: '',
   });
 
   // Master Trainees Registry
@@ -456,8 +510,12 @@ export const StudentsView: React.FC = () => {
       feesStatus: 'CLEARED',
       status: 'ACTIVE',
       dateEnrolled: new Date().toISOString().split('T')[0],
+      avatarUrl: newStudentForm.avatarUrl || undefined,
     };
 
+    if (newStudent.avatarUrl) {
+      registerPersonAvatar([newStudent.fullName, newStudent.email, newStudent.matricNumber], newStudent.avatarUrl);
+    }
     setStudents((prev) => [newStudent, ...prev]);
     setIsNewStudentOpen(false);
     showToast({
@@ -473,12 +531,17 @@ export const StudentsView: React.FC = () => {
     : students;
 
   const filteredStudents = scopedStudents.filter((s) => {
+    const q = searchQuery.toLowerCase();
     const matchesSearch =
-      s.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.matricNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.fullName.toLowerCase().includes(q) ||
+      s.matricNumber.toLowerCase().includes(q) ||
+      s.programme.toLowerCase().includes(q) ||
+      s.email.toLowerCase().includes(q) ||
       s.phone.includes(searchQuery);
     const matchesDept =
-      selectedDeptFilter === 'ALL' || s.departmentCode === selectedDeptFilter;
+      selectedDeptFilter === 'ALL' ||
+      s.departmentCode === selectedDeptFilter ||
+      s.programmeCode === selectedDeptFilter;
     const matchesLevel =
       selectedLevelFilter === 'ALL' || s.level === selectedLevelFilter;
     const matchesStatus =
@@ -501,11 +564,20 @@ export const StudentsView: React.FC = () => {
       key: 'fullName',
       header: 'Student Full Name',
       render: (s: Student) => (
-        <div className="whitespace-nowrap">
-          <p className="font-bold text-slate-900">{s.fullName}</p>
-          <span className="text-[11px] text-slate-500 font-medium">
-            {s.gender} • {s.stateOfOrigin} State • {s.phone}
-          </span>
+        <div className="flex items-center gap-2.5 whitespace-nowrap">
+          <PersonAvatar
+            name={s.fullName}
+            email={s.email}
+            matricNumber={s.matricNumber}
+            avatarUrl={s.avatarUrl}
+            size="sm"
+          />
+          <div>
+            <p className="font-bold text-slate-900">{s.fullName}</p>
+            <span className="text-[11px] text-slate-500 font-medium">
+              {s.gender} • {s.stateOfOrigin} State • {s.phone}
+            </span>
+          </div>
         </div>
       ),
     },
@@ -637,6 +709,38 @@ export const StudentsView: React.FC = () => {
         <div className="flex items-center gap-2">
           {!isStudent ? (
             <>
+              <Button
+                size="sm"
+                variant="secondary"
+                leftIcon={<Download className="w-3.5 h-3.5" />}
+                onClick={() => {
+                  exportToCsv({
+                    filename: `BCHT_Student_Directory_${new Date().toISOString().slice(0, 10)}.csv`,
+                    columns: [
+                      { key: 'matricNumber', header: 'Matriculation Number' },
+                      { key: 'fullName', header: 'Student Full Name' },
+                      { key: 'gender', header: 'Gender' },
+                      { key: 'programme', header: 'Programme' },
+                      { key: 'department', header: 'Department' },
+                      { key: 'level', header: 'Level' },
+                      { key: 'cgpa', header: 'CGPA', format: (v) => Number(v || 0).toFixed(2) },
+                      { key: 'feesStatus', header: 'Fees Status' },
+                      { key: 'clinicalClearance', header: 'Clinical Clearance' },
+                      { key: 'status', header: 'Enrollment Status' },
+                      { key: 'email', header: 'Email Address' },
+                      { key: 'phone', header: 'Phone Number' },
+                    ],
+                    data: filteredStudents,
+                  });
+                  showToast({
+                    type: 'success',
+                    title: 'Student Directory Exported',
+                    message: `Exported ${filteredStudents.length} student records to CSV.`,
+                  });
+                }}
+              >
+                Export CSV
+              </Button>
               <Button
                 size="sm"
                 variant="secondary"
@@ -798,11 +902,15 @@ export const StudentsView: React.FC = () => {
                 <Select
                   options={[
                     { value: 'ALL', label: 'All Departments' },
-                    { value: 'CHE', label: 'Community Health' },
-                    { value: 'MLT', label: 'Medical Laboratory' },
-                    { value: 'PHT', label: 'Pharmacy Technician' },
-                    { value: 'HIM', label: 'Health Information' },
-                    { value: 'EHT', label: 'Environmental Health' },
+                    ...(departments && departments.length > 0
+                      ? departments.map((d) => ({ value: d.code, label: `${d.name} (${d.code})` }))
+                      : [
+                          { value: 'CHD', label: 'Community Health' },
+                          { value: 'DHD', label: 'Dental Health' },
+                          { value: 'PHT', label: 'Pharmacy Technician' },
+                          { value: 'HIM', label: 'Health Information' },
+                          { value: 'EHD', label: 'Environmental Health' },
+                        ]),
                   ]}
                   value={selectedDeptFilter}
                   onChange={(val) => setSelectedDeptFilter(val)}
@@ -841,7 +949,7 @@ export const StudentsView: React.FC = () => {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-2">
                 <span className="font-bold text-slate-900">Enrolled Health Trainees Directory</span>
                 <span className="text-xs text-slate-500 font-medium shrink-0">
-                  Showing {filteredStudents.length} of {students.length} students
+                  Showing {filteredStudents.length} of {pluralize(students.length, 'student')}
                 </span>
               </div>
             }
@@ -849,6 +957,7 @@ export const StudentsView: React.FC = () => {
             <Table
               columns={studentColumns}
               data={filteredStudents}
+              searchable={false}
               keyExtractor={(s) => s.id}
               isDense={isDense}
             />
@@ -906,9 +1015,18 @@ export const StudentsView: React.FC = () => {
                   key: 'fullName',
                   header: 'Student Name',
                   render: (s: Student) => (
-                    <div className="whitespace-nowrap">
-                      <p className="font-bold text-slate-900">{s.fullName}</p>
-                      <span className="text-[11px] text-slate-500">{s.programmeCode} • {s.level}</span>
+                    <div className="flex items-center gap-2.5 whitespace-nowrap">
+                      <PersonAvatar
+                        name={s.fullName}
+                        email={s.email}
+                        matricNumber={s.matricNumber}
+                        avatarUrl={s.avatarUrl}
+                        size="sm"
+                      />
+                      <div>
+                        <p className="font-bold text-slate-900">{s.fullName}</p>
+                        <span className="text-[11px] text-slate-500">{s.programmeCode} • {s.level}</span>
+                      </div>
                     </div>
                   ),
                 },
@@ -943,21 +1061,39 @@ export const StudentsView: React.FC = () => {
                   header: 'Action',
                   align: 'right' as const,
                   render: (s: Student) => (
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => {
-                        setStatusStudent(s);
-                        setStatusForm({
-                          newStatus: s.status === 'ACTIVE' ? 'PROBATION' : 'ACTIVE',
-                          senateMemo: 'SENATE/2026/M04',
-                          effectiveDate: new Date().toISOString().split('T')[0],
-                          reason: s.statusReason || '',
-                        });
-                      }}
-                    >
-                      Change Status
-                    </Button>
+                    <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={s.status !== 'GRADUATED'}
+                        title={
+                          s.status === 'GRADUATED'
+                            ? 'Issue Official Graduation Certificate'
+                            : 'Certificate can only be issued after student status is GRADUATED'
+                        }
+                        leftIcon={<Award className="w-3.5 h-3.5" />}
+                        onClick={() => {
+                          if (s.status === 'GRADUATED') setCertificateStudent(s);
+                        }}
+                      >
+                        Issue Certificate
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => {
+                          setStatusStudent(s);
+                          setStatusForm({
+                            newStatus: s.status === 'ACTIVE' ? 'PROBATION' : 'ACTIVE',
+                            senateMemo: 'SENATE/2026/M04',
+                            effectiveDate: new Date().toISOString().split('T')[0],
+                            reason: s.statusReason || '',
+                          });
+                        }}
+                      >
+                        Change Status
+                      </Button>
+                    </div>
                   ),
                 },
               ]}
@@ -972,101 +1108,221 @@ export const StudentsView: React.FC = () => {
       {/* ─── TAB 3: Student ID Card Studio ─── */}
       {activeTab === 'id_cards' && (
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-4 rounded-[4px] border border-slate-200 shadow-sm">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white p-4 rounded-[4px] border border-slate-200 shadow-sm">
             <div>
               <h3 className="font-bold text-slate-900 text-sm">Print-Ready Student PVC ID Cards</h3>
               <p className="text-xs text-slate-500">
                 College credential conforming to clinical hospital posting and examination verification protocols.
               </p>
             </div>
-            <Button
-              size="sm"
-              leftIcon={<Printer className="w-3.5 h-3.5" />}
-              onClick={() => {
-                setSelectedIdCard(students[0]);
-              }}
-            >
-              Batch Print PVC Cards
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative w-full sm:w-56">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search student or matric..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full h-9 pl-9 pr-3 text-xs rounded-[4px] border border-slate-300 focus:outline-none focus:ring-1 focus:ring-[#0F7640] font-sans"
+                />
+              </div>
+              <div className="w-44">
+                <Select
+                  options={[
+                    { value: 'ALL', label: 'All Departments' },
+                    ...(departments || []).map((d) => ({ value: d.code, label: `${d.name} (${d.code})` })),
+                  ]}
+                  value={selectedDeptFilter}
+                  onChange={(val) => setSelectedDeptFilter(val)}
+                />
+              </div>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  const next = !showAllBackSides;
+                  setShowAllBackSides(next);
+                  setFlippedCards({});
+                }}
+              >
+                {showAllBackSides ? 'Show Front Sides' : 'View Back Sides'}
+              </Button>
+              <Button
+                size="sm"
+                leftIcon={<Printer className="w-3.5 h-3.5" />}
+                onClick={() => {
+                  printStudentIdCards(
+                    filteredStudents.map((s) => ({
+                      ...s,
+                      avatarUrl: resolveAvatarUrl({
+                        avatarUrl: s.avatarUrl,
+                        email: s.email,
+                        matricNumber: s.matricNumber,
+                        name: s.fullName,
+                      }),
+                    })),
+                    schoolProfile
+                  );
+                }}
+              >
+                Batch Print Front &amp; Back ({filteredStudents.length})
+              </Button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {students.map((s) => (
-              <div
-                key={s.id}
-                className="bg-white rounded-[4px] border border-slate-200 p-4 shadow-sm space-y-3 flex flex-col justify-between"
-              >
-                {/* ID Card Visual Representation */}
-                <div className="bg-slate-50 border border-slate-200 rounded-[4px] overflow-hidden text-slate-900 shadow-sm">
-                  {/* Card Green Header */}
-                  <div className="bg-[#0F7640] text-white p-2.5 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <img
-                        src={schoolProfile?.logoUrl || '/BeonTech-Logo.png'}
-                        alt="Logo"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = '/BeonTech-Logo.png';
-                        }}
-                        className="w-6 h-6 rounded-[2px] bg-white object-contain p-0.5 shrink-0"
-                      />
-                      <div className="min-w-0">
-                        <span className="font-extrabold text-[11px] uppercase tracking-wider block truncate">
-                          {schoolProfile?.institutionName?.replace(' Ltd', '') || 'Bethsaida College'}
-                        </span>
-                        <span className="text-[9px] text-emerald-100 block truncate">
-                          {schoolProfile?.institutionalSector || 'Health Technology'}
-                        </span>
-                      </div>
-                    </div>
-                    <span className="text-[9px] font-bold bg-white text-[#0F7640] px-1.5 py-0.5 rounded-[2px] uppercase shrink-0">
-                      Student
+            {filteredStudents.map((s) => {
+              const isBack = flippedCards[s.id] !== undefined ? flippedCards[s.id] : showAllBackSides;
+              const hasMatric = Boolean(s.matricNumber && s.matricNumber.trim() && s.matricNumber !== '—');
+              const matricDisplay = hasMatric ? s.matricNumber : 'MATRIC PENDING';
+              const instName = schoolProfile?.institutionName?.replace(' Ltd', '') || 'Bethsaida College of Health Technology';
+
+              return (
+                <div
+                  key={s.id}
+                  className="bg-white rounded-[4px] border border-slate-200 p-4 shadow-sm space-y-3 flex flex-col justify-between"
+                >
+                  {/* Side Switcher Pill Bar */}
+                  <div className="flex items-center justify-between text-[10px]">
+                    <span className="font-bold uppercase tracking-wider text-slate-500">
+                      {isBack ? 'Back Side (Reverse)' : 'Front Side (Obverse)'}
                     </span>
-                  </div>
-
-                  {/* Card Body */}
-                  <div className="p-3 space-y-2">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-14 bg-slate-200 rounded-[2px] border border-slate-300 flex items-center justify-center text-[10px] text-slate-500 font-bold uppercase shrink-0">
-                        Photo
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-bold text-xs text-slate-900 truncate font-sans">{s.fullName}</p>
-                        <p className="font-bold text-[11px] text-[#0F7640] font-sans mt-0.5">{s.matricNumber}</p>
-                        <p className="text-[10px] text-slate-500 truncate mt-0.5">{s.programme}</p>
-                        <p className="text-[10px] text-slate-600 font-medium mt-0.5">
-                          {s.level} • Session {schoolProfile?.activeSession || '2026/2027'}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="pt-2 border-t border-slate-200 flex items-center justify-between gap-2">
-                      <Barcode value={s.matricNumber} className="scale-90 origin-left" />
-                      <div className="text-right shrink-0">
-                        <span className="text-[8px] text-slate-400 block uppercase font-bold tracking-wider">
-                          Expiration
-                        </span>
-                        <span className="text-[10px] font-extrabold text-slate-800 whitespace-nowrap">
-                          31 Dec 2028
-                        </span>
-                      </div>
+                    <div className="inline-flex rounded-[4px] border border-slate-200 p-0.5 bg-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => setFlippedCards((prev) => ({ ...prev, [s.id]: false }))}
+                        className={`px-2 py-0.5 rounded-[3px] font-bold transition-colors ${
+                          !isBack ? 'bg-[#0F7640] text-white' : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        Front
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFlippedCards((prev) => ({ ...prev, [s.id]: true }))}
+                        className={`px-2 py-0.5 rounded-[3px] font-bold transition-colors ${
+                          isBack ? 'bg-[#0F7640] text-white' : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        Back
+                      </button>
                     </div>
                   </div>
-                </div>
 
-                {/* Card Actions */}
-                <div className="pt-2 flex items-center justify-between gap-2 border-t border-slate-100">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="w-full"
-                    leftIcon={<Printer className="w-3.5 h-3.5" />}
-                    onClick={() => setSelectedIdCard(s)}
-                  >
-                    Print Plastic Card
-                  </Button>
+                  {!isBack ? (
+                    /* FRONT SIDE VISUAL REPRESENTATION */
+                    <div className="bg-slate-50 border border-slate-200 rounded-[4px] overflow-hidden text-slate-900 shadow-sm">
+                      {/* Card Green Header */}
+                      <div className="bg-[#0F7640] text-white p-2.5 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <img
+                            src={schoolProfile?.logoUrl || '/BeonTech-Logo.png'}
+                            alt="Logo"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = '/BeonTech-Logo.png';
+                            }}
+                            className="w-6 h-6 rounded-[2px] bg-white object-contain p-0.5 shrink-0"
+                          />
+                          <div className="min-w-0">
+                            <span className="font-extrabold text-[11px] uppercase tracking-wider block truncate">
+                              {instName}
+                            </span>
+                            <span className="text-[9px] text-emerald-100 block truncate">
+                              {schoolProfile?.institutionalSector || 'Health Technology'}
+                            </span>
+                          </div>
+                        </div>
+                        <span className="text-[9px] font-bold bg-white text-[#0F7640] px-1.5 py-0.5 rounded-[2px] uppercase shrink-0">
+                          Student
+                        </span>
+                      </div>
+
+                      {/* Card Body */}
+                      <div className="p-3 space-y-2">
+                        <div className="flex items-center gap-3">
+                          <PersonAvatar
+                            name={s.fullName}
+                            email={s.email}
+                            matricNumber={s.matricNumber}
+                            avatarUrl={s.avatarUrl}
+                            size="idcard"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="font-bold text-xs text-slate-900 truncate font-sans">{s.fullName}</p>
+                            <p className="font-extrabold text-[11px] text-[#0F7640] font-sans mt-0.5">{matricDisplay}</p>
+                            <p className="text-[10px] text-slate-600 font-medium truncate mt-0.5">
+                              {(s.programme || '').replace(/\s*\([^)]*\)\s*/g, '').trim()}
+                            </p>
+                            <p className="text-[10px] text-slate-700 font-semibold truncate mt-0.5">
+                              {s.level} &bull; Session {(schoolProfile?.activeSession || '2026/2027').replace(' Academic Session', '')}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-slate-200 flex items-center justify-between gap-2">
+                          <Barcode value={matricDisplay} className="scale-90 origin-left" />
+                          <div className="text-right shrink-0 flex flex-col items-end leading-none">
+                            <span className="text-[8px] text-slate-400 uppercase font-bold tracking-wider leading-none">
+                              Expires
+                            </span>
+                            <span className="text-[10px] font-extrabold text-slate-800 whitespace-nowrap leading-tight">
+                              31 Dec 2028
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    /* BACK SIDE VISUAL REPRESENTATION */
+                    <div className="bg-slate-50 border border-slate-200 rounded-[4px] overflow-hidden text-slate-900 shadow-sm flex flex-col justify-between">
+                      <div className="bg-[#093322] text-white py-1.5 px-3 text-center">
+                        <span className="text-[9px] font-extrabold uppercase tracking-wider">
+                          Official Property of {instName}
+                        </span>
+                      </div>
+                      <div className="p-3 space-y-2.5 text-[10px]">
+                        <div className="p-2 bg-white border border-slate-200 rounded-[4px] text-slate-700 leading-relaxed">
+                          <strong className="text-slate-900 uppercase">If Found / Return Notice:</strong> This card is
+                          non-transferable and must be presented on demand to College Security or Exam Officers. If lost and
+                          found, please return to the <strong>Office of the Registrar</strong> at{' '}
+                          {schoolProfile?.campusAddress || 'Ogbomoso, Oyo State'} or call{' '}
+                          <strong>{schoolProfile?.officialPhone || '+234 907 578 9045'}</strong>.
+                        </div>
+                        <div className="pt-2 border-t border-slate-200 grid grid-cols-2 gap-3 items-end">
+                          <div>
+                            <div className="h-5 border-b border-slate-400 mb-0.5"></div>
+                            <span className="text-[8px] font-bold uppercase text-slate-500 block">
+                              Holder&apos;s Signature
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <div className="h-5 border-b border-slate-400 mb-0.5 flex items-end justify-end">
+                              <span className="text-[9px] italic font-bold text-[#0F7640]">Registrar</span>
+                            </div>
+                            <span className="text-[8px] font-bold uppercase text-slate-500 block">
+                              Authorized Signature
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Card Actions */}
+                  <div className="pt-2 flex items-center justify-between gap-2 border-t border-slate-100">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="w-full"
+                      leftIcon={<Printer className="w-3.5 h-3.5" />}
+                      onClick={() => setSelectedIdCard(s)}
+                    >
+                      Preview &amp; Print Duplex Card
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -1096,9 +1352,18 @@ export const StudentsView: React.FC = () => {
                 key: 'fullName',
                 header: 'Trainee Name',
                 render: (s: Student) => (
-                  <div className="whitespace-nowrap">
-                    <p className="font-bold text-slate-900">{s.fullName}</p>
-                    <span className="text-[11px] text-slate-500">{s.programmeCode} • {s.level}</span>
+                  <div className="flex items-center gap-2.5 whitespace-nowrap">
+                    <PersonAvatar
+                      name={s.fullName}
+                      email={s.email}
+                      matricNumber={s.matricNumber}
+                      avatarUrl={s.avatarUrl}
+                      size="sm"
+                    />
+                    <div>
+                      <p className="font-bold text-slate-900">{s.fullName}</p>
+                      <span className="text-[11px] text-slate-500">{s.programmeCode} • {s.level}</span>
+                    </div>
                   </div>
                 ),
               },
@@ -1234,6 +1499,25 @@ export const StudentsView: React.FC = () => {
       >
         {selectedStudent && (
           <div className="space-y-4 text-xs text-slate-700">
+            <div className="flex items-center gap-3.5 p-3.5 bg-white border border-slate-200 rounded-[4px] shadow-xs">
+              <PersonAvatar
+                name={selectedStudent.fullName}
+                email={selectedStudent.email}
+                matricNumber={selectedStudent.matricNumber}
+                avatarUrl={selectedStudent.avatarUrl}
+                size="lg"
+              />
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm font-bold text-slate-900 truncate">{selectedStudent.fullName}</h3>
+                <p className="text-xs font-bold text-[#0F7640]">{selectedStudent.matricNumber}</p>
+                <p className="text-[11px] text-slate-500 truncate">
+                  {selectedStudent.programme} • {selectedStudent.level}
+                </p>
+              </div>
+              <Badge variant={selectedStudent.status === 'ACTIVE' ? 'success' : 'warning'}>
+                {selectedStudent.status}
+              </Badge>
+            </div>
             {/* Top Stat Summary */}
             <div className="bg-slate-50 p-4 rounded-[4px] border border-slate-200 grid grid-cols-2 sm:grid-cols-4 gap-3 shadow-sm">
               <div>
@@ -1325,6 +1609,93 @@ export const StudentsView: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {/* Academic Journey & Progression Tracker */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-900 text-xs uppercase tracking-wider block">
+                  Academic Journey &amp; Milestone Progression
+                </span>
+                <div className="flex items-center gap-1.5">
+                  {!isStudent && selectedStudent.status !== 'GRADUATED' && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => handlePromoteStudentLevel(selectedStudent)}
+                    >
+                      {selectedStudent.level === '300 Level' ? 'Graduate Student' : 'Promote to Next Level'}
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    disabled={selectedStudent.status !== 'GRADUATED'}
+                    title={
+                      selectedStudent.status === 'GRADUATED'
+                        ? 'Issue Official Graduation Certificate'
+                        : 'Certificate is only active for students who have graduated'
+                    }
+                    leftIcon={<Award className="w-3.5 h-3.5" />}
+                    onClick={() => {
+                      if (selectedStudent.status !== 'GRADUATED') return;
+                      setCertificateStudent(selectedStudent);
+                      setSelectedStudent(null);
+                    }}
+                  >
+                    Issue Certificate
+                  </Button>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 p-3 bg-slate-50 border border-slate-200 rounded-[4px]">
+                {[
+                  {
+                    step: '1. Matriculated',
+                    detail: selectedStudent.matricNumber,
+                    done: true,
+                  },
+                  {
+                    step: '2. 100L Foundation',
+                    detail: 'Core Sciences Passed',
+                    done: true,
+                  },
+                  {
+                    step: '3. 200L Clinicals',
+                    detail: selectedStudent.level === '100 Level' ? 'Upcoming' : 'In Progress / Passed',
+                    done: selectedStudent.level !== '100 Level' || selectedStudent.status === 'GRADUATED',
+                  },
+                  {
+                    step: '4. 300L & Board',
+                    detail:
+                      selectedStudent.level === '300 Level' || selectedStudent.status === 'GRADUATED'
+                        ? 'Final Year Active'
+                        : 'Pending 300L',
+                    done: selectedStudent.level === '300 Level' || selectedStudent.status === 'GRADUATED',
+                  },
+                  {
+                    step: '5. Graduation',
+                    detail:
+                      selectedStudent.status === 'GRADUATED'
+                        ? `Certified (${computeDiplomaClass(selectedStudent.cgpa)})`
+                        : `Track: ${computeDiplomaClass(selectedStudent.cgpa)}`,
+                    done: selectedStudent.status === 'GRADUATED',
+                  },
+                ].map((m, idx) => (
+                  <div
+                    key={idx}
+                    className={`p-2 rounded-[4px] border text-[11px] ${
+                      m.done
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-950'
+                        : 'bg-white border-slate-200 text-slate-500'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between font-bold">
+                      <span>{m.step}</span>
+                      {m.done && <CheckCircle2 className="w-3.5 h-3.5 text-[#0F7640] shrink-0" />}
+                    </div>
+                    <span className="block text-[10px] mt-0.5 truncate">{m.detail}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </Modal>
@@ -1342,6 +1713,19 @@ export const StudentsView: React.FC = () => {
           size="lg"
         >
           <form onSubmit={handleSaveEditStudent} className="space-y-4 text-xs font-sans">
+            <PhotoUploadControl
+              label="Trainee Passport Photograph"
+              name={editingStudent.fullName}
+              value={
+                resolveAvatarUrl({
+                  avatarUrl: editingStudent.avatarUrl,
+                  email: editingStudent.email,
+                  matricNumber: editingStudent.matricNumber,
+                  name: editingStudent.fullName,
+                }) || ''
+              }
+              onChange={(url) => setEditingStudent({ ...editingStudent, avatarUrl: url })}
+            />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Input
                 label="Full Legal Name"
@@ -1491,17 +1875,38 @@ export const StudentsView: React.FC = () => {
         </Modal>
       )}
 
-      {/* ─── MODAL 2: Print-Ready Plastic ID Card Preview ─── */}
+      {/* ─── MODAL 2: Print-Ready Plastic ID Card Preview (Front & Back Duplex) ─── */}
       <Modal
         isOpen={Boolean(selectedIdCard)}
         onClose={() => setSelectedIdCard(null)}
-        title="Print-Ready Student ID Card"
-        description="College credential compliant with clinical posting verification requirements."
-        size="md"
+        title="Print-Ready Student PVC ID Card (Front & Back)"
+        description="Duplex CR80 college credential with matriculation number, return instructions, and signature blocks."
+        size="lg"
         footer={
           <div className="flex items-center justify-end gap-2 w-full">
-            <Button size="sm" leftIcon={<Printer className="w-3.5 h-3.5" />} onClick={() => window.print()}>
-              Print Plastic Card
+            <Button
+              size="sm"
+              leftIcon={<Printer className="w-3.5 h-3.5" />}
+              onClick={() => {
+                if (selectedIdCard) {
+                  printStudentIdCards(
+                    [
+                      {
+                        ...selectedIdCard,
+                        avatarUrl: resolveAvatarUrl({
+                          avatarUrl: selectedIdCard.avatarUrl,
+                          email: selectedIdCard.email,
+                          matricNumber: selectedIdCard.matricNumber,
+                          name: selectedIdCard.fullName,
+                        }),
+                      },
+                    ],
+                    schoolProfile
+                  );
+                }
+              }}
+            >
+              Print Front &amp; Back Plastic Card
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setSelectedIdCard(null)}>
               Close
@@ -1509,67 +1914,125 @@ export const StudentsView: React.FC = () => {
           </div>
         }
       >
-        {selectedIdCard && (
-          <div className="flex flex-col items-center py-3">
-            <div className="w-full max-w-sm bg-white border border-slate-300 rounded-[4px] shadow-md overflow-hidden text-slate-900 font-sans">
-              {/* Card Green Top Header with Official Logo */}
-              <div className="bg-[#0F7640] text-white p-3 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <img
-                    src={schoolProfile?.logoUrl || '/BeonTech-Logo.png'}
-                    alt="College Crest"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = '/BeonTech-Logo.png';
-                    }}
-                    className="w-8 h-8 rounded-[2px] bg-white object-contain p-0.5 shrink-0 shadow-xs"
-                  />
-                  <div className="min-w-0">
-                    <h3 className="font-extrabold text-xs uppercase tracking-wider truncate font-sans">
-                      {schoolProfile?.institutionName?.replace(' Ltd', '') || 'Bethsaida College'}
-                    </h3>
-                    <p className="text-[10px] text-emerald-100 truncate font-sans">
-                      {schoolProfile?.institutionalSector || 'College of Health Technology'}
-                    </p>
+        {selectedIdCard && (() => {
+          const hasMatric = Boolean(selectedIdCard.matricNumber && selectedIdCard.matricNumber.trim() && selectedIdCard.matricNumber !== '—');
+          const matricDisplay = hasMatric ? selectedIdCard.matricNumber : 'MATRIC PENDING';
+          const instName = schoolProfile?.institutionName?.replace(' Ltd', '') || 'Bethsaida College of Health Technology';
+
+          return (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-2">
+              {/* FRONT SIDE */}
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                  Front Side (Obverse)
+                </span>
+                <div className="w-full bg-white border border-slate-300 rounded-[4px] shadow-sm overflow-hidden text-slate-900 font-sans">
+                  <div className="bg-[#0F7640] text-white p-3 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <img
+                        src={schoolProfile?.logoUrl || '/BeonTech-Logo.png'}
+                        alt="College Crest"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = '/BeonTech-Logo.png';
+                        }}
+                        className="w-8 h-8 rounded-[2px] bg-white object-contain p-0.5 shrink-0 shadow-xs"
+                      />
+                      <div className="min-w-0">
+                        <h3 className="font-extrabold text-xs uppercase tracking-wider truncate font-sans">
+                          {instName}
+                        </h3>
+                        <p className="text-[10px] text-emerald-100 truncate font-sans">
+                          {schoolProfile?.institutionalSector || 'College of Health Technology'}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-bold bg-white text-[#0F7640] px-2 py-0.5 rounded-[2px] uppercase shrink-0">
+                      Student
+                    </span>
+                  </div>
+
+                  <div className="p-4 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <PersonAvatar
+                        name={selectedIdCard.fullName}
+                        email={selectedIdCard.email}
+                        matricNumber={selectedIdCard.matricNumber}
+                        avatarUrl={selectedIdCard.avatarUrl}
+                        size="xl"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-bold text-sm text-slate-900 truncate font-sans">{selectedIdCard.fullName}</p>
+                        <p className="font-extrabold text-xs text-[#0F7640] font-sans mt-0.5">{matricDisplay}</p>
+                        <p className="text-[11px] text-slate-600 font-medium truncate mt-0.5">
+                          {(selectedIdCard.programme || '').replace(/\s*\([^)]*\)\s*/g, '').trim()}
+                        </p>
+                        <p className="text-[11px] text-slate-700 font-semibold truncate mt-0.5">
+                          {selectedIdCard.level} &bull; Session {(schoolProfile?.activeSession || '2026/2027').replace(' Academic Session', '')}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-200 flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <Barcode value={matricDisplay} />
+                      </div>
+                      <div className="text-right shrink-0 flex flex-col items-end leading-none">
+                        <span className="text-[8px] text-slate-400 uppercase font-bold tracking-wider leading-none">
+                          Expires
+                        </span>
+                        <span className="text-xs font-extrabold text-slate-800 whitespace-nowrap leading-tight">
+                          31 Dec 2028
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <span className="text-[10px] font-bold bg-white text-[#0F7640] px-2 py-0.5 rounded-[2px] uppercase shrink-0">
-                  Student
-                </span>
               </div>
 
-              {/* Card Body */}
-              <div className="p-4 space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-16 h-20 bg-slate-100 border border-slate-300 rounded-[2px] flex items-center justify-center text-xs text-slate-400 font-bold uppercase shrink-0">
-                    Photo
+              {/* BACK SIDE */}
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                  Back Side (Reverse)
+                </span>
+                <div className="w-full bg-white border border-slate-300 rounded-[4px] shadow-sm overflow-hidden text-slate-900 font-sans flex flex-col justify-between h-[calc(100%-22px)]">
+                  <div className="bg-[#093322] text-white py-2 px-3 text-center">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider">
+                      Official Property of {instName}
+                    </span>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-bold text-sm text-slate-900 truncate font-sans">{selectedIdCard.fullName}</p>
-                    <p className="font-extrabold text-xs text-[#0F7640] font-sans mt-0.5">{selectedIdCard.matricNumber}</p>
-                    <p className="text-[11px] text-slate-600 truncate mt-0.5">{selectedIdCard.programme}</p>
-                    <p className="text-[11px] text-slate-600 font-semibold mt-1">
-                      {selectedIdCard.level} • Academic Session {schoolProfile?.activeSession || '2026/2027'}
-                    </p>
-                  </div>
-                </div>
+                  <div className="p-4 space-y-3 text-xs flex-1 flex flex-col justify-between">
+                    <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-[4px] text-[11px] text-slate-700 leading-relaxed">
+                      <strong className="text-slate-900 uppercase">Lost &amp; Found Return Notice:</strong> This identity
+                      card remains the official property of <strong>{instName}</strong>. It is non-transferable and must be
+                      presented on demand to College Security, Clinical Preceptors, or Examination Invigilators. If found,
+                      please return to the <strong>Office of the Registrar</strong> at{' '}
+                      {schoolProfile?.campusAddress || 'Ogbomoso, Oyo State'}, the nearest Police Station, or call{' '}
+                      <strong>{schoolProfile?.officialPhone || '+234 907 578 9045'}</strong> (
+                      {schoolProfile?.officialEmail || 'registrar@becohtech.edu.ng'}).
+                    </div>
 
-                <div className="pt-3 border-t border-slate-200 flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <Barcode value={selectedIdCard.matricNumber} />
-                  </div>
-                  <div className="text-right shrink-0">
-                    <span className="text-[9px] text-slate-400 block uppercase font-bold tracking-wider">
-                      Expiration
-                    </span>
-                    <span className="text-xs font-extrabold text-slate-800 block mt-0.5 whitespace-nowrap">
-                      31 Dec 2028
-                    </span>
+                    <div className="pt-3 border-t border-slate-200 grid grid-cols-2 gap-4 items-end">
+                      <div>
+                        <div className="h-6 border-b border-slate-500 mb-1"></div>
+                        <span className="text-[9px] font-bold uppercase text-slate-600 block">
+                          Holder&apos;s Signature
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <div className="h-6 border-b border-slate-500 mb-1 flex items-end justify-end">
+                          <span className="text-[10px] italic font-bold text-[#0F7640]">Registrar &amp; Secretary</span>
+                        </div>
+                        <span className="text-[9px] font-bold uppercase text-slate-600 block">
+                          Authorized Signature
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </Modal>
 
       {/* ─── MODAL 3: Student Status Transition Workflow ─── */}
@@ -1647,6 +2110,42 @@ export const StudentsView: React.FC = () => {
         }
       >
         <form onSubmit={handleAddNewStudent} className="space-y-3.5 text-xs">
+          {candidates && candidates.length > 0 && (
+            <Select
+              label="Import from Admitted Candidates (Optional)"
+              placeholder="Search admitted applicant to auto-fill..."
+              options={candidates
+                .filter((c) => c.status === 'ADMITTED' || c.status === 'ENROLLED' || c.status === 'SCREENED')
+                .map((c) => ({
+                  value: c.id,
+                  label: `${c.fullName} (${c.applicationNumber})`,
+                  description: `${c.programme} • ${c.stateOfOrigin} State • ${c.phone}`,
+                  avatarUrl: resolveAvatarUrl({ avatarUrl: c.avatarUrl, email: c.email, name: c.fullName }) || '',
+                }))}
+              value=""
+              onChange={(candId) => {
+                const cand = candidates.find((c) => c.id === candId);
+                if (cand) {
+                  setNewStudentForm((prev) => ({
+                    ...prev,
+                    fullName: cand.fullName,
+                    email: cand.email,
+                    phone: cand.phone,
+                    gender: cand.gender,
+                    programmeCode: cand.programmeCode,
+                    stateOfOrigin: cand.stateOfOrigin,
+                    avatarUrl: resolveAvatarUrl({ avatarUrl: cand.avatarUrl, email: cand.email, name: cand.fullName }) || '',
+                  }));
+                }
+              }}
+            />
+          )}
+          <PhotoUploadControl
+            label="Trainee Passport Photograph"
+            name={newStudentForm.fullName}
+            value={newStudentForm.avatarUrl}
+            onChange={(url) => setNewStudentForm({ ...newStudentForm, avatarUrl: url })}
+          />
           <Input
             label="Student Full Name"
             placeholder="e.g. Victoria Olusola"
@@ -1733,6 +2232,109 @@ export const StudentsView: React.FC = () => {
             />
           </div>
         </form>
+      </Modal>
+
+      {/* ─── MODAL 7: Official College Diploma & Graduation Certificate ─── */}
+      <Modal
+        isOpen={Boolean(certificateStudent)}
+        onClose={() => setCertificateStudent(null)}
+        title="Official College Diploma & Graduation Certificate"
+        description="Ceremonial graduation credential issued by the Academic Board and College Provost."
+        size="lg"
+        footer={
+          <div className="flex items-center justify-end gap-2 w-full">
+            <Button
+              size="sm"
+              leftIcon={<Printer className="w-3.5 h-3.5" />}
+              onClick={() => {
+                if (!certificateStudent) return;
+                const diplomaClass = computeDiplomaClass(certificateStudent.cgpa);
+                const certSerial = `CERT/${schoolProfile?.institutionAcronym || 'BCHT'}/${new Date().getFullYear()}/${certificateStudent.matricNumber.replace(/\//g, '-')}`;
+                printGraduationCertificate({
+                  fullName: certificateStudent.fullName,
+                  matricNumber: certificateStudent.matricNumber,
+                  programme: certificateStudent.programme,
+                  cgpa: certificateStudent.cgpa,
+                  diplomaClass,
+                  certSerial,
+                  schoolProfile,
+                });
+              }}
+            >
+              Print Official Certificate
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => setCertificateStudent(null)}>
+              Close
+            </Button>
+          </div>
+        }
+      >
+        {certificateStudent && (() => {
+          const diplomaClass = computeDiplomaClass(certificateStudent.cgpa);
+          const certSerial = `CERT/${schoolProfile?.institutionAcronym || 'BCHT'}/${new Date().getFullYear()}/${certificateStudent.matricNumber.replace(/\//g, '-')}`;
+          return (
+            <div className="p-6 bg-white border-4 border-double border-[#0F7640] rounded-[4px] text-center space-y-4 font-sans text-xs text-slate-800">
+              <img
+                src={schoolProfile?.logoUrl || '/BeonTech-Logo.png'}
+                alt="College Crest"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '/BeonTech-Logo.png';
+                }}
+                className="w-14 h-14 mx-auto rounded-[4px] object-contain"
+              />
+              <div>
+                <h2 className="text-base font-extrabold uppercase tracking-wider text-[#093322]">
+                  {schoolProfile?.institutionName?.replace(' Ltd', '') || 'Bethsaida College of Health Technology'}
+                </h2>
+                <p className="text-[11px] text-slate-500">
+                  {schoolProfile?.campusAddress || 'Ogbomoso, Oyo State, Nigeria'}
+                </p>
+                <div className="mt-2 inline-block px-3 py-1 bg-emerald-50 border border-emerald-200 rounded-[4px] text-[#0F7640] font-extrabold uppercase text-[11px]">
+                  Official Diploma of Graduation &bull; {certSerial}
+                </div>
+              </div>
+
+              <div className="py-3 space-y-2">
+                <p className="text-slate-500 italic">This is to certify that</p>
+                <h3 className="text-xl font-extrabold text-slate-900 uppercase tracking-wide">
+                  {certificateStudent.fullName}
+                </h3>
+                <p className="text-xs font-bold text-[#0F7640]">
+                  Matriculation No: {certificateStudent.matricNumber}
+                </p>
+                <p className="text-slate-600 max-w-md mx-auto leading-relaxed">
+                  having completed the statutory academic curriculum, laboratory practicums, and accredited hospital clinical rotations, and passed all prescribed examinations, is hereby awarded the
+                </p>
+                <p className="text-sm font-extrabold text-[#093322] uppercase">
+                  Professional Diploma in {certificateStudent.programme}
+                </p>
+                <div className="pt-1">
+                  <Badge variant="success">
+                    Class of Diploma: {diplomaClass.toUpperCase()} (CGPA: {certificateStudent.cgpa.toFixed(2)})
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-slate-200 grid grid-cols-3 items-end text-[11px]">
+                <div className="text-left">
+                  <div className="w-28 border-b border-slate-700 mb-1"></div>
+                  <span className="font-bold text-slate-900 block">Registrar &amp; Secretary</span>
+                  <span className="text-[10px] text-slate-500">Academic Senate</span>
+                </div>
+                <div className="text-center">
+                  <span className="inline-block px-2.5 py-1 border border-dashed border-[#0F7640] bg-emerald-50 text-[#0F7640] rounded-[4px] font-extrabold text-[9px] uppercase">
+                    OFFICIAL SENATE SEAL
+                  </span>
+                </div>
+                <div className="text-right">
+                  <div className="w-28 border-b border-slate-700 ml-auto mb-1"></div>
+                  <span className="font-bold text-slate-900 block">College Provost</span>
+                  <span className="text-[10px] text-slate-500">Chief Academic Officer</span>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </Modal>
     </div>
   );

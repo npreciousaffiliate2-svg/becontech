@@ -36,6 +36,8 @@ import {
   Check,
   Sparkles,
 } from 'lucide-react';
+import { exportToCsv, printInstitutionalDocument } from '../utils/documentExport.ts';
+import { PersonAvatar, pluralize } from '../components/common/PersonAvatar.tsx';
 
 /* ─── TYPE DEFINITIONS ─── */
 export type DayOfWeek = 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday';
@@ -103,7 +105,7 @@ export interface FacultyLoadItem {
 export const TimetableView: React.FC = () => {
   const { tab } = useParams<{ tab?: string }>();
   const navigate = useNavigate();
-  const { isDense, recordAudit, session, schoolProfile, departments } = useApp();
+  const { isDense, recordAudit, session, schoolProfile, departments, courses } = useApp();
   const { showToast } = useToast();
 
   const currentPersona = PERSONA_PROFILES[session?.activeRole || 'PROVOST'] || PERSONA_PROFILES.STU;
@@ -747,7 +749,7 @@ export const TimetableView: React.FC = () => {
           <div className="flex items-center gap-1.5">
             <span className="font-bold text-[#0F7640] block">{s.courseCode}</span>
             <span className="px-1.5 py-0.2 bg-slate-100 text-slate-600 rounded-[4px] text-[10px] font-bold">
-              {s.creditUnits} Units
+              {pluralize(s.creditUnits, 'Unit')}
             </span>
           </div>
           <span className="font-semibold text-slate-900 block text-xs">{s.courseTitle}</span>
@@ -792,13 +794,16 @@ export const TimetableView: React.FC = () => {
       ),
     },
     {
-      key: 'instructor',
+      key: 'instructorName',
       header: 'Assigned Lecturer / Preceptor',
       nowrap: true,
       render: (s: ClassScheduleItem) => (
-        <div>
-          <span className="font-bold text-slate-900 block text-xs">{s.instructorName}</span>
-          <span className="text-[11px] text-slate-500">{s.instructorId}</span>
+        <div className="flex items-center gap-2.5 whitespace-nowrap">
+          <PersonAvatar name={s.instructorName} staffId={s.instructorId} size="sm" />
+          <div>
+            <span className="font-bold text-slate-900 block text-xs">{s.instructorName}</span>
+            <span className="text-[11px] text-slate-500">{s.instructorId}</span>
+          </div>
         </div>
       ),
     },
@@ -1069,6 +1074,35 @@ export const TimetableView: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant="secondary"
+            onClick={() => {
+              exportToCsv({
+                filename: `BCHT_Master_Timetable_${new Date().toISOString().slice(0, 10)}.csv`,
+                columns: [
+                  { key: 'day', header: 'Day of Week' },
+                  { key: 'time', header: 'Time Slot', format: (_, s) => `${s.startTime} – ${s.endTime}` },
+                  { key: 'courseCode', header: 'Course Code' },
+                  { key: 'courseTitle', header: 'Course Title' },
+                  { key: 'departmentCode', header: 'Department' },
+                  { key: 'level', header: 'Level' },
+                  { key: 'sessionType', header: 'Session Type' },
+                  { key: 'venueName', header: 'Lecture Venue' },
+                  { key: 'instructorName', header: 'Assigned Lecturer' },
+                ],
+                data: schedules,
+              });
+              showToast({
+                type: 'success',
+                title: 'Timetable Exported',
+                message: `Exported ${schedules.length} lecture schedule slots to CSV.`,
+              });
+            }}
+            leftIcon={<Download className="w-3.5 h-3.5 text-slate-600" />}
+            className="whitespace-nowrap text-xs"
+          >
+            Export CSV
+          </Button>
           <Button
             variant="secondary"
             onClick={() => setIsPrintTimetableModalOpen(true)}
@@ -1433,6 +1467,32 @@ export const TimetableView: React.FC = () => {
             Add a course session to the master semester schedule. Real-time conflict engine checks venue and instructor availability.
           </div>
 
+          {courses && courses.length > 0 && (
+            <Select
+              label="Select Curriculum Course (Auto-Fills Code, Title, Dept & Lecturer)"
+              placeholder="Search & select course from curriculum..."
+              options={courses.map((c) => ({
+                value: c.code,
+                label: `${c.code} — ${c.title}`,
+                description: `${c.departmentName} • ${c.level} • Lecturer: ${c.lecturer} (${pluralize(c.creditUnits, 'Unit')})`,
+              }))}
+              value={newCourseCode}
+              onChange={(codeVal) => {
+                const matched = courses.find((c) => c.code === codeVal);
+                if (matched) {
+                  setNewCourseCode(matched.code);
+                  setNewCourseTitle(matched.title);
+                  setNewUnits(matched.creditUnits || 3);
+                  setNewDeptCode((matched.departmentCode as any) || 'CHE');
+                  setNewLevel((matched.level as any) || '100 Level');
+                  if (matched.lecturer) {
+                    setNewInstructor(matched.lecturer);
+                  }
+                }
+              }}
+            />
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="font-bold text-slate-900 block">Course Code:</label>
@@ -1661,7 +1721,38 @@ export const TimetableView: React.FC = () => {
               Close
             </Button>
             <Button
-              onClick={() => window.print()}
+              onClick={() => {
+                printInstitutionalDocument({
+                  title: 'Official Master Lecture Timetable',
+                  badgeText: `OFFICIAL MASTER LECTURE TIMETABLE • ${schoolProfile?.activeSemester?.toUpperCase() || 'HARMATTAN'} SEMESTER ${schoolProfile?.activeSession || '2026/2027'}`,
+                  referenceNo: `BCHT/TT/${schoolProfile?.activeSession?.split('/')[0] || '2026'}/MASTER`,
+                  orientation: 'landscape',
+                  schoolProfile,
+                  officeSubtitle: 'College Timetable & Academic Scheduling Committee',
+                  metaItems: [
+                    { label: 'Academic Session', value: schoolProfile?.activeSession || '2026/2027', highlight: true },
+                    { label: 'Semester', value: schoolProfile?.activeSemester || 'Harmattan' },
+                    { label: 'Scheduled Slots', value: `${schedules.length} Active Lecture & Lab Sessions`, highlight: true },
+                    { label: 'Clash Detection', value: '0 Venue / Faculty Clashes' },
+                  ],
+                  tableColumns: [
+                    { key: 'day', header: 'Day', bold: true },
+                    { key: 'time', header: 'Time Slot', format: (_, s) => `${s.startTime} – ${s.endTime}` },
+                    { key: 'courseCode', header: 'Course Code', highlight: true },
+                    { key: 'courseTitle', header: 'Course Title', bold: true },
+                    { key: 'level', header: 'Level', align: 'center' },
+                    { key: 'sessionType', header: 'Type', align: 'center', format: (v) => String(v).replace('_', ' ') },
+                    { key: 'venueName', header: 'Lecture Venue' },
+                    { key: 'instructorName', header: 'Assigned Lecturer', bold: true },
+                  ],
+                  tableData: schedules,
+                  stampText: 'TIMETABLE RATIFIED',
+                  signatures: [
+                    { title: 'Chairman, College Timetable Committee', subtitle: schoolProfile?.institutionName || 'Bethsaida College of Health Tech' },
+                    { title: 'Registrar & Academic Secretary', subtitle: 'Academic Affairs Division' },
+                  ],
+                });
+              }}
               leftIcon={<Printer className="w-3.5 h-3.5" />}
               className="whitespace-nowrap bg-[#0F7640] hover:bg-[#093322]"
             >

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ChevronDown, ChevronUp, ChevronsUpDown, ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { ChevronDown, ChevronUp, ChevronsUpDown, ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
 import { TableSkeleton } from './Skeleton.tsx';
 import { EmptyState } from './EmptyState.tsx';
 
@@ -35,6 +35,31 @@ export interface TableProps<T> {
   toolbarActions?: React.ReactNode;
   /** Built-in client-side search when no external onSearchChange is supplied. Default true. */
   searchable?: boolean;
+}
+
+const KEY_ALIASES: Record<string, string[]> = {
+  department: ['departmentCode', 'departmentName', 'department'],
+  student: ['studentName', 'fullName', 'matricNumber', 'matricNo'],
+  candidate: ['fullName', 'studentName', 'applicationNumber'],
+  staff: ['fullName', 'staffName', 'name', 'staffId'],
+  faculty: ['name', 'fullName'],
+  course: ['courseCode', 'code', 'courseTitle', 'title'],
+  units: ['creditUnits', 'units', 'totalUnits'],
+  feeStatus: ['feesStatus', 'bursaryStatus', 'feeClearanceStatus', 'acceptanceFeePaid'],
+  actor: ['actorId', 'actorRole', 'userName'],
+  council: ['councilCode', 'councilName', 'accreditingCouncil'],
+};
+
+function resolveSortValue(item: any, key: string): unknown {
+  if (!item || typeof item !== 'object') return '';
+  if (item[key] !== undefined && item[key] !== null) return item[key];
+  const aliases = KEY_ALIASES[key];
+  if (aliases) {
+    for (const alt of aliases) {
+      if (item[alt] !== undefined && item[alt] !== null) return item[alt];
+    }
+  }
+  return '';
 }
 
 export function Table<T>({
@@ -87,12 +112,13 @@ export function Table<T>({
     if (useInternalSort && internalSortKey) {
       const dir = internalSortDir === 'asc' ? 1 : -1;
       rows = [...rows].sort((a, b) => {
-        const av = (a as any)[internalSortKey];
-        const bv = (b as any)[internalSortKey];
+        const av = resolveSortValue(a, internalSortKey);
+        const bv = resolveSortValue(b, internalSortKey);
         if (av == null && bv == null) return 0;
         if (av == null) return 1;
         if (bv == null) return -1;
         if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
+        if (typeof av === 'boolean' && typeof bv === 'boolean') return (Number(av) - Number(bv)) * dir;
         return String(av).localeCompare(String(bv), undefined, { numeric: true }) * dir;
       });
     }
@@ -138,8 +164,18 @@ export function Table<T>({
                   }
                   aria-label={searchPlaceholder || 'Search records'}
                   placeholder={searchPlaceholder || 'Search records...'}
-                  className="w-full h-8 pl-8 pr-3 text-xs bg-slate-50/70 hover:bg-slate-50 focus:bg-white border border-slate-200 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640] transition-colors"
+                  className="w-full h-8 pl-8 pr-7 text-xs bg-slate-50/70 hover:bg-slate-50 focus:bg-white border border-slate-200 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640] transition-colors"
                 />
+                {effectiveSearch && (
+                  <button
+                    type="button"
+                    onClick={() => (useInternalSearch ? setInternalSearch('') : onSearchChange?.(''))}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    aria-label="Clear search"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             )}
             {toolbarActions}
@@ -162,6 +198,10 @@ export function Table<T>({
             <thead className="bg-slate-50/80 border-b border-slate-200/90 uppercase tracking-wider text-[11px] font-semibold text-slate-500 sticky top-0 backdrop-blur-sm">
               <tr>
                 {columns.map((col) => {
+                  const isColSortable =
+                    col.sortable !== undefined
+                      ? col.sortable
+                      : col.key !== 'action' && col.key !== 'actions';
                   const isSorted = effectiveSortColumn === col.key;
                   return (
                     <th
@@ -174,8 +214,8 @@ export function Table<T>({
                           : col.align === 'center'
                           ? 'text-center'
                           : 'text-left'
-                      } ${col.sortable ? 'cursor-pointer select-none hover:bg-slate-100/80' : ''}`}
-                      onClick={() => col.sortable && handleSort(col.key)}
+                      } ${isColSortable ? 'cursor-pointer select-none hover:bg-slate-100/80' : ''}`}
+                      onClick={() => isColSortable && handleSort(col.key)}
                     >
                       <div
                         className={`inline-flex items-center gap-1 ${
@@ -183,7 +223,7 @@ export function Table<T>({
                         }`}
                       >
                         <span>{col.header}</span>
-                        {col.sortable && (
+                        {isColSortable && (
                           <span className="text-slate-400">
                             {isSorted ? (
                               effectiveSortDirection === 'asc' ? (
@@ -192,7 +232,7 @@ export function Table<T>({
                                 <ChevronDown className="w-3.5 h-3.5 text-[#0F7640]" />
                               )
                             ) : (
-                              <ChevronsUpDown className="w-3.5 h-3.5" />
+                              <ChevronsUpDown className="w-3.5 h-3.5 opacity-60" />
                             )}
                           </span>
                         )}
@@ -237,7 +277,9 @@ export function Table<T>({
         <div className="border-t border-slate-200 bg-slate-50 px-4 py-2 flex items-center justify-between text-xs text-slate-600">
           <div>
             {totalCount !== undefined ? (
-              <span>Showing {visibleData.length} of {totalCount} records</span>
+              <span>
+                Showing {visibleData.length} of {totalCount} {totalCount === 1 ? 'record' : 'records'}
+              </span>
             ) : (
               <span>Page {page} of {totalPages}</span>
             )}

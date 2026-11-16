@@ -37,7 +37,11 @@ import {
   ChevronRight,
   ChevronLeft,
   Flag,
+  Printer,
+  ShieldCheck,
 } from 'lucide-react';
+import { escapeHtml, exportToCsv, printInstitutionalDocument } from '../utils/documentExport.ts';
+import { PersonAvatar, PhotoUploadControl, pluralize } from '../components/common/PersonAvatar.tsx';
 
 /* ─── TYPES ─── */
 type MaterialType = 'PDF_DOCUMENT' | 'LAB_MANUAL' | 'CLINICAL_VIDEO' | 'SLIDE_DECK';
@@ -75,6 +79,7 @@ interface QuestionItem {
   id: string;
   courseCode: string;
   questionText: string;
+  imageUrl?: string;
   options: { id: string; text: string }[];
   correctOptionId: string;
   difficulty: DifficultyLevel;
@@ -93,6 +98,8 @@ interface StudentAttempt {
   totalQuestions: number;
   percentage: number;
   timeSpentMinutes: number;
+  timeSpentSeconds?: number;
+  proctorWarnings?: number;
   dateAttempted: string;
   passed: boolean;
 }
@@ -133,25 +140,52 @@ export const LearningView: React.FC = () => {
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('ALL');
   const [selectedTypeFilter, setSelectedTypeFilter] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [cbtSearchQuery, setCbtSearchQuery] = useState('');
+  const [cbtDeptFilter, setCbtDeptFilter] = useState('ALL');
+  const [questionSearchQuery, setQuestionSearchQuery] = useState('');
+  const [questionCourseFilter, setQuestionCourseFilter] = useState('ALL');
+  const [resultSearchQuery, setResultSearchQuery] = useState('');
 
   /* ─── MODAL STATES ─── */
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [selectedMaterial, setSelectedMaterial] = useState<CourseMaterial | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isAddQuestionModalOpen, setIsAddQuestionModalOpen] = useState(false);
+  const [isCreateExamModalOpen, setIsCreateExamModalOpen] = useState(false);
+  const [selectedQuestionForModal, setSelectedQuestionForModal] = useState<QuestionItem | null>(null);
+  const [selectedAttemptForModal, setSelectedAttemptForModal] = useState<StudentAttempt | null>(null);
+
+  /* ─── NEW CBT EXAM SUITE FORM STATE ─── */
+  const [newExamForm, setNewExamForm] = useState({
+    title: '',
+    courseCode: 'CHE 201',
+    targetBoard: 'CHPRBN Licensing Board',
+    durationMinutes: '45',
+    passMarkPercentage: '50',
+    totalQuestions: '10',
+  });
 
   /* ─── INTERACTIVE LIVE CBT SIMULATOR STATE ─── */
   const [isCbtModalOpen, setIsCbtModalOpen] = useState(false);
   const [activeTest, setActiveTest] = useState<PracticeTest | null>(null);
+  const [activeExamQuestions, setActiveExamQuestions] = useState<QuestionItem[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [userAnswers, setUserAnswers] = useState<Record<number, string>>({});
   const [flaggedQuestions, setFlaggedQuestions] = useState<Record<number, boolean>>({});
   const [secondsRemaining, setSecondsRemaining] = useState(45 * 60);
+  const [proctorWarnings, setProctorWarnings] = useState(0);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [exitPrompt, setExitPrompt] = useState(false);
+  const examStartedAtRef = useRef<number>(Date.now());
   const finishingRef = useRef(false);
   const finishExamRef = useRef<() => void>(() => {});
-  const [cbtResult, setCbtResult] = useState<{ score: number; percentage: number; passed: boolean } | null>(null);
+  const [cbtResult, setCbtResult] = useState<{
+    score: number;
+    percentage: number;
+    passed: boolean;
+    timeSpentSeconds: number;
+    timeSpentMinutes: number;
+  } | null>(null);
 
   /* ─── LIVE SUPABASE LMS DATABASE HYDRATION ─── */
   useEffect(() => {
@@ -213,6 +247,8 @@ export const LearningView: React.FC = () => {
   /* ─── NEW QUESTION FORM STATE ─── */
   const [newQCourse, setNewQCourse] = useState('CHE 201');
   const [newQText, setNewQText] = useState('');
+  const [newQImageUrl, setNewQImageUrl] = useState('');
+  const [newQDifficulty, setNewQDifficulty] = useState<DifficultyLevel>('INTERMEDIATE');
   const [newOptA, setNewOptA] = useState('');
   const [newOptB, setNewOptB] = useState('');
   const [newOptC, setNewOptC] = useState('');
@@ -297,7 +333,7 @@ export const LearningView: React.FC = () => {
   ]);
 
   /* ─── DATA: PRACTICE TESTS ─── */
-  const [practiceTests] = useState<PracticeTest[]>([
+  const [practiceTests, setPracticeTests] = useSharedRecords<PracticeTest>('learning.tests', [
     {
       id: 'cbt-01',
       title: 'Community Health National Board Practice Mock Exam (CHPRBN)',
@@ -576,13 +612,31 @@ export const LearningView: React.FC = () => {
     },
   ]);
 
-  /* ─── TIMER EFFECT FOR CBT SIMULATOR ─── */
+  /* ─── TIMER & ANTI-CHEAT PROCTORING EFFECT FOR CBT SIMULATOR ─── */
   useEffect(() => {
     if (!isCbtModalOpen || isSubmitted) return;
     const interval = window.setInterval(() => {
       setSecondsRemaining((prev) => (prev <= 1 ? 0 : prev - 1));
     }, 1000);
     return () => window.clearInterval(interval);
+  }, [isCbtModalOpen, isSubmitted]);
+
+  useEffect(() => {
+    if (!isCbtModalOpen || isSubmitted) return;
+    const handleVisibilityOrBlur = () => {
+      if (document.hidden && !finishingRef.current) {
+        setProctorWarnings((prev) => {
+          const next = prev + 1;
+          if (next >= 3 && !finishingRef.current) {
+            finishingRef.current = true;
+            finishExamRef.current();
+          }
+          return next;
+        });
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityOrBlur);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityOrBlur);
   }, [isCbtModalOpen, isSubmitted]);
 
   useEffect(() => {
@@ -593,11 +647,19 @@ export const LearningView: React.FC = () => {
 
   /* ─── CBT ACTIONS ─── */
   const startCbtExam = (test: PracticeTest) => {
+    const courseMatching = cbtQuestions.filter(
+      (q) => q.courseCode.toLowerCase() === test.courseCode.toLowerCase()
+    );
+    const pool = courseMatching.length >= 3 ? courseMatching : cbtQuestions;
+    const shuffled = [...pool].sort(() => Math.random() - 0.5);
+    setActiveExamQuestions(shuffled);
     setActiveTest(test);
     setCurrentQuestionIndex(0);
     setUserAnswers({});
     setFlaggedQuestions({});
+    setProctorWarnings(0);
     setSecondsRemaining(test.durationMinutes * 60);
+    examStartedAtRef.current = Date.now();
     setIsSubmitted(false);
     setExitPrompt(false);
     finishingRef.current = false;
@@ -623,22 +685,41 @@ export const LearningView: React.FC = () => {
     calculateAndFinishCbt();
   };
 
+  const formatElapsedDuration = (mins: number, secs?: number) => {
+    if (secs !== undefined && secs > 0) {
+      if (secs < 60) return `${secs} secs`;
+      const m = Math.floor(secs / 60);
+      const s = secs % 60;
+      return s > 0 ? `${m}m ${s}s` : `${pluralize(m, 'min')}`;
+    }
+    return `${pluralize(Math.max(1, mins), 'min')}`;
+  };
+
   const calculateAndFinishCbt = () => {
+    const examPool = activeExamQuestions.length > 0 ? activeExamQuestions : cbtQuestions;
     let correctCount = 0;
-    cbtQuestions.forEach((q, idx) => {
+    examPool.forEach((q, idx) => {
       if (userAnswers[idx] === q.correctOptionId) {
         correctCount += 1;
       }
     });
 
-    const total = cbtQuestions.length;
+    const total = examPool.length;
     const percentage = total === 0 ? 0 : Math.round((correctCount / total) * 100);
     const passed = percentage >= (activeTest?.passMarkPercentage || 50);
+
+    const maxAllowedSec = (activeTest?.durationMinutes || 45) * 60;
+    const timerElapsed = Math.max(0, maxAllowedSec - secondsRemaining);
+    const wallElapsed = Math.max(1, Math.round((Date.now() - examStartedAtRef.current) / 1000));
+    const timeSpentSeconds = Math.min(maxAllowedSec, Math.max(timerElapsed, wallElapsed));
+    const timeSpentMinutes = Math.max(1, Math.ceil(timeSpentSeconds / 60));
 
     setCbtResult({
       score: correctCount,
       percentage,
       passed,
+      timeSpentSeconds,
+      timeSpentMinutes,
     });
     setIsSubmitted(true);
     setStudentAttempts((prev) => [
@@ -652,7 +733,9 @@ export const LearningView: React.FC = () => {
         score: correctCount,
         totalQuestions: total,
         percentage,
-        timeSpentMinutes: 0,
+        timeSpentMinutes,
+        timeSpentSeconds,
+        proctorWarnings,
         dateAttempted: new Date().toISOString().slice(0, 10),
         passed,
       },
@@ -660,11 +743,6 @@ export const LearningView: React.FC = () => {
     ]);
 
     recordAudit('CBT_PRACTICE_EXAM_SUBMITTED', 'ONLINE_LEARNING', activeTest?.courseCode || 'CHE 201');
-    showToast({
-      type: passed ? 'success' : 'warning',
-      title: 'Practice Test Completed',
-      message: `Score: ${correctCount} of ${total} (${percentage}%). ${passed ? 'Congratulations, you passed!' : 'Review recommended.'}`,
-    });
   };
   finishExamRef.current = calculateAndFinishCbt;
 
@@ -676,10 +754,35 @@ export const LearningView: React.FC = () => {
 
   /* ─── MATERIAL ACTIONS ─── */
   const handleDownloadMaterial = (m: CourseMaterial) => {
-    showToast({
-      type: 'warning',
-      title: 'File Not Attached',
-      message: `"${m.title}" is listed in the library, but no document file is stored for download.`,
+    setMaterials((prev) =>
+      prev.map((item) => (item.id === m.id ? { ...item, downloadCount: item.downloadCount + 1 } : item))
+    );
+    printInstitutionalDocument({
+      title: `${m.courseCode} — ${m.title}`,
+      badgeText: `OFFICIAL COURSE LECTURE MATERIAL • ${m.courseCode}`,
+      referenceNo: `BCHT/LMS/${m.courseCode.replace(/\s+/g, '')}/${m.id.toUpperCase()}`,
+      issuedDate: m.uploadDate,
+      schoolProfile,
+      officeSubtitle: `Department of ${m.departmentCode} • E-Learning & Digital Library`,
+      metaItems: [
+        { label: 'Course Code', value: m.courseCode, highlight: true },
+        { label: 'Resource Type', value: m.type.replace('_', ' ') },
+        { label: 'Uploaded By', value: m.uploadedBy, highlight: true },
+        { label: 'Publication Date', value: m.uploadDate },
+      ],
+      bodyHtml: `
+        <div style="margin-bottom:10px;">
+          <div style="font-size:14px; font-weight:800; color:#093322;">${escapeHtml(m.title)}</div>
+        </div>
+        <div class="callout-box" style="line-height:1.7; font-size:11.5px;">
+          <p><strong>Module Synopsis &amp; Learning Objectives:</strong></p>
+          <p>${escapeHtml(m.description)}</p>
+        </div>
+      `,
+      signatures: [
+        { title: m.uploadedBy, subtitle: 'Course Lecturer / Author' },
+        { title: 'Director of E-Learning & Academic Planning', subtitle: schoolProfile?.institutionName || 'Bethsaida College of Health Tech' },
+      ],
     });
   };
 
@@ -765,7 +868,10 @@ export const LearningView: React.FC = () => {
       key: 'studentName',
       header: 'Student Name',
       render: (r: StudentAttempt) => (
-        <span className="font-semibold text-slate-800">{r.studentName}</span>
+        <div className="flex items-center gap-2.5">
+          <PersonAvatar name={r.studentName} code={r.matricNumber} size="sm" />
+          <span className="font-semibold text-slate-800">{r.studentName}</span>
+        </div>
       ),
     },
     {
@@ -791,7 +897,9 @@ export const LearningView: React.FC = () => {
       header: 'Time Taken',
       nowrap: true,
       render: (r: StudentAttempt) => (
-        <span className="text-xs text-slate-600">{r.timeSpentMinutes} mins</span>
+        <span className="text-xs font-semibold text-slate-700">
+          {formatElapsedDuration(r.timeSpentMinutes, r.timeSpentSeconds)}
+        </span>
       ),
     },
     {
@@ -812,9 +920,25 @@ export const LearningView: React.FC = () => {
         </Badge>
       ),
     },
+    {
+      key: 'action',
+      header: 'Result Slip',
+      align: 'right' as const,
+      nowrap: true,
+      render: (r: StudentAttempt) => (
+        <Button
+          size="sm"
+          variant="secondary"
+          leftIcon={<Eye className="w-3.5 h-3.5" />}
+          onClick={() => setSelectedAttemptForModal(r)}
+        >
+          View Slip
+        </Button>
+      ),
+    },
   ];
 
-    /* ─── ADD NEW QUESTION HANDLER ─── */
+  /* ─── ADD NEW QUESTION HANDLER ─── */
   const handleAddNewQuestion = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newQText.trim() || !newOptA.trim() || !newOptB.trim()) {
@@ -830,6 +954,7 @@ export const LearningView: React.FC = () => {
       id: `q-${Date.now().toString().slice(-4)}`,
       courseCode: newQCourse,
       questionText: newQText.trim(),
+      imageUrl: newQImageUrl || undefined,
       options: [
         { id: 'A', text: newOptA.trim() },
         { id: 'B', text: newOptB.trim() },
@@ -837,7 +962,7 @@ export const LearningView: React.FC = () => {
         { id: 'D', text: newOptD.trim() || 'All of the above' },
       ],
       correctOptionId: newCorrectOpt as any,
-      difficulty: 'INTERMEDIATE',
+      difficulty: newQDifficulty,
       explanation: newQExplanation.trim() || 'Official curriculum clinical rationale.',
       author: persona?.fullName || 'Academic Staff',
     };
@@ -864,6 +989,7 @@ export const LearningView: React.FC = () => {
 
     setIsAddQuestionModalOpen(false);
     setNewQText('');
+    setNewQImageUrl('');
     setNewOptA('');
     setNewOptB('');
     setNewOptC('');
@@ -891,9 +1017,18 @@ export const LearningView: React.FC = () => {
       key: 'questionText',
       header: 'Question Stem',
       render: (q: QuestionItem) => (
-        <p className="text-xs text-slate-800 line-clamp-2 max-w-md" title={q.questionText}>
-          {q.questionText}
-        </p>
+        <div className="flex items-center gap-2 max-w-md">
+          {q.imageUrl && (
+            <img
+              src={q.imageUrl}
+              alt="Question figure"
+              className="w-8 h-8 rounded-[3px] object-cover border border-slate-200 shrink-0"
+            />
+          )}
+          <p className="text-xs text-slate-800 line-clamp-2" title={q.questionText}>
+            {q.questionText}
+          </p>
+        </div>
       ),
     },
     {
@@ -914,7 +1049,10 @@ export const LearningView: React.FC = () => {
       header: 'Faculty Author',
       nowrap: true,
       render: (q: QuestionItem) => (
-        <span className="text-xs text-slate-600">{q.author}</span>
+        <div className="flex items-center gap-2">
+          <PersonAvatar name={q.author} size="xs" />
+          <span className="text-xs text-slate-600">{q.author}</span>
+        </div>
       ),
     },
     {
@@ -926,16 +1064,11 @@ export const LearningView: React.FC = () => {
         <Button
           variant="secondary"
           size="sm"
-          onClick={() => {
-            showToast({
-              type: 'info',
-              title: 'Correct Key & Rationale',
-              message: `Option ${q.correctOptionId}: ${q.explanation}`,
-            });
-          }}
+          leftIcon={<Eye className="w-3.5 h-3.5" />}
+          onClick={() => setSelectedQuestionForModal(q)}
           className="whitespace-nowrap"
         >
-          View Answer
+          View Key &amp; Rationale
         </Button>
       ),
     },
@@ -963,14 +1096,27 @@ export const LearningView: React.FC = () => {
             </Button>
           )}
           {activeTab === 'cbt' && (
-            <Button
-              size="sm"
-              onClick={() => startCbtExam(practiceTests[0])}
-              leftIcon={<Play className="w-3.5 h-3.5" />}
-              className="whitespace-nowrap bg-[#0F7640] hover:bg-[#093322]"
-            >
-              Launch CBT Simulator
-            </Button>
+            <>
+              {isStaff && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setIsCreateExamModalOpen(true)}
+                  leftIcon={<Plus className="w-3.5 h-3.5" />}
+                  className="whitespace-nowrap"
+                >
+                  Create CBT Exam
+                </Button>
+              )}
+              <Button
+                size="sm"
+                onClick={() => startCbtExam(practiceTests[0])}
+                leftIcon={<Play className="w-3.5 h-3.5" />}
+                className="whitespace-nowrap bg-[#0F7640] hover:bg-[#093322]"
+              >
+                Launch CBT Simulator
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -1175,11 +1321,45 @@ export const LearningView: React.FC = () => {
                 Practice exams timed strictly to official council standards. Passing score is 50% or higher.
               </p>
             </div>
-            <Badge variant="primary">Computer-Based Testing Engine</Badge>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="w-40">
+                <Select
+                  value={cbtDeptFilter}
+                  onChange={(val) => setCbtDeptFilter(val)}
+                  options={[
+                    { value: 'ALL', label: 'All Programmes' },
+                    { value: 'CHE', label: 'Community Health' },
+                    { value: 'MLT', label: 'Medical Laboratory' },
+                    { value: 'PHT', label: 'Pharmacy Tech' },
+                    { value: 'HIM', label: 'Health Information' },
+                  ]}
+                />
+              </div>
+              <div className="w-56">
+                <Input
+                  placeholder="Search practice exam or course..."
+                  value={cbtSearchQuery}
+                  onChange={(e) => setCbtSearchQuery(e.target.value)}
+                />
+              </div>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {practiceTests.map((t) => (
+            {practiceTests
+              .filter((t) => {
+                if (cbtDeptFilter !== 'ALL' && t.departmentCode !== cbtDeptFilter) return false;
+                if (cbtSearchQuery.trim()) {
+                  const q = cbtSearchQuery.toLowerCase();
+                  return (
+                    t.title.toLowerCase().includes(q) ||
+                    t.courseCode.toLowerCase().includes(q) ||
+                    t.targetBoard.toLowerCase().includes(q)
+                  );
+                }
+                return true;
+              })
+              .map((t) => (
               <Card key={t.id} className="p-4 bg-white border border-slate-200 rounded-[4px] space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="font-extrabold text-[#0F7640] text-xs">
@@ -1193,12 +1373,12 @@ export const LearningView: React.FC = () => {
                     {t.title}
                   </h3>
                   <p className="text-xs text-slate-500 mt-1">
-                    {t.totalQuestions} Questions • {t.durationMinutes} Minutes • Pass Mark: {t.passMarkPercentage}%
+                    {pluralize(t.totalQuestions, 'Question')} • {pluralize(t.durationMinutes, 'Minute')} • Pass Mark: {t.passMarkPercentage}%
                   </p>
                 </div>
 
                 <div className="p-2.5 bg-slate-50 rounded-[4px] border border-slate-100 flex items-center justify-between text-xs text-slate-600">
-                  <span>{t.totalAttempts} Trainees Completed</span>
+                  <span>{pluralize(t.totalAttempts, 'Trainee')} Completed</span>
                   <span className="font-bold text-slate-800">Average: {t.avgScore}%</span>
                 </div>
 
@@ -1239,10 +1419,28 @@ export const LearningView: React.FC = () => {
               <Button
                 size="sm"
                 onClick={() => {
+                  exportToCsv({
+                    filename: `BCHT_CBT_Question_Pool_${new Date().toISOString().slice(0, 10)}.csv`,
+                    columns: [
+                      { key: 'id', header: 'Question ID' },
+                      { key: 'courseCode', header: 'Course Code' },
+                      { key: 'difficulty', header: 'Difficulty Level' },
+                      { key: 'questionText', header: 'Question Stem' },
+                      {
+                        key: 'optionsText',
+                        header: 'Options',
+                        format: (_, q) => (q.options || []).map((o: any) => `${o.id}: ${o.text}`).join(' | '),
+                      },
+                      { key: 'correctOptionId', header: 'Correct Option' },
+                      { key: 'explanation', header: 'Clinical Rationale / Explanation' },
+                      { key: 'author', header: 'Examiner / Author' },
+                    ],
+                    data: cbtQuestions,
+                  });
                   showToast({
-                    type: 'info',
-                    title: 'Question Bank Export',
-                    message: 'Exporting encrypted question catalog for Senate examination moderation.',
+                    type: 'success',
+                    title: 'Question Bank Exported',
+                    message: `Exported ${cbtQuestions.length} examination questions to CSV.`,
                   });
                 }}
                 leftIcon={<Download className="w-3.5 h-3.5" />}
@@ -1257,9 +1455,38 @@ export const LearningView: React.FC = () => {
           <Card>
             <Table
               columns={questionColumns}
-              data={cbtQuestions}
+              data={cbtQuestions.filter((q) => {
+                if (questionCourseFilter !== 'ALL' && q.courseCode !== questionCourseFilter) return false;
+                if (questionSearchQuery.trim()) {
+                  const s = questionSearchQuery.toLowerCase();
+                  return (
+                    q.questionText.toLowerCase().includes(s) ||
+                    q.courseCode.toLowerCase().includes(s) ||
+                    q.author.toLowerCase().includes(s)
+                  );
+                }
+                return true;
+              })}
               keyExtractor={(q) => q.id}
               isDense={isDense}
+              searchValue={questionSearchQuery}
+              onSearchChange={setQuestionSearchQuery}
+              searchPlaceholder="Search question stem, course code, or author..."
+              toolbarFilters={
+                <div className="w-48">
+                  <Select
+                    value={questionCourseFilter}
+                    onChange={(val) => setQuestionCourseFilter(val)}
+                    options={[
+                      { value: 'ALL', label: 'All Courses' },
+                      ...Array.from(new Set(cbtQuestions.map((q) => q.courseCode))).map((code) => ({
+                        value: code,
+                        label: code,
+                      })),
+                    ]}
+                  />
+                </div>
+              }
             />
           </Card>
         </div>
@@ -1277,16 +1504,30 @@ export const LearningView: React.FC = () => {
             <Table
               columns={resultColumns}
               data={
-                isStaff
+                (isStaff
                   ? studentAttempts
                   : studentAttempts.filter(
                       (r) =>
                         r.matricNumber === 'BCHT/2026/0142' ||
                         r.studentName.toLowerCase().includes('blessing')
                     )
+                ).filter((r) => {
+                  if (resultSearchQuery.trim()) {
+                    const s = resultSearchQuery.toLowerCase();
+                    return (
+                      r.studentName.toLowerCase().includes(s) ||
+                      r.matricNumber.toLowerCase().includes(s) ||
+                      r.testTitle.toLowerCase().includes(s)
+                    );
+                  }
+                  return true;
+                })
               }
               keyExtractor={(r) => r.id}
               isDense={isDense}
+              searchValue={resultSearchQuery}
+              onSearchChange={setResultSearchQuery}
+              searchPlaceholder="Search student name, matric no, or test..."
             />
           </Card>
         </div>
@@ -1411,16 +1652,132 @@ export const LearningView: React.FC = () => {
         </div>
       </Modal>
 
-            {/* ─── MODAL: ADD CBT QUESTION TO BANK ─── */}
+      {/* ─── MODAL: ADD CBT QUESTION TO BANK ─── */}
+      <Modal
+        isOpen={isCreateExamModalOpen}
+        onClose={() => setIsCreateExamModalOpen(false)}
+        title="Create & Schedule CBT Exam Suite"
+        description="Configure a timed computer-based test for a course or licensing board simulation."
+        size="md"
+        footer={
+          <div className="flex items-center justify-end gap-2 w-full">
+            <Button size="sm" variant="secondary" onClick={() => setIsCreateExamModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                if (!newExamForm.title.trim()) {
+                  showToast({
+                    type: 'danger',
+                    title: 'Missing Exam Title',
+                    message: 'Please enter a title for the CBT examination suite.',
+                  });
+                  return;
+                }
+                const deptPrefix = newExamForm.courseCode.trim().split(/\s+/)[0] || 'CHE';
+                const createdExam: PracticeTest = {
+                  id: `cbt-${Date.now().toString().slice(-4)}`,
+                  title: newExamForm.title.trim(),
+                  courseCode: newExamForm.courseCode,
+                  departmentCode: deptPrefix.slice(0, 3).toUpperCase(),
+                  totalQuestions: Math.max(1, parseInt(newExamForm.totalQuestions, 10) || 10),
+                  durationMinutes: Math.max(5, parseInt(newExamForm.durationMinutes, 10) || 45),
+                  passMarkPercentage: Math.min(100, Math.max(10, parseInt(newExamForm.passMarkPercentage, 10) || 50)),
+                  totalAttempts: 0,
+                  avgScore: 0,
+                  status: 'ACTIVE',
+                  targetBoard: newExamForm.targetBoard,
+                };
+                setPracticeTests((prev) => [createdExam, ...prev]);
+                recordAudit('CBT_EXAM_SUITE_CREATED', 'ONLINE_LEARNING', createdExam.courseCode, { title: createdExam.title });
+                setIsCreateExamModalOpen(false);
+                setNewExamForm({
+                  title: '',
+                  courseCode: 'CHE 201',
+                  targetBoard: 'CHPRBN Licensing Board',
+                  durationMinutes: '45',
+                  passMarkPercentage: '50',
+                  totalQuestions: '10',
+                });
+                showToast({
+                  type: 'success',
+                  title: 'CBT Exam Published',
+                  message: `${createdExam.title} is now active for students in ${createdExam.courseCode}.`,
+                });
+              }}
+            >
+              Publish CBT Exam
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-3.5 text-xs text-slate-800 font-sans">
+          <Input
+            label="Examination Title"
+            placeholder="e.g. CHE 201 Mid-Semester Continuous Assessment CBT"
+            value={newExamForm.title}
+            onChange={(e) => setNewExamForm({ ...newExamForm, title: e.target.value })}
+            required
+          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Select
+              label="Target Course"
+              options={
+                courses && courses.length > 0
+                  ? courses.map((c) => ({ value: c.code, label: `${c.code} — ${c.title}` }))
+                  : [
+                      { value: 'CHE 201', label: 'CHE 201 — Maternal & Child Health' },
+                      { value: 'MLT 201', label: 'MLT 201 — Haematology' },
+                      { value: 'PHT 201', label: 'PHT 201 — Pharmacology' },
+                      { value: 'HIM 201', label: 'HIM 201 — Health Records' },
+                    ]
+              }
+              value={newExamForm.courseCode}
+              onChange={(val) => setNewExamForm({ ...newExamForm, courseCode: val })}
+            />
+            <Select
+              label="Regulatory / Exam Standard"
+              options={(schoolProfile?.regulatoryCouncils || ['CHPRBN', 'MLSCN', 'PCN', 'HRORBN', 'NBTE']).map((b) => ({
+                value: b,
+                label: b,
+              }))}
+              value={newExamForm.targetBoard}
+              onChange={(val) => setNewExamForm({ ...newExamForm, targetBoard: val })}
+            />
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <Input
+              label="Duration (Minutes)"
+              type="number"
+              value={newExamForm.durationMinutes}
+              onChange={(e) => setNewExamForm({ ...newExamForm, durationMinutes: e.target.value })}
+            />
+            <Input
+              label="Pass Mark (%)"
+              type="number"
+              value={newExamForm.passMarkPercentage}
+              onChange={(e) => setNewExamForm({ ...newExamForm, passMarkPercentage: e.target.value })}
+            />
+            <Input
+              label="Total Questions"
+              type="number"
+              value={newExamForm.totalQuestions}
+              onChange={(e) => setNewExamForm({ ...newExamForm, totalQuestions: e.target.value })}
+            />
+          </div>
+        </div>
+      </Modal>
+
       <Modal
         isOpen={isAddQuestionModalOpen}
         onClose={() => setIsAddQuestionModalOpen(false)}
         title="Add Question to CBT Bank"
-        description="Create a standardized clinical or theory multiple choice item with answer rationale."
+        description="Create a standardized clinical or theory multiple choice item with optional specimen diagram and answer rationale."
         size="lg"
       >
         <form onSubmit={handleAddNewQuestion} className="space-y-4 text-xs text-slate-800 font-sans">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Select
               label="Associated Course"
               options={
@@ -1436,6 +1793,16 @@ export const LearningView: React.FC = () => {
               }
               value={newQCourse}
               onChange={(val) => setNewQCourse(val)}
+            />
+            <Select
+              label="Cognitive Level"
+              options={[
+                { value: 'FOUNDATION', label: 'Foundation' },
+                { value: 'INTERMEDIATE', label: 'Intermediate' },
+                { value: 'ADVANCED', label: 'Advanced' },
+              ]}
+              value={newQDifficulty}
+              onChange={(val) => setNewQDifficulty(val as DifficultyLevel)}
             />
             <Select
               label="Correct Answer Key"
@@ -1457,10 +1824,17 @@ export const LearningView: React.FC = () => {
               required
               value={newQText}
               onChange={(e) => setNewQText(e.target.value)}
-              placeholder="Enter clear clinical scenario or theoretical prompt..."
+              placeholder="Enter clear clinical scenario, microscopy finding, or theoretical prompt..."
               className="w-full p-2.5 text-xs bg-white border border-slate-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
             />
           </div>
+
+          <PhotoUploadControl
+            label="Clinical Diagram / Specimen Slide / X-Ray Image (Optional)"
+            name={newQCourse}
+            value={newQImageUrl}
+            onChange={(url) => setNewQImageUrl(url)}
+          />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
@@ -1513,6 +1887,222 @@ export const LearningView: React.FC = () => {
         </form>
       </Modal>
 
+      {/* ─── MODAL: QUESTION & CLINICAL RATIONALE INSPECTION (REPLACES TOAST) ─── */}
+      <Modal
+        isOpen={Boolean(selectedQuestionForModal)}
+        onClose={() => setSelectedQuestionForModal(null)}
+        title={selectedQuestionForModal ? `Question Key & Rationale — ${selectedQuestionForModal.courseCode}` : 'Question Details'}
+        description="Official examination item, options, verified answer key, and clinical rationale."
+        size="md"
+        footer={
+          <div className="flex items-center justify-end gap-2 w-full">
+            <Button size="sm" variant="secondary" onClick={() => setSelectedQuestionForModal(null)}>
+              Close
+            </Button>
+          </div>
+        }
+      >
+        {selectedQuestionForModal && (
+          <div className="space-y-4 text-xs text-slate-800 font-sans">
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-[4px] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-[#0F7640]">{selectedQuestionForModal.courseCode}</span>
+                <span className="text-slate-300">•</span>
+                <span className="text-slate-600">Author: <strong>{selectedQuestionForModal.author}</strong></span>
+              </div>
+              <Badge variant="primary" size="sm">{selectedQuestionForModal.difficulty}</Badge>
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                Question Stem
+              </span>
+              <p className="font-bold text-slate-900 text-sm leading-relaxed">
+                {selectedQuestionForModal.questionText}
+              </p>
+              {selectedQuestionForModal.imageUrl && (
+                <div className="p-2 bg-slate-50 border border-slate-200 rounded-[4px]">
+                  <img
+                    src={selectedQuestionForModal.imageUrl}
+                    alt="Clinical Specimen / Diagram"
+                    className="max-h-56 w-auto mx-auto rounded-[4px] object-contain"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                Options &amp; Verified Key
+              </span>
+              <div className="space-y-1.5">
+                {selectedQuestionForModal.options.map((opt) => {
+                  const isCorrect = opt.id === selectedQuestionForModal.correctOptionId;
+                  return (
+                    <div
+                      key={opt.id}
+                      className={`p-2.5 rounded-[4px] border flex items-center justify-between gap-2 ${
+                        isCorrect
+                          ? 'bg-emerald-50 border-emerald-300 text-emerald-950 font-bold'
+                          : 'bg-white border-slate-200 text-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <span
+                          className={`w-6 h-6 rounded-[4px] flex items-center justify-center text-xs font-extrabold shrink-0 ${
+                            isCorrect ? 'bg-[#0F7640] text-white' : 'bg-slate-100 text-slate-600'
+                          }`}
+                        >
+                          {opt.id}
+                        </span>
+                        <span>{opt.text}</span>
+                      </div>
+                      {isCorrect && <Badge variant="success" size="sm">CORRECT KEY</Badge>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-[4px] space-y-1">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#0F7640] block">
+                Official Clinical &amp; Academic Rationale
+              </span>
+              <p className="text-slate-800 leading-relaxed">{selectedQuestionForModal.explanation}</p>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* ─── MODAL: OFFICIAL CBT EXAMINATION RESULT SLIP ─── */}
+      <Modal
+        isOpen={Boolean(selectedAttemptForModal)}
+        onClose={() => setSelectedAttemptForModal(null)}
+        title="Official CBT Examination Result Slip"
+        description="Verified computer-based assessment diagnostic transcript."
+        size="md"
+        footer={
+          <div className="flex items-center justify-end gap-2 w-full">
+            <Button
+              size="sm"
+              leftIcon={<Printer className="w-3.5 h-3.5" />}
+              onClick={() => {
+                if (!selectedAttemptForModal) return;
+                printInstitutionalDocument({
+                  title: `CBT Examination Result Slip — ${selectedAttemptForModal.studentName}`,
+                  badgeText: `OFFICIAL CBT ASSESSMENT RESULT SLIP`,
+                  referenceNo: `BCHT/CBT/${selectedAttemptForModal.id.toUpperCase()}`,
+                  issuedDate: selectedAttemptForModal.dateAttempted,
+                  schoolProfile,
+                  officeSubtitle: 'Directorate of Computer-Based Testing & Academic Examinations',
+                  metaItems: [
+                    { label: 'Candidate / Student Name', value: selectedAttemptForModal.studentName, highlight: true },
+                    { label: 'Matriculation Number', value: selectedAttemptForModal.matricNumber, highlight: true },
+                    { label: 'Examination Suite', value: selectedAttemptForModal.testTitle },
+                    { label: 'Date Attempted', value: selectedAttemptForModal.dateAttempted },
+                    {
+                      label: 'Time Taken',
+                      value: formatElapsedDuration(
+                        selectedAttemptForModal.timeSpentMinutes,
+                        selectedAttemptForModal.timeSpentSeconds
+                      ),
+                    },
+                    {
+                      label: 'Proctoring Integrity',
+                      value:
+                        (selectedAttemptForModal.proctorWarnings || 0) === 0
+                          ? 'Verified Clean (0 Violations)'
+                          : `${selectedAttemptForModal.proctorWarnings} Window Warning(s)`,
+                    },
+                  ],
+                  bodyHtml: `
+                    <div class="callout-green" style="display:flex; justify-content:space-between; align-items:center;">
+                      <div>
+                        <div style="font-size:12px; font-weight:800; text-transform:uppercase;">Final Examination Score</div>
+                        <div style="font-size:10.5px;">Statutory Pass Benchmark: 50%</div>
+                      </div>
+                      <div style="text-align:right;">
+                        <div style="font-size:16px; font-weight:800; color:#0F7640;">
+                          ${selectedAttemptForModal.score} / ${selectedAttemptForModal.totalQuestions} (${selectedAttemptForModal.percentage}%)
+                        </div>
+                        <div style="font-size:10px; font-weight:800;">
+                          ${selectedAttemptForModal.passed ? 'PASSED & QUALIFIED' : 'BELOW PASS MARK'}
+                        </div>
+                      </div>
+                    </div>
+                  `,
+                  stampText: selectedAttemptForModal.passed ? 'CBT PASSED' : 'CBT RECORDED',
+                });
+              }}
+            >
+              Print Result Slip
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => setSelectedAttemptForModal(null)}>
+              Close
+            </Button>
+          </div>
+        }
+      >
+        {selectedAttemptForModal && (
+          <div className="space-y-4 text-xs text-slate-800 font-sans">
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-[4px] flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <PersonAvatar
+                  name={selectedAttemptForModal.studentName}
+                  matricNumber={selectedAttemptForModal.matricNumber}
+                  size="md"
+                />
+                <div>
+                  <p className="font-bold text-slate-900 text-sm">{selectedAttemptForModal.studentName}</p>
+                  <p className="font-bold text-[#0F7640] text-xs">{selectedAttemptForModal.matricNumber}</p>
+                </div>
+              </div>
+              <Badge variant={selectedAttemptForModal.passed ? 'success' : 'danger'}>
+                {selectedAttemptForModal.passed ? 'PASSED' : 'FAILED'}
+              </Badge>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 p-3 bg-white border border-slate-200 rounded-[4px]">
+              <div>
+                <span className="text-[10px] text-slate-400 uppercase font-bold block">Examination</span>
+                <span className="font-bold text-slate-900">{selectedAttemptForModal.testTitle}</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-400 uppercase font-bold block">Date Completed</span>
+                <span className="font-semibold text-slate-800">{selectedAttemptForModal.dateAttempted}</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-400 uppercase font-bold block">Raw Score &amp; Percentage</span>
+                <span className="font-extrabold text-sm text-[#0F7640]">
+                  {selectedAttemptForModal.score} of {selectedAttemptForModal.totalQuestions} ({selectedAttemptForModal.percentage}%)
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-400 uppercase font-bold block">Actual Time Taken</span>
+                <span className="font-bold text-slate-900">
+                  {formatElapsedDuration(
+                    selectedAttemptForModal.timeSpentMinutes,
+                    selectedAttemptForModal.timeSpentSeconds
+                  )}
+                </span>
+              </div>
+            </div>
+
+            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-[4px] flex items-center justify-between text-[11px] text-emerald-900">
+              <span className="font-semibold flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-[#0F7640]" />
+                Proctoring &amp; Integrity Status:
+              </span>
+              <span className="font-bold">
+                {(selectedAttemptForModal.proctorWarnings || 0) === 0
+                  ? 'Clean Session (0 Tab Violations)'
+                  : `${selectedAttemptForModal.proctorWarnings} Tab Switch Warning(s)`}
+              </span>
+            </div>
+          </div>
+        )}
+      </Modal>
+
       {/* ─── MODAL 3: FULL-SCREEN INTERACTIVE LIVE CBT PRACTICE SIMULATOR ─── */}
       <Modal
         isOpen={isCbtModalOpen}
@@ -1527,7 +2117,12 @@ export const LearningView: React.FC = () => {
         title={activeTest ? `${activeTest.title}` : 'CBT Practice Simulator'}
         size="lg"
       >
-        <div className="space-y-5 text-xs text-slate-800">
+        <div
+          className="space-y-4 text-xs text-slate-800 select-none"
+          onContextMenu={(e) => e.preventDefault()}
+          onCopy={(e) => e.preventDefault()}
+          onCut={(e) => e.preventDefault()}
+        >
           {exitPrompt && !isSubmitted && (
             <div className="border border-amber-200 bg-amber-50 p-3 rounded-[4px] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <p className="text-slate-800">Leave this examination? Unsubmitted answers will be closed.</p>
@@ -1549,146 +2144,173 @@ export const LearningView: React.FC = () => {
             </div>
           )}
           {!isSubmitted ? (
-            <>
-              {/* CBT Top Bar: Timer, Course Badge, Flag Button */}
-              <div className="p-3 bg-slate-900 text-white rounded-[4px] flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-xs bg-[#0F7640] px-2 py-0.5 rounded-[4px]">
-                    {activeTest?.courseCode}
-                  </span>
-                  <span className="text-slate-300 text-xs hidden sm:inline">
-                    Question {currentQuestionIndex + 1} of {cbtQuestions.length}
-                  </span>
-                </div>
+            (() => {
+              const examPool = activeExamQuestions.length > 0 ? activeExamQuestions : cbtQuestions;
+              const currentQuestion = examPool[currentQuestionIndex];
+              return (
+                <>
+                  {/* CBT Top Bar: Timer, Course Badge, Proctoring Shield, Flag Button */}
+                  <div className="p-3 bg-slate-900 text-white rounded-[4px] flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-xs bg-[#0F7640] px-2 py-0.5 rounded-[4px]">
+                        {activeTest?.courseCode}
+                      </span>
+                      <span className="text-slate-300 text-xs hidden sm:inline">
+                        Question {currentQuestionIndex + 1} of {examPool.length}
+                      </span>
+                      <span className="text-[10px] bg-slate-800 text-emerald-300 px-2 py-0.5 rounded-[4px] border border-slate-700 hidden md:inline">
+                        Proctored &bull; Randomized
+                      </span>
+                    </div>
 
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1.5 bg-slate-800 px-3 py-1 rounded-[4px] border border-slate-700">
-                    <Clock className="w-4 h-4 text-amber-400 animate-pulse shrink-0" />
-                    <span className="font-bold text-sm tracking-wider text-amber-300">
-                      {formatTimer(secondsRemaining)}
-                    </span>
-                  </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1.5 bg-slate-800 px-3 py-1 rounded-[4px] border border-slate-700">
+                        <Clock className="w-4 h-4 text-amber-400 animate-pulse shrink-0" />
+                        <span className="font-bold text-sm tracking-wider text-amber-300">
+                          {formatTimer(secondsRemaining)}
+                        </span>
+                      </div>
 
-                  <button
-                    type="button"
-                    onClick={toggleFlagQuestion}
-                    className={`px-2.5 py-1 rounded-[4px] text-xs font-semibold flex items-center gap-1 transition-colors ${
-                      flaggedQuestions[currentQuestionIndex]
-                        ? 'bg-amber-500 text-white'
-                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                    }`}
-                  >
-                    <Flag className="w-3 h-3" />
-                    <span className="hidden sm:inline">Flag</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Question Navigation Palette */}
-              <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-[4px] flex flex-wrap items-center gap-1.5">
-                {cbtQuestions.map((_, idx) => {
-                  const isAnswered = userAnswers[idx] !== undefined;
-                  const isCurrent = idx === currentQuestionIndex;
-                  const isFlagged = flaggedQuestions[idx];
-
-                  let btnClass = 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100';
-                  if (isCurrent) {
-                    btnClass = 'bg-[#0F7640] text-white border-[#0F7640] ring-2 ring-emerald-300';
-                  } else if (isFlagged) {
-                    btnClass = 'bg-amber-500 text-white border-amber-500';
-                  } else if (isAnswered) {
-                    btnClass = 'bg-emerald-100 text-emerald-900 border-emerald-300 font-bold';
-                  }
-
-                  return (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setCurrentQuestionIndex(idx)}
-                      className={`w-7 h-7 rounded-[4px] border text-xs font-semibold flex items-center justify-center transition-all ${btnClass}`}
-                    >
-                      {idx + 1}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Question Body */}
-              <div className="p-5 bg-white border border-slate-200 rounded-[4px] space-y-4">
-                <div className="space-y-1">
-                  <span className="text-slate-400 text-[11px] font-semibold uppercase">
-                    Question {currentQuestionIndex + 1}
-                  </span>
-                  <p className="font-bold text-slate-900 text-sm leading-relaxed">
-                    {cbtQuestions[currentQuestionIndex]?.questionText}
-                  </p>
-                </div>
-
-                {/* Options List */}
-                <div className="space-y-2 pt-2">
-                  {cbtQuestions[currentQuestionIndex]?.options.map((opt) => {
-                    const isSelected = userAnswers[currentQuestionIndex] === opt.id;
-                    return (
-                      <div
-                        key={opt.id}
-                        onClick={() => handleSelectAnswer(opt.id)}
-                        className={`p-3 rounded-[4px] border cursor-pointer flex items-center gap-3 transition-colors ${
-                          isSelected
-                            ? 'bg-emerald-50 border-[#0F7640] text-slate-900 ring-1 ring-[#0F7640]'
-                            : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
+                      <button
+                        type="button"
+                        onClick={toggleFlagQuestion}
+                        className={`px-2.5 py-1 rounded-[4px] text-xs font-semibold flex items-center gap-1 transition-colors ${
+                          flaggedQuestions[currentQuestionIndex]
+                            ? 'bg-amber-500 text-white'
+                            : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
                         }`}
                       >
-                        <div
-                          className={`w-6 h-6 rounded-[4px] border flex items-center justify-center text-xs font-bold shrink-0 ${
-                            isSelected
-                              ? 'bg-[#0F7640] text-white border-[#0F7640]'
-                              : 'border-slate-300 text-slate-600'
-                          }`}
-                        >
-                          {opt.id}
-                        </div>
-                        <span className="text-xs font-medium leading-relaxed">{opt.text}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+                        <Flag className="w-3 h-3" />
+                        <span className="hidden sm:inline">Flag</span>
+                      </button>
+                    </div>
+                  </div>
 
-              {/* CBT Footer Controls */}
-              <div className="flex items-center justify-between pt-2 border-t border-slate-200">
-                <Button
-                  variant="secondary"
-                  disabled={currentQuestionIndex === 0}
-                  onClick={() => setCurrentQuestionIndex((prev) => Math.max(0, prev - 1))}
-                  leftIcon={<ChevronLeft className="w-3.5 h-3.5" />}
-                  className="whitespace-nowrap"
-                >
-                  Previous
-                </Button>
-
-                <div className="flex items-center gap-2">
-                  {currentQuestionIndex < cbtQuestions.length - 1 ? (
-                    <Button
-                      variant="primary"
-                      onClick={() => setCurrentQuestionIndex((prev) => Math.min(cbtQuestions.length - 1, prev + 1))}
-                      rightIcon={<ChevronRight className="w-3.5 h-3.5" />}
-                      className="whitespace-nowrap bg-[#0F7640] hover:bg-[#093322]"
-                    >
-                      Next Question
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="primary"
-                      onClick={handleSubmitCbt}
-                      leftIcon={<Check className="w-3.5 h-3.5" />}
-                      className="whitespace-nowrap bg-emerald-700 hover:bg-emerald-800"
-                    >
-                      Submit Exam
-                    </Button>
+                  {proctorWarnings > 0 && (
+                    <div className="p-2.5 bg-red-50 border border-red-200 rounded-[4px] flex items-center justify-between text-red-800 text-xs font-semibold">
+                      <span>
+                        Proctoring Alert (Strike {proctorWarnings} of 3): Switching tabs or leaving the examination window is strictly prohibited.
+                      </span>
+                      <Badge variant="danger" size="sm">Auto-Submit at 3/3</Badge>
+                    </div>
                   )}
-                </div>
-              </div>
-            </>
+
+                  {/* Question Navigation Palette */}
+                  <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-[4px] flex flex-wrap items-center gap-1.5">
+                    {examPool.map((_, idx) => {
+                      const isAnswered = userAnswers[idx] !== undefined;
+                      const isCurrent = idx === currentQuestionIndex;
+                      const isFlagged = flaggedQuestions[idx];
+
+                      let btnClass = 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100';
+                      if (isCurrent) {
+                        btnClass = 'bg-[#0F7640] text-white border-[#0F7640] ring-2 ring-emerald-300';
+                      } else if (isFlagged) {
+                        btnClass = 'bg-amber-500 text-white border-amber-500';
+                      } else if (isAnswered) {
+                        btnClass = 'bg-emerald-100 text-emerald-900 border-emerald-300 font-bold';
+                      }
+
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setCurrentQuestionIndex(idx)}
+                          className={`w-7 h-7 rounded-[4px] border text-xs font-semibold flex items-center justify-center transition-all ${btnClass}`}
+                        >
+                          {idx + 1}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Question Body */}
+                  <div className="p-5 bg-white border border-slate-200 rounded-[4px] space-y-4">
+                    <div className="space-y-2">
+                      <span className="text-slate-400 text-[11px] font-semibold uppercase">
+                        Question {currentQuestionIndex + 1} ({currentQuestion?.difficulty})
+                      </span>
+                      <p className="font-bold text-slate-900 text-sm leading-relaxed">
+                        {currentQuestion?.questionText}
+                      </p>
+                      {currentQuestion?.imageUrl && (
+                        <div className="p-3 bg-slate-50 border border-slate-200 rounded-[4px]">
+                          <img
+                            src={currentQuestion.imageUrl}
+                            alt="Clinical Examination Figure"
+                            className="max-h-60 w-auto mx-auto rounded-[4px] object-contain"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Options List */}
+                    <div className="space-y-2 pt-2">
+                      {currentQuestion?.options.map((opt) => {
+                        const isSelected = userAnswers[currentQuestionIndex] === opt.id;
+                        return (
+                          <div
+                            key={opt.id}
+                            onClick={() => handleSelectAnswer(opt.id)}
+                            className={`p-3 rounded-[4px] border cursor-pointer flex items-center gap-3 transition-colors ${
+                              isSelected
+                                ? 'bg-emerald-50 border-[#0F7640] text-slate-900 ring-1 ring-[#0F7640]'
+                                : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
+                            }`}
+                          >
+                            <div
+                              className={`w-6 h-6 rounded-[4px] border flex items-center justify-center text-xs font-bold shrink-0 ${
+                                isSelected
+                                  ? 'bg-[#0F7640] text-white border-[#0F7640]'
+                                  : 'border-slate-300 text-slate-600'
+                              }`}
+                            >
+                              {opt.id}
+                            </div>
+                            <span className="text-xs font-medium leading-relaxed">{opt.text}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* CBT Footer Controls */}
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-200">
+                    <Button
+                      variant="secondary"
+                      disabled={currentQuestionIndex === 0}
+                      onClick={() => setCurrentQuestionIndex((prev) => Math.max(0, prev - 1))}
+                      leftIcon={<ChevronLeft className="w-3.5 h-3.5" />}
+                      className="whitespace-nowrap"
+                    >
+                      Previous
+                    </Button>
+
+                    <div className="flex items-center gap-2">
+                      {currentQuestionIndex < examPool.length - 1 ? (
+                        <Button
+                          variant="primary"
+                          onClick={() => setCurrentQuestionIndex((prev) => Math.min(examPool.length - 1, prev + 1))}
+                          rightIcon={<ChevronRight className="w-3.5 h-3.5" />}
+                          className="whitespace-nowrap bg-[#0F7640] hover:bg-[#093322]"
+                        >
+                          Next Question
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="primary"
+                          onClick={handleSubmitCbt}
+                          leftIcon={<Check className="w-3.5 h-3.5" />}
+                          className="whitespace-nowrap bg-emerald-700 hover:bg-emerald-800"
+                        >
+                          Submit Exam
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </>
+              );
+            })()
           ) : (
             /* ─── CBT SCORE REPORT & DIAGNOSTICS ─── */
             <div className="space-y-5 text-center py-4">
@@ -1705,17 +2327,23 @@ export const LearningView: React.FC = () => {
                 </p>
               </div>
 
-              <div className="max-w-sm mx-auto p-4 bg-slate-50 border border-slate-200 rounded-[4px] grid grid-cols-2 gap-3 text-left">
+              <div className="max-w-md mx-auto p-4 bg-slate-50 border border-slate-200 rounded-[4px] grid grid-cols-3 gap-3 text-left">
                 <div>
                   <span className="text-slate-400 text-[11px] block">Your Score</span>
-                  <span className="text-2xl font-bold text-slate-900">
-                    {cbtResult?.score} of {cbtQuestions.length}
+                  <span className="text-xl font-bold text-slate-900">
+                    {cbtResult?.score} of {(activeExamQuestions.length || cbtQuestions.length)}
                   </span>
                 </div>
                 <div>
                   <span className="text-slate-400 text-[11px] block">Percentage</span>
-                  <span className={`text-2xl font-bold ${cbtResult?.passed ? 'text-[#13A348]' : 'text-[#F83A20]'}`}>
+                  <span className={`text-xl font-bold ${cbtResult?.passed ? 'text-[#13A348]' : 'text-[#F83A20]'}`}>
                     {cbtResult?.percentage}%
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-400 text-[11px] block">Time Taken</span>
+                  <span className="text-base font-bold text-slate-900 block mt-0.5">
+                    {formatElapsedDuration(cbtResult?.timeSpentMinutes || 1, cbtResult?.timeSpentSeconds)}
                   </span>
                 </div>
               </div>
@@ -1728,7 +2356,7 @@ export const LearningView: React.FC = () => {
 
               <p className="text-xs text-slate-600 max-w-md mx-auto leading-relaxed">
                 {cbtResult?.passed
-                  ? 'Congratulations! You have satisfied the statutory 50% pass mark for this licensing simulation.'
+                  ? 'Congratulations! You have satisfied the statutory 50% pass mark for this licensing simulation. Your score and time taken have been logged in Student Results.'
                   : 'You scored below the 50% pass mark. It is recommended to review the course materials and re-attempt this practice exam.'}
               </p>
 
@@ -1745,10 +2373,13 @@ export const LearningView: React.FC = () => {
                   Retake Practice Exam
                 </Button>
                 <Button
-                  onClick={() => setIsCbtModalOpen(false)}
+                  onClick={() => {
+                    setIsCbtModalOpen(false);
+                    handleTabChange('results');
+                  }}
                   className="whitespace-nowrap bg-[#0F7640] hover:bg-[#093322]"
                 >
-                  Return to Learning Portal
+                  View in Student Results
                 </Button>
               </div>
             </div>

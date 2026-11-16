@@ -35,6 +35,7 @@ export const App: React.FC = () => {
             {/* Public Auth Routes */}
             <Route path="/login" element={<LoginView />} />
             <Route path="/register" element={<LoginView />} />
+            <Route path="/apply" element={<LoginView />} />
             <Route path="/forgot-password" element={<ForgotPasswordView />} />
 
             {/* Authenticated Application Layout */}

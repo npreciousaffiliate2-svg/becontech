@@ -3,7 +3,7 @@ import { ShieldCheck, FileCheck, LockKeyhole } from 'lucide-react';
 import { useApp } from '../../context/AppContext.tsx';
 
 export const AUTH_SECURITY_LINE =
-  'Secured by CampusOne Identity. Your sign-in is encrypted and audited under NDPA 2023.';
+  'Official portal of Bethsaida College of Health Technology. Your account and personal records are kept safe and private.';
 
 export const AuthFrame: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { schoolProfile } = useApp();
@@ -24,10 +24,10 @@ export const AuthFrame: React.FC<{ children: React.ReactNode }> = ({ children })
             />
             <div>
               <span className="text-xl font-extrabold tracking-wider text-white uppercase block leading-none font-sans">
-                CampusOne
+                {schoolProfile?.institutionAcronym || 'CampusOne'}
               </span>
               <span className="text-[11px] text-emerald-200 block mt-1 font-sans">
-                Bethsaida College of Health Tech
+                {schoolProfile?.institutionName?.replace(' Ltd', '') || 'Bethsaida College of Health Technology'}
               </span>
             </div>
           </div>
@@ -35,10 +35,10 @@ export const AuthFrame: React.FC<{ children: React.ReactNode }> = ({ children })
           <div className="flex flex-col gap-6 my-auto">
             <div className="flex flex-col gap-2.5">
               <h2 className="text-3xl font-extrabold tracking-tight text-white leading-tight">
-                College Academic & Management System.
+                Welcome to Your Official College Portal.
               </h2>
-              <p className="text-sm text-emerald-100/80 leading-relaxed font-normal">
-                Seamlessly unifies admissions, bursary fee settlements, examination broadsheets, and clinical hospital postings in one accredited single-tenant cloud environment.
+              <p className="text-sm text-emerald-100/85 leading-relaxed font-normal">
+                Everything you need for admissions, course registration, school fee payments, exam results, and hospital clinical postings in one easy-to-use place.
               </p>
             </div>
 
@@ -48,9 +48,9 @@ export const AuthFrame: React.FC<{ children: React.ReactNode }> = ({ children })
                   <ShieldCheck className="w-4 h-4 text-[#13A348]" />
                 </div>
                 <div className="flex flex-col gap-0.5">
-                  <span className="font-bold text-white">Tamper-proof audit trail</span>
-                  <span className="text-emerald-100/70 leading-relaxed">
-                    Every sign-in is cryptographically recorded. Consent and session activity stay auditable.
+                  <span className="font-bold text-white">Admissions &amp; Course Registration</span>
+                  <span className="text-emerald-100/75 leading-relaxed">
+                    Apply for admission online, register your semester courses, and download lecture notes with ease.
                   </span>
                 </div>
               </div>
@@ -60,9 +60,9 @@ export const AuthFrame: React.FC<{ children: React.ReactNode }> = ({ children })
                   <FileCheck className="w-4 h-4 text-[#FEC10A]" />
                 </div>
                 <div className="flex flex-col gap-0.5">
-                  <span className="font-bold text-white">Deterministic Broadsheet Calculations</span>
-                  <span className="text-emerald-100/70 leading-relaxed">
-                    Zero-error GPA/CGPA arithmetic tested against golden statutory grading standards.
+                  <span className="font-bold text-white">Results, Practice Tests &amp; Postings</span>
+                  <span className="text-emerald-100/75 leading-relaxed">
+                    View your semester grades, take practice tests for your board exams, and check your hospital posting schedule.
                   </span>
                 </div>
               </div>
@@ -72,9 +72,9 @@ export const AuthFrame: React.FC<{ children: React.ReactNode }> = ({ children })
                   <LockKeyhole className="w-4 h-4 text-emerald-400" />
                 </div>
                 <div className="flex flex-col gap-0.5">
-                  <span className="font-bold text-white">Double-Entry Fee Ledger & E-Receipts</span>
-                  <span className="text-emerald-100/70 leading-relaxed">
-                    Instant QR-verifiable official receipts with Paystack & Remita bank settlement integration.
+                  <span className="font-bold text-white">School Fees &amp; Instant Receipts</span>
+                  <span className="text-emerald-100/75 leading-relaxed">
+                    Pay your tuition and hostel fees online and print your official college receipt right away.
                   </span>
                 </div>
               </div>
@@ -82,13 +82,29 @@ export const AuthFrame: React.FC<{ children: React.ReactNode }> = ({ children })
           </div>
 
           <div className="flex items-center justify-between border-t border-white/10 pt-4 text-xs text-emerald-100/70">
-            <span>Accredited: CHPRBN • MLSCN • PCN</span>
-            <span className="text-white font-medium">Session: 2026/2027</span>
+            <span>{schoolProfile?.officialPhone || '+234 907 578 9045'}</span>
+            <span className="text-white font-medium">Academic Session: {schoolProfile?.activeSession || '2026/2027'}</span>
           </div>
         </div>
       </div>
 
       <div className="flex-1 flex flex-col justify-center px-6 sm:px-12 lg:px-16 py-12 max-w-xl mx-auto w-full">
+        {schoolProfile?.maintenanceMode && (
+          <div className="mb-5 p-3.5 bg-amber-50 border border-amber-300 rounded-[4px] text-xs text-amber-950 space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="font-extrabold uppercase tracking-wider text-amber-900">
+                {schoolProfile.maintenanceTitle || 'Scheduled System Maintenance'}
+              </span>
+              <span className="px-2 py-0.5 bg-amber-200 text-amber-950 rounded-[3px] font-bold text-[10px]">
+                ETA: {schoolProfile.maintenanceEta || 'Within 2 hours'}
+              </span>
+            </div>
+            <p className="text-amber-800 leading-relaxed">
+              {schoolProfile.maintenanceMessage ||
+                'The college portal is currently undergoing scheduled maintenance. Administrator sign-in remains active.'}
+            </p>
+          </div>
+        )}
         <div className="w-full">{children}</div>
       </div>
     </div>

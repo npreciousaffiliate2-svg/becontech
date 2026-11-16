@@ -42,6 +42,8 @@ import {
   Trash2,
 } from 'lucide-react';
 import { formatNaira } from '@campusone/contracts';
+import { printInstitutionalDocument } from '../utils/documentExport.ts';
+import { PersonAvatar, PhotoUploadControl, pluralize } from '../components/common/PersonAvatar.tsx';
 
 /* ─── TYPES ─── */
 type StaffTab = 'directory' | 'payroll' | 'leave' | 'licensing';
@@ -71,6 +73,7 @@ interface StaffMember {
   teachingAllowanceKobo: number;
   payeTaxKobo: number;
   pensionKobo: number;
+  avatarUrl?: string;
 }
 
 interface LeaveRecord {
@@ -90,7 +93,7 @@ interface LeaveRecord {
 }
 
 export const StaffView: React.FC = () => {
-  const { isDense, recordAudit, schoolProfile, departments } = useApp();
+  const { isDense, recordAudit, schoolProfile, departments, resolveAvatarUrl, registerPersonAvatar } = useApp();
   const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -151,6 +154,7 @@ export const StaffView: React.FC = () => {
   const [newStaffLicenseNum, setNewStaffLicenseNum] = useState('');
   const [newStaffEmail, setNewStaffEmail] = useState('');
   const [newStaffPhone, setNewStaffPhone] = useState('');
+  const [newStaffAvatarUrl, setNewStaffAvatarUrl] = useState('');
 
   /* ─── DATA: STAFF MEMBERS ─── */
   const [staffMembers, setStaffMembers] = useSharedRecords<StaffMember>('staff.members', [
@@ -413,8 +417,12 @@ export const StaffView: React.FC = () => {
       teachingAllowanceKobo: 1500000,
       payeTaxKobo: 2200000,
       pensionKobo: 2240000,
+      avatarUrl: newStaffAvatarUrl || undefined,
     };
 
+    if (newStaff.avatarUrl) {
+      registerPersonAvatar([newStaff.fullName, newStaff.email, newStaff.staffId], newStaff.avatarUrl);
+    }
     setStaffMembers((prev) => [newStaff, ...prev]);
     recordAudit('NEW_STAFF_EMPLOYED', 'HRM_DIRECTORY', newStaff.staffId);
     showToast({
@@ -426,11 +434,18 @@ export const StaffView: React.FC = () => {
     setNewStaffName('');
     setNewStaffEmail('');
     setNewStaffPhone('');
+    setNewStaffAvatarUrl('');
   };
 
   const handleUpdateStaff = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingStaff) return;
+    if (editingStaff.avatarUrl !== undefined) {
+      registerPersonAvatar(
+        [editingStaff.fullName, editingStaff.email, editingStaff.staffId],
+        editingStaff.avatarUrl || ''
+      );
+    }
     setStaffMembers((prev) =>
       prev.map((s) => (s.id === editingStaff.id ? editingStaff : s))
     );
@@ -503,9 +518,12 @@ export const StaffView: React.FC = () => {
       key: 'fullName',
       header: 'Staff Full Name & Credentials',
       render: (s: StaffMember) => (
-        <div>
-          <span className="font-bold text-slate-900 block">{s.fullName}</span>
-          <span className="text-[11px] text-slate-500 font-medium">{s.credentials}</span>
+        <div className="flex items-center gap-2.5 whitespace-nowrap">
+          <PersonAvatar name={s.fullName} email={s.email} staffId={s.staffId} avatarUrl={s.avatarUrl} size="sm" />
+          <div>
+            <span className="font-bold text-slate-900 block">{s.fullName}</span>
+            <span className="text-[11px] text-slate-500 font-medium">{s.credentials}</span>
+          </div>
         </div>
       ),
     },
@@ -601,9 +619,12 @@ export const StaffView: React.FC = () => {
       key: 'fullName',
       header: 'Employee Name & Grade',
       render: (s: StaffMember) => (
-        <div>
-          <span className="font-semibold text-slate-900 block">{s.fullName}</span>
-          <span className="text-[11px] text-slate-400">{s.salaryGrade}</span>
+        <div className="flex items-center gap-2.5 whitespace-nowrap">
+          <PersonAvatar name={s.fullName} email={s.email} staffId={s.staffId} avatarUrl={s.avatarUrl} size="sm" />
+          <div>
+            <span className="font-semibold text-slate-900 block">{s.fullName}</span>
+            <span className="text-[11px] text-slate-400">{s.salaryGrade}</span>
+          </div>
         </div>
       ),
     },
@@ -673,9 +694,12 @@ export const StaffView: React.FC = () => {
       key: 'staffId',
       header: 'Staff ID & Name',
       render: (l: LeaveRecord) => (
-        <div>
-          <span className="font-bold text-slate-900 block">{l.staffName}</span>
-          <span className="text-[11px] text-slate-400">{l.staffId} • {l.departmentName}</span>
+        <div className="flex items-center gap-2.5 whitespace-nowrap">
+          <PersonAvatar name={l.staffName} staffId={l.staffId} size="sm" />
+          <div>
+            <span className="font-bold text-slate-900 block">{l.staffName}</span>
+            <span className="text-[11px] text-slate-400">{l.staffId} • {l.departmentName}</span>
+          </div>
         </div>
       ),
     },
@@ -693,7 +717,7 @@ export const StaffView: React.FC = () => {
       nowrap: true,
       render: (l: LeaveRecord) => (
         <div>
-          <span className="font-bold text-slate-900 block">{l.durationDays} Working Days</span>
+          <span className="font-bold text-slate-900 block">{pluralize(l.durationDays, 'Working Day')}</span>
           <span className="text-[11px] text-slate-500">{l.startDate} to {l.endDate}</span>
         </div>
       ),
@@ -745,9 +769,12 @@ export const StaffView: React.FC = () => {
       key: 'staffName',
       header: 'Faculty Member',
       render: (s: StaffMember) => (
-        <div>
-          <span className="font-bold text-slate-900 block">{s.fullName}</span>
-          <span className="text-[11px] text-slate-500">{s.designation}</span>
+        <div className="flex items-center gap-2.5 whitespace-nowrap">
+          <PersonAvatar name={s.fullName} email={s.email} staffId={s.staffId} avatarUrl={s.avatarUrl} size="sm" />
+          <div>
+            <span className="font-bold text-slate-900 block">{s.fullName}</span>
+            <span className="text-[11px] text-slate-500">{s.designation}</span>
+          </div>
         </div>
       ),
     },
@@ -1074,13 +1101,22 @@ export const StaffView: React.FC = () => {
       >
         {selectedStaff && (
           <div className="space-y-4 text-xs text-slate-800">
-            <div className="p-4 bg-slate-50 border border-slate-200 rounded-[4px] space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="font-extrabold text-[#0F7640] text-xs">{selectedStaff.staffId}</span>
-                <Badge variant="success" size="sm">{selectedStaff.employmentType.replace('_', ' ')}</Badge>
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-[4px] flex items-center gap-3.5">
+              <PersonAvatar
+                name={selectedStaff.fullName}
+                email={selectedStaff.email}
+                staffId={selectedStaff.staffId}
+                avatarUrl={selectedStaff.avatarUrl}
+                size="lg"
+              />
+              <div className="flex-1 min-w-0 space-y-0.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-extrabold text-[#0F7640] text-xs">{selectedStaff.staffId}</span>
+                  <Badge variant="success" size="sm">{selectedStaff.employmentType.replace('_', ' ')}</Badge>
+                </div>
+                <h3 className="font-bold text-slate-900 text-sm truncate">{selectedStaff.fullName}</h3>
+                <p className="text-slate-500 text-[11px] truncate">{selectedStaff.credentials} • {selectedStaff.designation}</p>
               </div>
-              <h3 className="font-bold text-slate-900 text-sm">{selectedStaff.fullName}</h3>
-              <p className="text-slate-500 text-[11px]">{selectedStaff.credentials} • {selectedStaff.designation}</p>
             </div>
 
             <div className="grid grid-cols-2 gap-3 p-3 bg-white border border-slate-200 rounded-[4px]">
@@ -1130,7 +1166,33 @@ export const StaffView: React.FC = () => {
               </Button>
               <Button
                 onClick={() => {
-                  showToast({ type: 'info', title: 'Dossier Export', message: `Exporting official personnel record for ${selectedStaff.fullName}.` });
+                  if (!selectedStaff) return;
+                  printInstitutionalDocument({
+                    title: `Staff Personnel Dossier — ${selectedStaff.fullName}`,
+                    badgeText: `OFFICIAL PERSONNEL & LICENSING RECORD • ${selectedStaff.staffId}`,
+                    referenceNo: `BCHT/HR/${selectedStaff.staffId.replace(/\//g, '-')}`,
+                    schoolProfile,
+                    officeSubtitle: 'Human Resources & Establishment Directorate',
+                    metaItems: [
+                      { label: 'Full Legal Name', value: `${selectedStaff.fullName} (${selectedStaff.credentials})`, highlight: true },
+                      { label: 'Staff ID Number', value: selectedStaff.staffId, highlight: true },
+                      { label: 'Academic Designation', value: selectedStaff.designation },
+                      { label: 'Department', value: selectedStaff.departmentName },
+                      { label: 'Employment Category', value: selectedStaff.employmentType.replace('_', ' ') },
+                      { label: 'Date Appointed', value: selectedStaff.dateJoined },
+                      { label: 'Official Email', value: selectedStaff.email },
+                      { label: 'Phone Number', value: selectedStaff.phone },
+                      { label: 'Salary Grade Scale', value: selectedStaff.salaryGrade },
+                      { label: 'Regulatory Licensing Body', value: selectedStaff.licenseBody, highlight: true },
+                      { label: 'Practising License No.', value: selectedStaff.licenseNumber, highlight: true },
+                      { label: 'License Expiry & Status', value: `${selectedStaff.licenseExpiry} (${selectedStaff.licenseStatus.replace('_', ' ')})` },
+                    ],
+                    stampText: 'HR & REGISTRY VERIFIED',
+                    signatures: [
+                      { title: 'Director of Establishment & HR', subtitle: 'Human Resources Division' },
+                      { title: 'Academic Registrar', subtitle: schoolProfile?.institutionName || 'Bethsaida College of Health Tech' },
+                    ],
+                  });
                 }}
                 leftIcon={<Download className="w-3.5 h-3.5" />}
                 className="whitespace-nowrap"
@@ -1276,7 +1338,90 @@ export const StaffView: React.FC = () => {
                 Close
               </Button>
               <Button
-                onClick={() => window.print()}
+                onClick={() => {
+                  if (!selectedPayslipStaff) return;
+                  const grossKobo =
+                    selectedPayslipStaff.basicSalaryKobo +
+                    selectedPayslipStaff.hazardAllowanceKobo +
+                    selectedPayslipStaff.teachingAllowanceKobo;
+                  const deductKobo =
+                    selectedPayslipStaff.payeTaxKobo + selectedPayslipStaff.pensionKobo;
+                  const netKobo = grossKobo - deductKobo;
+
+                  printInstitutionalDocument({
+                    title: `Salary Payslip — ${selectedPayslipStaff.fullName}`,
+                    badgeText: 'OFFICIAL MONTHLY SALARY PAYSLIP • NOVEMBER 2026',
+                    referenceNo: `BCHT/PAY/2026-11/${selectedPayslipStaff.staffId.replace(/\//g, '-')}`,
+                    schoolProfile,
+                    officeSubtitle: 'Bursary & Payroll Disbursement Directorate',
+                    metaItems: [
+                      { label: 'Employee Full Name', value: selectedPayslipStaff.fullName, highlight: true },
+                      { label: 'Staff Identification', value: selectedPayslipStaff.staffId, highlight: true },
+                      { label: 'Designation', value: selectedPayslipStaff.designation },
+                      { label: 'Department', value: selectedPayslipStaff.departmentName },
+                      { label: 'Salary Grade Structure', value: selectedPayslipStaff.salaryGrade },
+                      { label: 'Pay Period', value: '01 Nov 2026 – 30 Nov 2026', highlight: true },
+                    ],
+                    tableColumns: [
+                      { key: 'component', header: 'Salary / Statutory Component', bold: true },
+                      { key: 'type', header: 'Classification', align: 'center' },
+                      { key: 'amount', header: 'Amount (NGN)', align: 'right', highlight: true },
+                    ],
+                    tableData: [
+                      {
+                        component: 'Consolidated Basic Salary',
+                        type: 'EARNING',
+                        amount: formatNaira(selectedPayslipStaff.basicSalaryKobo),
+                      },
+                      {
+                        component: 'Clinical & Health Hazard Allowance',
+                        type: 'EARNING',
+                        amount: formatNaira(selectedPayslipStaff.hazardAllowanceKobo),
+                      },
+                      {
+                        component: 'Teaching & Clinical Preceptor Allowance',
+                        type: 'EARNING',
+                        amount: formatNaira(selectedPayslipStaff.teachingAllowanceKobo),
+                      },
+                      {
+                        component: 'TOTAL GROSS EARNINGS',
+                        type: 'SUBTOTAL',
+                        amount: formatNaira(grossKobo),
+                      },
+                      {
+                        component: 'PAYE Income Tax (Oyo State IRS)',
+                        type: 'DEDUCTION',
+                        amount: `-${formatNaira(selectedPayslipStaff.payeTaxKobo)}`,
+                      },
+                      {
+                        component: 'Contributory Pension Scheme (PenCom 8%)',
+                        type: 'DEDUCTION',
+                        amount: `-${formatNaira(selectedPayslipStaff.pensionKobo)}`,
+                      },
+                      {
+                        component: 'TOTAL STATUTORY DEDUCTIONS',
+                        type: 'SUBTOTAL',
+                        amount: `-${formatNaira(deductKobo)}`,
+                      },
+                    ],
+                    bodyHtml: `
+                      <div class="callout-green" style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                          <div style="font-size:11px; font-weight:800; text-transform:uppercase;">Net Salary Credited to Bank Account</div>
+                          <div style="font-size:9.5px;">Direct Electronic Bank Clearing &bull; Certified by Internal Audit</div>
+                        </div>
+                        <div style="font-size:16px; font-weight:800; color:#0F7640;">
+                          ${formatNaira(netKobo)}
+                        </div>
+                      </div>
+                    `,
+                    stampText: 'PAYROLL AUDITED & PAID',
+                    signatures: [
+                      { title: 'Chief Internal Auditor', subtitle: 'Audit & Compliance Unit' },
+                      { title: 'College Bursar', subtitle: schoolProfile?.institutionName || 'Bethsaida College of Health Tech' },
+                    ],
+                  });
+                }}
                 leftIcon={<Printer className="w-3.5 h-3.5" />}
                 className="whitespace-nowrap bg-[#0F7640] hover:bg-[#093322]"
               >
@@ -1295,6 +1440,12 @@ export const StaffView: React.FC = () => {
         size="md"
       >
         <div className="space-y-4 text-xs text-slate-800">
+          <PhotoUploadControl
+            label="Staff Passport Photograph"
+            name={newStaffName}
+            value={newStaffAvatarUrl}
+            onChange={(url) => setNewStaffAvatarUrl(url)}
+          />
           <div className="space-y-1.5">
             <label className="font-bold text-slate-900 block">Full Name:</label>
             <input
@@ -1319,12 +1470,20 @@ export const StaffView: React.FC = () => {
             </div>
             <div className="space-y-1.5">
               <label className="font-bold text-slate-900 block">Designation / Rank:</label>
-              <input
-                type="text"
-                placeholder="e.g. Senior Lecturer"
-                value={newStaffDesignation}
-                onChange={(e) => setNewStaffDesignation(e.target.value)}
-                className="w-full h-9 px-3 text-xs bg-white border border-slate-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
+              <Select
+                value={newStaffDesignation || 'Lecturer II'}
+                onChange={(val) => setNewStaffDesignation(val)}
+                options={[
+                  { value: 'Chief Lecturer', label: 'Chief Lecturer' },
+                  { value: 'Principal Lecturer', label: 'Principal Lecturer' },
+                  { value: 'Senior Lecturer', label: 'Senior Lecturer' },
+                  { value: 'Lecturer I', label: 'Lecturer I' },
+                  { value: 'Lecturer II', label: 'Lecturer II' },
+                  { value: 'Assistant Lecturer', label: 'Assistant Lecturer' },
+                  { value: 'Clinical Preceptor', label: 'Clinical Preceptor' },
+                  { value: 'Chief Laboratory Technologist', label: 'Chief Laboratory Technologist' },
+                  { value: 'Administrative Officer', label: 'Administrative Officer' },
+                ]}
               />
             </div>
           </div>
@@ -1475,6 +1634,19 @@ export const StaffView: React.FC = () => {
       >
         {editingStaff && (
           <form onSubmit={handleUpdateStaff} className="space-y-4 text-xs font-sans">
+            <PhotoUploadControl
+              label="Staff Passport Photograph"
+              name={editingStaff.fullName}
+              value={
+                resolveAvatarUrl({
+                  avatarUrl: editingStaff.avatarUrl,
+                  email: editingStaff.email,
+                  staffId: editingStaff.staffId,
+                  name: editingStaff.fullName,
+                }) || ''
+              }
+              onChange={(url) => setEditingStaff({ ...editingStaff, avatarUrl: url })}
+            />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Input
                 label="Full Name"

@@ -43,6 +43,7 @@ import {
 import { AuditEventRecord } from '@campusone/contracts';
 import { supabase } from '../lib/supabase.ts';
 import { optimizeImage } from '../utils/imageOptimizer.ts';
+import { exportToCsv } from '../utils/documentExport.ts';
 
 /* ─── TYPE DEFINITIONS ─── */
 export interface UserRoleItem {
@@ -610,21 +611,24 @@ export const AdminView: React.FC = () => {
           <Button
             variant="secondary"
             onClick={() => {
-              const csvContent = "data:text/csv;charset=utf-8," + 
-                ["Timestamp,Actor,Action,Target,IP"].concat(
-                  filteredAuditLogs.map(a => `"${a.timestamp}","${a.actorId}","${a.action}","${a.entityType}:${a.entityId}","${a.ipAddress}"`)
-                ).join("\n");
-              const encodedUri = encodeURI(csvContent);
-              const link = document.createElement("a");
-              link.setAttribute("href", encodedUri);
-              link.setAttribute("download", `bcht_audit_log_${new Date().toISOString().slice(0, 10)}.csv`);
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
+              exportToCsv({
+                filename: `BCHT_Audit_Log_${new Date().toISOString().slice(0, 10)}.csv`,
+                columns: [
+                  { key: 'timestamp', header: 'Date & Time', format: (v) => String(v || '').replace('T', ' ').slice(0, 19) },
+                  { key: 'actorId', header: 'Actor ID' },
+                  { key: 'actorRole', header: 'Actor Role' },
+                  { key: 'action', header: 'Operation Performed' },
+                  { key: 'entityType', header: 'Entity Type' },
+                  { key: 'entityId', header: 'Entity ID' },
+                  { key: 'ipAddress', header: 'IP Address' },
+                  { key: 'chainHash', header: 'Cryptographic Chain Hash' },
+                ],
+                data: filteredAuditLogs,
+              });
               showToast({
                 type: 'success',
                 title: 'Audit Log Exported',
-                message: 'System audit records downloaded as CSV.',
+                message: `Exported ${filteredAuditLogs.length} verified audit log records to CSV.`,
               });
             }}
             leftIcon={<Download className="w-3.5 h-3.5 text-[#0F7640]" />}
@@ -772,10 +776,24 @@ export const AdminView: React.FC = () => {
                   size="sm"
                   variant="secondary"
                   onClick={() => {
+                    exportToCsv({
+                      filename: `BCHT_Audit_Log_${new Date().toISOString().slice(0, 10)}.csv`,
+                      columns: [
+                        { key: 'timestamp', header: 'Date & Time', format: (v) => String(v || '').replace('T', ' ').slice(0, 19) },
+                        { key: 'actorId', header: 'Actor ID' },
+                        { key: 'actorRole', header: 'Actor Role' },
+                        { key: 'action', header: 'Operation Performed' },
+                        { key: 'entityType', header: 'Entity Type' },
+                        { key: 'entityId', header: 'Entity ID' },
+                        { key: 'ipAddress', header: 'IP Address' },
+                        { key: 'chainHash', header: 'Cryptographic Chain Hash' },
+                      ],
+                      data: filteredAuditLogs,
+                    });
                     showToast({
                       type: 'success',
                       title: 'Activity Log Exported',
-                      message: `Exported ${filteredAuditLogs.length} verified activity log records.`,
+                      message: `Exported ${filteredAuditLogs.length} verified activity log records to CSV.`,
                     });
                   }}
                   leftIcon={<Download className="w-3.5 h-3.5" />}
@@ -1232,6 +1250,118 @@ export const AdminView: React.FC = () => {
               </div>
             </Card>
           </div>
+
+          {/* Card 7: System Maintenance Mode & Downtime Control */}
+          <Card
+            header={
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="font-bold text-slate-900 uppercase tracking-wider text-xs block">
+                    System Maintenance Mode &amp; Status Notification
+                  </span>
+                  <span className="text-[11px] text-slate-500 font-normal">
+                    Display an official maintenance screen to students and staff during system upgrades while preserving administrator access.
+                  </span>
+                </div>
+                <Badge variant={schoolProfile.maintenanceMode ? 'warning' : 'success'} size="sm">
+                  {schoolProfile.maintenanceMode ? 'UNDER MAINTENANCE' : 'SYSTEM LIVE'}
+                </Badge>
+              </div>
+            }
+          >
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-[4px]">
+                <div>
+                  <span className="font-bold text-slate-900 block">
+                    {schoolProfile.maintenanceMode
+                      ? 'Maintenance Mode is Currently Active'
+                      : 'Platform is Live and Accessible to All Users'}
+                  </span>
+                  <span className="text-[11px] text-slate-500">
+                    {schoolProfile.maintenanceMode
+                      ? 'Non-admin users currently see the scheduled maintenance status page.'
+                      : 'Turn on Maintenance Mode before running major semester rollovers or maintenance tasks.'}
+                  </span>
+                </div>
+                <Button
+                  size="sm"
+                  variant={schoolProfile.maintenanceMode ? 'primary' : 'danger'}
+                  onClick={async () => {
+                    const nextMode = !schoolProfile.maintenanceMode;
+                    await updateSchoolProfile({
+                      maintenanceMode: nextMode,
+                      maintenanceTitle: editSchoolForm.maintenanceTitle || schoolProfile.maintenanceTitle || 'Scheduled System Maintenance',
+                      maintenanceMessage:
+                        editSchoolForm.maintenanceMessage ||
+                        schoolProfile.maintenanceMessage ||
+                        'The college portal is currently undergoing scheduled maintenance and system upgrades. Normal access will resume shortly.',
+                      maintenanceEta: editSchoolForm.maintenanceEta || schoolProfile.maintenanceEta || 'Within 2 hours',
+                    });
+                    showToast({
+                      type: nextMode ? 'warning' : 'success',
+                      title: nextMode ? 'Maintenance Mode Enabled' : 'System Restored to Live',
+                      message: nextMode
+                        ? 'Users will now see the official maintenance page until you restore live access.'
+                        : 'All students, applicants, and staff can now access the portal normally.',
+                    });
+                  }}
+                >
+                  {schoolProfile.maintenanceMode ? 'End Maintenance & Go Live' : 'Enable Maintenance Mode'}
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Input
+                  label="Maintenance Headline"
+                  value={editSchoolForm.maintenanceTitle || ''}
+                  onChange={(e) => setEditSchoolForm({ ...editSchoolForm, maintenanceTitle: e.target.value })}
+                  placeholder="Scheduled System Maintenance"
+                />
+                <Input
+                  label="Estimated Completion Time (ETA)"
+                  value={editSchoolForm.maintenanceEta || ''}
+                  onChange={(e) => setEditSchoolForm({ ...editSchoolForm, maintenanceEta: e.target.value })}
+                  placeholder="e.g. Within 2 hours or Today at 4:00 PM"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  Public Maintenance Message Shown to Users
+                </label>
+                <textarea
+                  rows={2}
+                  value={editSchoolForm.maintenanceMessage || ''}
+                  onChange={(e) => setEditSchoolForm({ ...editSchoolForm, maintenanceMessage: e.target.value })}
+                  placeholder="Explain why maintenance is occurring and when normal access will resume..."
+                  className="w-full p-2.5 text-xs bg-white border border-slate-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
+                />
+              </div>
+
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={async () => {
+                    await updateSchoolProfile({
+                      maintenanceTitle: editSchoolForm.maintenanceTitle || 'Scheduled System Maintenance',
+                      maintenanceMessage:
+                        editSchoolForm.maintenanceMessage ||
+                        'The college portal is currently undergoing scheduled maintenance and system upgrades. Normal access will resume shortly.',
+                      maintenanceEta: editSchoolForm.maintenanceEta || 'Within 2 hours',
+                    });
+                    showToast({
+                      type: 'success',
+                      title: 'Maintenance Notice Saved',
+                      message: 'Maintenance message and estimated completion window updated.',
+                    });
+                  }}
+                >
+                  Save Maintenance Notice
+                </Button>
+              </div>
+            </div>
+          </Card>
         </div>
       )}
 

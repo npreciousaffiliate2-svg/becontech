@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext.tsx';
 import { useSharedRecords } from '../lib/sharedRecords.ts';
+import { PersonAvatar, PhotoUploadControl, pluralize } from '../components/common/PersonAvatar.tsx';
 
 interface FacultyMember {
   id: string;
@@ -45,6 +46,7 @@ interface FacultyMember {
   phone: string;
   coursesCount: number;
   qualification: string;
+  avatarUrl?: string;
 }
 
 interface Programme {
@@ -69,6 +71,7 @@ interface Department {
   hodTitle: string;
   hodEmail: string;
   hodPhone: string;
+  hodAvatarUrl?: string;
   office: string;
   approvedQuota: number;
   programmesCount: number;
@@ -95,6 +98,8 @@ export const DepartmentsView: React.FC = () => {
     updateCourse,
     deleteCourse,
     schoolProfile,
+    resolveAvatarUrl,
+    registerPersonAvatar,
   } = useApp();
   const { showToast } = useToast();
   const { tab: routeTab } = useParams();
@@ -114,6 +119,12 @@ export const DepartmentsView: React.FC = () => {
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBoardFilter, setSelectedBoardFilter] = useState('ALL');
+  const [progSearch, setProgSearch] = useState('');
+  const [progDeptFilter, setProgDeptFilter] = useState('ALL');
+  const [hodSearch, setHodSearch] = useState('');
+  const [facultyDeptFilter, setFacultyDeptFilter] = useState('ALL');
+  const [courseDeptFilter, setCourseDeptFilter] = useState('ALL');
+  const [courseLevelFilter, setCourseLevelFilter] = useState('ALL');
 
   /* ──────────────────────────────────────────────────────────────────────────
    * 1. DEPARTMENT MANAGEMENT STATE
@@ -136,16 +147,19 @@ export const DepartmentsView: React.FC = () => {
     hodTitle: 'Dr.',
     hodEmail: '',
     hodPhone: '',
+    hodAvatarUrl: '',
     office: '',
     approvedQuota: '150',
   });
 
   // Reassign HOD Form State
   const [reassignForm, setReassignForm] = useState({
+    selectedFacultyId: '',
     newHodName: '',
     newHodTitle: 'Dr.',
     newHodEmail: '',
     newHodPhone: '',
+    newHodAvatarUrl: '',
     effectiveDate: '2026-11-15',
     memoRef: 'BCHT/PROV/HOD/2026/04',
   });
@@ -354,8 +368,9 @@ export const DepartmentsView: React.FC = () => {
     departmentCode: 'CHE',
     email: '',
     phone: '',
-    coursesCount: '1',
+    coursesCount: '0',
     qualification: 'B.Sc, M.Sc',
+    avatarUrl: '',
   });
 
   /* ──────────────────────────────────────────────────────────────────────────
@@ -402,14 +417,18 @@ export const DepartmentsView: React.FC = () => {
       return;
     }
 
+    const fullHod = newDeptForm.hodName.startsWith(newDeptForm.hodTitle)
+      ? newDeptForm.hodName
+      : `${newDeptForm.hodTitle} ${newDeptForm.hodName}`;
     const created: any = {
       id: `dept-${Date.now().toString().slice(-4)}`,
       name: newDeptForm.name,
       code: newDeptForm.code.toUpperCase(),
-      hod: `${newDeptForm.hodTitle} ${newDeptForm.hodName}`,
+      hod: fullHod,
       hodTitle: 'Head of Department',
       hodEmail: newDeptForm.hodEmail || `hod.${newDeptForm.code.toLowerCase()}@bethsaida.edu.ng`,
       hodPhone: newDeptForm.hodPhone || '+234 800 000 0000',
+      hodAvatarUrl: newDeptForm.hodAvatarUrl || undefined,
       office: newDeptForm.office || 'Main Academic Wing',
       approvedQuota: parseInt(newDeptForm.approvedQuota) || 100,
       programmesCount: 1,
@@ -433,6 +452,9 @@ export const DepartmentsView: React.FC = () => {
       ],
     };
 
+    if (created.hodAvatarUrl) {
+      registerPersonAvatar([created.hod, created.hodEmail], created.hodAvatarUrl);
+    }
     addDepartment(created);
     setIsAddDeptOpen(false);
     showToast({
@@ -462,7 +484,11 @@ export const DepartmentsView: React.FC = () => {
       hodTitle: editingDept.hodTitle,
       hodEmail: editingDept.hodEmail,
       hodPhone: editingDept.hodPhone,
+      hodAvatarUrl: editingDept.hodAvatarUrl,
     });
+    if (editingDept.hodAvatarUrl !== undefined) {
+      registerPersonAvatar([editingDept.hod, editingDept.hodEmail], editingDept.hodAvatarUrl || '');
+    }
     setIsEditDeptOpen(false);
     showToast({
       type: 'success',
@@ -504,18 +530,34 @@ export const DepartmentsView: React.FC = () => {
       return;
     }
 
-    const fullNewHod = `${reassignForm.newHodTitle} ${reassignForm.newHodName}`;
+    const fullNewHod = reassignForm.newHodName.startsWith(reassignForm.newHodTitle)
+      ? reassignForm.newHodName
+      : `${reassignForm.newHodTitle} ${reassignForm.newHodName}`;
     const targetDept = departments.find((d) => d.code === hodFormDeptCode);
     if (targetDept) {
       updateDepartment(targetDept.id, {
         hod: fullNewHod,
         hodEmail: reassignForm.newHodEmail || targetDept.hodEmail,
         hodPhone: reassignForm.newHodPhone || targetDept.hodPhone,
+        hodAvatarUrl: reassignForm.newHodAvatarUrl || targetDept.hodAvatarUrl,
       });
+    }
+    if (reassignForm.newHodAvatarUrl) {
+      registerPersonAvatar([fullNewHod, reassignForm.newHodEmail], reassignForm.newHodAvatarUrl);
     }
 
     if (selectedDept && selectedDept.code === hodFormDeptCode) {
-      setSelectedDept((prev) => (prev ? { ...prev, hod: fullNewHod } : null));
+      setSelectedDept((prev) =>
+        prev
+          ? {
+              ...prev,
+              hod: fullNewHod,
+              hodEmail: reassignForm.newHodEmail || prev.hodEmail,
+              hodPhone: reassignForm.newHodPhone || prev.hodPhone,
+              hodAvatarUrl: reassignForm.newHodAvatarUrl || prev.hodAvatarUrl,
+            }
+          : null
+      );
     }
 
     setIsReassignHODOpen(false);
@@ -602,6 +644,7 @@ export const DepartmentsView: React.FC = () => {
       return;
     }
 
+    const parsedCourses = parseInt(newFacultyForm.coursesCount, 10);
     const newFac: FacultyMember = {
       id: `fac-${Date.now().toString().slice(-4)}`,
       name: newFacultyForm.name,
@@ -609,10 +652,14 @@ export const DepartmentsView: React.FC = () => {
       departmentCode: newFacultyForm.departmentCode,
       email: newFacultyForm.email || `${newFacultyForm.name.toLowerCase().replace(/[^a-z]/g, '')}@bethsaida.edu.ng`,
       phone: newFacultyForm.phone || '+234 800 000 0000',
-      coursesCount: parseInt(newFacultyForm.coursesCount, 10) || 1,
+      coursesCount: Number.isNaN(parsedCourses) ? 0 : Math.max(0, parsedCourses),
       qualification: newFacultyForm.qualification,
+      avatarUrl: newFacultyForm.avatarUrl || undefined,
     };
 
+    if (newFac.avatarUrl) {
+      registerPersonAvatar([newFac.name, newFac.email], newFac.avatarUrl);
+    }
     setFaculty((prev) => [newFac, ...prev]);
     setIsAddFacultyOpen(false);
     showToast({
@@ -625,6 +672,9 @@ export const DepartmentsView: React.FC = () => {
   const handleUpdateFaculty = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingFaculty) return;
+    if (editingFaculty.avatarUrl !== undefined) {
+      registerPersonAvatar([editingFaculty.name, editingFaculty.email], editingFaculty.avatarUrl || '');
+    }
     setFaculty((prev) => prev.map((f) => (f.id === editingFaculty.id ? editingFaculty : f)));
     setIsEditFacultyOpen(false);
     showToast({
@@ -734,9 +784,12 @@ export const DepartmentsView: React.FC = () => {
       key: 'hod',
       header: 'Head of Department',
       render: (d: Department) => (
-        <div className="whitespace-nowrap">
-          <p className="font-semibold text-slate-800">{d.hod}</p>
-          <span className="text-[11px] text-slate-500">{d.hodEmail}</span>
+        <div className="flex items-center gap-2.5 whitespace-nowrap">
+          <PersonAvatar name={d.hod} email={d.hodEmail} avatarUrl={d.hodAvatarUrl} size="sm" />
+          <div>
+            <p className="font-semibold text-slate-800">{d.hod}</p>
+            <span className="text-[11px] text-slate-500">{d.hodEmail}</span>
+          </div>
         </div>
       ),
     },
@@ -760,7 +813,7 @@ export const DepartmentsView: React.FC = () => {
       header: 'Faculty',
       align: 'right' as const,
       render: (d: Department) => (
-        <span className="font-semibold text-slate-700 whitespace-nowrap">{d.facultyCount} Lecturers</span>
+        <span className="font-semibold text-slate-700 whitespace-nowrap">{pluralize(d.facultyCount, 'Lecturer')}</span>
       ),
     },
     {
@@ -814,10 +867,12 @@ export const DepartmentsView: React.FC = () => {
             onClick={() => {
               setHodFormDeptCode(d.code);
               setReassignForm({
+                selectedFacultyId: '',
                 newHodName: '',
                 newHodTitle: 'Dr.',
                 newHodEmail: '',
                 newHodPhone: '',
+                newHodAvatarUrl: '',
                 effectiveDate: new Date().toISOString().slice(0, 10),
                 memoRef: `BCHT/PROV/HOD/2026/${d.code}`,
               });
@@ -918,8 +973,9 @@ export const DepartmentsView: React.FC = () => {
                   departmentCode: departments[0]?.code || 'CHE',
                   email: '',
                   phone: '',
-                  coursesCount: '1',
+                  coursesCount: '0',
                   qualification: 'B.Sc, M.Sc',
+                  avatarUrl: '',
                 });
                 setIsAddFacultyOpen(true);
               }}
@@ -1104,10 +1160,29 @@ export const DepartmentsView: React.FC = () => {
       {/* ─── TAB 2: Accredited Programmes ─── */}
       {activeTab === 'programmes' && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-500 font-medium">
-              Showing {programmesList.length} approved training programmes
-            </span>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-[4px] border border-slate-200 shadow-sm">
+            <div className="flex flex-wrap items-center gap-2 flex-1">
+              <div className="relative w-full sm:w-64">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search programme, code, or council..."
+                  value={progSearch}
+                  onChange={(e) => setProgSearch(e.target.value)}
+                  className="w-full h-9 pl-9 pr-3 text-xs rounded-[4px] border border-slate-300 focus:outline-none focus:ring-1 focus:ring-[#0F7640] font-sans"
+                />
+              </div>
+              <div className="w-full sm:w-56">
+                <Select
+                  value={progDeptFilter}
+                  onChange={(val) => setProgDeptFilter(val)}
+                  options={[
+                    { value: 'ALL', label: 'All Departments' },
+                    ...departments.map((d) => ({ value: d.code, label: `${d.name} (${d.code})` })),
+                  ]}
+                />
+              </div>
+            </div>
             <Button
               size="sm"
               leftIcon={<Plus className="w-3.5 h-3.5" />}
@@ -1124,14 +1199,26 @@ export const DepartmentsView: React.FC = () => {
                 });
                 setIsAddProgOpen(true);
               }}
-              className="bg-[#0F7640] hover:bg-[#093322]"
+              className="bg-[#0F7640] hover:bg-[#093322] shrink-0"
             >
               Add Programme
             </Button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {programmesList.map((p) => {
+            {programmesList
+              .filter((p) => {
+                if (progDeptFilter !== 'ALL' && p.departmentCode !== progDeptFilter) return false;
+                if (!progSearch.trim()) return true;
+                const q = progSearch.toLowerCase();
+                return (
+                  p.name.toLowerCase().includes(q) ||
+                  p.code.toLowerCase().includes(q) ||
+                  p.departmentName.toLowerCase().includes(q) ||
+                  p.regulatoryBody.toLowerCase().includes(q)
+                );
+              })
+              .map((p) => {
               const quotaPercent = Math.round((p.studentsCount / p.boardQuota) * 100);
               return (
                 <div
@@ -1169,7 +1256,7 @@ export const DepartmentsView: React.FC = () => {
                       </div>
                       <div>
                         <span className="text-slate-400 block text-[11px]">Approved Quota</span>
-                        <span className="font-semibold text-slate-800">{p.boardQuota} Candidates</span>
+                        <span className="font-semibold text-slate-800">{pluralize(p.boardQuota, 'Candidate')}</span>
                       </div>
                     </div>
 
@@ -1224,8 +1311,35 @@ export const DepartmentsView: React.FC = () => {
       {/* ─── TAB 3: Heads of Department (HODs) ─── */}
       {activeTab === 'hods' && (
         <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-[4px] border border-slate-200 shadow-sm">
+            <div className="relative w-full sm:w-72">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search HOD name, department, or email..."
+                value={hodSearch}
+                onChange={(e) => setHodSearch(e.target.value)}
+                className="w-full h-9 pl-9 pr-3 text-xs rounded-[4px] border border-slate-300 focus:outline-none focus:ring-1 focus:ring-[#0F7640] font-sans"
+              />
+            </div>
+            <span className="text-xs text-slate-500 font-medium">
+              {pluralize(departments.length, 'Appointed Department Head')}
+            </span>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {departments.map((d) => (
+            {departments
+              .filter((d) => {
+                if (!hodSearch.trim()) return true;
+                const q = hodSearch.toLowerCase();
+                return (
+                  d.hod.toLowerCase().includes(q) ||
+                  d.name.toLowerCase().includes(q) ||
+                  d.code.toLowerCase().includes(q) ||
+                  d.hodEmail.toLowerCase().includes(q)
+                );
+              })
+              .map((d) => (
               <div
                 key={d.id}
                 className="bg-white rounded-[4px] border border-slate-200 p-5 shadow-sm space-y-4 flex flex-col justify-between"
@@ -1241,9 +1355,7 @@ export const DepartmentsView: React.FC = () => {
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-[4px] bg-[#0F7640] text-white font-bold text-sm flex items-center justify-center shrink-0 shadow-sm">
-                      {d.hod.replace(/^(Dr\.|Pharm\.|Mrs\.|Mr\.|Sanitarian)\s*/, '').slice(0, 2).toUpperCase()}
-                    </div>
+                    <PersonAvatar name={d.hod} email={d.hodEmail} avatarUrl={d.hodAvatarUrl} size="md" />
                     <div className="min-w-0">
                       <h4 className="font-bold text-slate-900 text-sm truncate">{d.hod}</h4>
                       <p className="text-xs text-slate-500 truncate">{d.hodTitle}</p>
@@ -1284,10 +1396,12 @@ export const DepartmentsView: React.FC = () => {
                     onClick={() => {
                       setHodFormDeptCode(d.code);
                       setReassignForm({
+                        selectedFacultyId: '',
                         newHodName: '',
                         newHodTitle: 'Dr.',
                         newHodEmail: '',
                         newHodPhone: '',
+                        newHodAvatarUrl: '',
                         effectiveDate: new Date().toISOString().slice(0, 10),
                         memoRef: `BCHT/PROV/HOD/2026/${d.code}`,
                       });
@@ -1319,8 +1433,9 @@ export const DepartmentsView: React.FC = () => {
                     departmentCode: departments[0]?.code || 'CHE',
                     email: '',
                     phone: '',
-                    coursesCount: '1',
+                    coursesCount: '0',
                     qualification: 'B.Sc, M.Sc',
+                    avatarUrl: '',
                   });
                   setIsAddFacultyOpen(true);
                 }}
@@ -1332,19 +1447,35 @@ export const DepartmentsView: React.FC = () => {
           }
         >
           <Table
+            searchPlaceholder="Search lecturer name, qualification, rank, or email..."
+            toolbarFilters={
+              <div className="w-56">
+                <Select
+                  value={facultyDeptFilter}
+                  onChange={(val) => setFacultyDeptFilter(val)}
+                  options={[
+                    { value: 'ALL', label: 'All Departments' },
+                    ...departments.map((d) => ({ value: d.code, label: `${d.name} (${d.code})` })),
+                  ]}
+                />
+              </div>
+            }
             columns={[
               {
                 key: 'name',
                 header: 'Faculty Name',
                 render: (f: FacultyMember) => (
-                  <div className="whitespace-nowrap">
-                    <p className="font-bold text-slate-900">{f.name}</p>
-                    <span className="text-[11px] text-slate-500">{f.qualification}</span>
+                  <div className="flex items-center gap-2.5 whitespace-nowrap">
+                    <PersonAvatar name={f.name} email={f.email} avatarUrl={f.avatarUrl} size="sm" />
+                    <div>
+                      <p className="font-bold text-slate-900">{f.name}</p>
+                      <span className="text-[11px] text-slate-500">{f.qualification}</span>
+                    </div>
                   </div>
                 ),
               },
               {
-                key: 'department',
+                key: 'departmentCode',
                 header: 'Department',
                 render: (f: FacultyMember) => (
                   <span className="font-extrabold text-[#0F7640] text-xs bg-emerald-50 px-2 py-0.5 rounded-[4px] border border-emerald-200">
@@ -1373,11 +1504,26 @@ export const DepartmentsView: React.FC = () => {
                 key: 'coursesCount',
                 header: 'Course Load',
                 align: 'right' as const,
-                render: (f: FacultyMember) => (
-                  <span className="font-semibold text-slate-900 whitespace-nowrap">
-                    {f.coursesCount} Courses
-                  </span>
-                ),
+                render: (f: FacultyMember) => {
+                  const normName = f.name
+                    .replace(/^(Dr\.|Pharm\.|Prof\.|Mrs\.|Mr\.|Ms\.|Miss|Nurse|Sanitarian)\s+/i, '')
+                    .trim()
+                    .toLowerCase();
+                  const assignedCourses = courses.filter((c) => {
+                    if (!c.lecturer) return false;
+                    const cNorm = c.lecturer
+                      .replace(/^(Dr\.|Pharm\.|Prof\.|Mrs\.|Mr\.|Ms\.|Miss|Nurse|Sanitarian)\s+/i, '')
+                      .trim()
+                      .toLowerCase();
+                    return cNorm === normName || c.lecturer.toLowerCase().trim() === f.name.toLowerCase().trim();
+                  });
+                  const count = assignedCourses.length > 0 ? assignedCourses.length : (f.coursesCount ?? 0);
+                  return (
+                    <span className="font-semibold text-slate-900 whitespace-nowrap">
+                      {pluralize(count, 'Course')}
+                    </span>
+                  );
+                },
               },
               {
                 key: 'action',
@@ -1412,7 +1558,11 @@ export const DepartmentsView: React.FC = () => {
                 ),
               },
             ]}
-            data={facultyList}
+            data={
+              facultyDeptFilter === 'ALL'
+                ? facultyList
+                : facultyList.filter((f) => f.departmentCode === facultyDeptFilter)
+            }
             keyExtractor={(f) => f.id}
             isDense={isDense}
           />
@@ -1448,6 +1598,34 @@ export const DepartmentsView: React.FC = () => {
           }
         >
           <Table
+            searchPlaceholder="Search course code, title, or lecturer..."
+            toolbarFilters={
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="w-48">
+                  <Select
+                    value={courseDeptFilter}
+                    onChange={(val) => setCourseDeptFilter(val)}
+                    options={[
+                      { value: 'ALL', label: 'All Departments' },
+                      ...departments.map((d) => ({ value: d.code, label: `${d.name} (${d.code})` })),
+                    ]}
+                  />
+                </div>
+                <div className="w-40">
+                  <Select
+                    value={courseLevelFilter}
+                    onChange={(val) => setCourseLevelFilter(val)}
+                    options={[
+                      { value: 'ALL', label: 'All Levels' },
+                      ...(schoolProfile?.academicLevels || ['100 Level', '200 Level', '300 Level']).map((l) => ({
+                        value: l,
+                        label: l,
+                      })),
+                    ]}
+                  />
+                </div>
+              </div>
+            }
             columns={[
               {
                 key: 'code',
@@ -1473,7 +1651,9 @@ export const DepartmentsView: React.FC = () => {
                 header: 'Credit Units',
                 align: 'center' as const,
                 render: (c: any) => (
-                  <span className="font-bold text-slate-800">{c.creditUnits || c.units} Units</span>
+                  <span className="font-bold text-slate-800">
+                    {pluralize(Number(c.creditUnits ?? c.units ?? 0), 'Unit')}
+                  </span>
                 ),
               },
               {
@@ -1495,11 +1675,17 @@ export const DepartmentsView: React.FC = () => {
               {
                 key: 'lecturer',
                 header: 'Assigned Lecturer',
-                render: (c: any) => (
-                  <span className="text-xs text-slate-800 font-medium whitespace-nowrap">
-                    {c.lecturer}
-                  </span>
-                ),
+                render: (c: any) => {
+                  const fac = facultyList.find(
+                    (f) => f.name.toLowerCase().trim() === String(c.lecturer || '').toLowerCase().trim()
+                  );
+                  return (
+                    <div className="flex items-center gap-2 whitespace-nowrap">
+                      <PersonAvatar name={c.lecturer} email={fac?.email} avatarUrl={fac?.avatarUrl} size="xs" />
+                      <span className="text-xs text-slate-800 font-medium">{c.lecturer}</span>
+                    </div>
+                  );
+                },
               },
               {
                 key: 'action',
@@ -1534,7 +1720,11 @@ export const DepartmentsView: React.FC = () => {
                 ),
               },
             ]}
-            data={courses}
+            data={courses.filter((c) => {
+              if (courseDeptFilter !== 'ALL' && c.departmentCode !== courseDeptFilter) return false;
+              if (courseLevelFilter !== 'ALL' && c.level !== courseLevelFilter) return false;
+              return true;
+            })}
             keyExtractor={(c) => c.code}
             isDense={isDense}
           />
@@ -1589,11 +1779,11 @@ export const DepartmentsView: React.FC = () => {
               </div>
               <div>
                 <span className="text-[11px] text-slate-400 block font-medium">Enrolled Students</span>
-                <span className="font-bold text-slate-900">{selectedDept.studentsCount} Students</span>
+                <span className="font-bold text-slate-900">{pluralize(selectedDept.studentsCount, 'Student')}</span>
               </div>
               <div>
                 <span className="text-[11px] text-slate-400 block font-medium">Approved Quota</span>
-                <span className="font-bold text-slate-900">{selectedDept.approvedQuota} Candidates</span>
+                <span className="font-bold text-slate-900">{pluralize(selectedDept.approvedQuota, 'Candidate')}</span>
               </div>
             </div>
 
@@ -1602,12 +1792,20 @@ export const DepartmentsView: React.FC = () => {
                 Departmental Leadership
               </span>
               <div className="p-3 bg-white border border-slate-200 rounded-[4px] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h4 className="font-bold text-slate-900 text-sm">{selectedDept.hod}</h4>
-                  <p className="text-xs text-slate-500">{selectedDept.hodTitle}</p>
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    {selectedDept.hodEmail} • {selectedDept.hodPhone}
-                  </p>
+                <div className="flex items-center gap-3">
+                  <PersonAvatar
+                    name={selectedDept.hod}
+                    email={selectedDept.hodEmail}
+                    avatarUrl={selectedDept.hodAvatarUrl}
+                    size="md"
+                  />
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-sm">{selectedDept.hod}</h4>
+                    <p className="text-xs text-slate-500">{selectedDept.hodTitle}</p>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      {selectedDept.hodEmail} • {selectedDept.hodPhone}
+                    </p>
+                  </div>
                 </div>
                 <div className="text-left sm:text-right">
                   <span className="text-[11px] text-slate-400 block">Office Location</span>
@@ -1658,6 +1856,30 @@ export const DepartmentsView: React.FC = () => {
             />
           </div>
 
+          <Select
+            label="Select HOD from Existing Academic Faculty (Optional)"
+            placeholder="Search & select lecturer to auto-fill..."
+            options={facultyList.map((f) => ({
+              value: f.id,
+              label: f.name,
+              description: `${f.title} • ${f.departmentCode} • ${f.qualification}`,
+              avatarUrl: resolveAvatarUrl({ avatarUrl: f.avatarUrl, email: f.email, name: f.name }) || '',
+            }))}
+            value=""
+            onChange={(facId) => {
+              const fac = facultyList.find((f) => f.id === facId);
+              if (fac) {
+                setNewDeptForm((prev) => ({
+                  ...prev,
+                  hodName: fac.name,
+                  hodEmail: fac.email,
+                  hodPhone: fac.phone,
+                  hodAvatarUrl: resolveAvatarUrl({ avatarUrl: fac.avatarUrl, email: fac.email, name: fac.name }) || '',
+                }));
+              }
+            }}
+          />
+
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Select
               label="Title"
@@ -1665,6 +1887,7 @@ export const DepartmentsView: React.FC = () => {
                 { value: 'Dr.', label: 'Dr.' },
                 { value: 'Pharm.', label: 'Pharm.' },
                 { value: 'Sanitarian', label: 'Sanitarian' },
+                { value: 'Nurse', label: 'Nurse' },
                 { value: 'Mr.', label: 'Mr.' },
                 { value: 'Mrs.', label: 'Mrs.' },
               ]}
@@ -1681,6 +1904,13 @@ export const DepartmentsView: React.FC = () => {
               />
             </div>
           </div>
+
+          <PhotoUploadControl
+            label="HOD Profile Photograph"
+            name={newDeptForm.hodName}
+            value={newDeptForm.hodAvatarUrl}
+            onChange={(url) => setNewDeptForm({ ...newDeptForm, hodAvatarUrl: url })}
+          />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
@@ -1849,6 +2079,33 @@ export const DepartmentsView: React.FC = () => {
             onChange={(val) => setHodFormDeptCode(val)}
           />
 
+          <Select
+            label="Appoint from Faculty Roster (Search by Name, Rank, or Dept)"
+            placeholder="Search & select lecturer to appoint as HOD..."
+            options={[...facultyList]
+              .sort((a, b) => Number(b.departmentCode === hodFormDeptCode) - Number(a.departmentCode === hodFormDeptCode))
+              .map((f) => ({
+                value: f.id,
+                label: f.name,
+                description: `${f.title} • ${f.departmentCode} • ${f.qualification}`,
+                avatarUrl: resolveAvatarUrl({ avatarUrl: f.avatarUrl, email: f.email, name: f.name }) || '',
+              }))}
+            value={reassignForm.selectedFacultyId}
+            onChange={(facId) => {
+              const fac = facultyList.find((f) => f.id === facId);
+              if (fac) {
+                setReassignForm((prev) => ({
+                  ...prev,
+                  selectedFacultyId: fac.id,
+                  newHodName: fac.name,
+                  newHodEmail: fac.email,
+                  newHodPhone: fac.phone,
+                  newHodAvatarUrl: resolveAvatarUrl({ avatarUrl: fac.avatarUrl, email: fac.email, name: fac.name }) || '',
+                }));
+              }
+            }}
+          />
+
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Select
               label="Title"
@@ -1856,6 +2113,7 @@ export const DepartmentsView: React.FC = () => {
                 { value: 'Dr.', label: 'Dr.' },
                 { value: 'Pharm.', label: 'Pharm.' },
                 { value: 'Sanitarian', label: 'Sanitarian' },
+                { value: 'Nurse', label: 'Nurse' },
                 { value: 'Mr.', label: 'Mr.' },
                 { value: 'Mrs.', label: 'Mrs.' },
               ]}
@@ -1872,6 +2130,13 @@ export const DepartmentsView: React.FC = () => {
               />
             </div>
           </div>
+
+          <PhotoUploadControl
+            label="Appointed HOD Photograph"
+            name={reassignForm.newHodName}
+            value={reassignForm.newHodAvatarUrl}
+            onChange={(url) => setReassignForm({ ...reassignForm, newHodAvatarUrl: url })}
+          />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <DatePicker
@@ -2082,6 +2347,12 @@ export const DepartmentsView: React.FC = () => {
         size="md"
       >
         <form onSubmit={handleAddFaculty} className="space-y-3.5 text-xs">
+          <PhotoUploadControl
+            label="Lecturer Passport Photograph"
+            name={newFacultyForm.name}
+            value={newFacultyForm.avatarUrl}
+            onChange={(url) => setNewFacultyForm({ ...newFacultyForm, avatarUrl: url })}
+          />
           <Input
             label="Full Name"
             placeholder="e.g. Dr. Samuel Adebayo"
@@ -2158,6 +2429,12 @@ export const DepartmentsView: React.FC = () => {
           size="md"
         >
           <form onSubmit={handleUpdateFaculty} className="space-y-3.5 text-xs">
+            <PhotoUploadControl
+              label="Lecturer Passport Photograph"
+              name={editingFaculty.name}
+              value={resolveAvatarUrl({ avatarUrl: editingFaculty.avatarUrl, email: editingFaculty.email, name: editingFaculty.name }) || ''}
+              onChange={(url) => setEditingFaculty({ ...editingFaculty, avatarUrl: url })}
+            />
             <Input
               label="Full Name"
               value={editingFaculty.name}
@@ -2297,11 +2574,19 @@ export const DepartmentsView: React.FC = () => {
             />
           </div>
 
-          <Input
+          <Select
             label="Assigned Lecturer"
-            placeholder="e.g. Dr. K. Bello"
+            placeholder="Search & select lecturer..."
+            options={[...facultyList]
+              .sort((a, b) => Number(b.departmentCode === newCourseForm.departmentCode) - Number(a.departmentCode === newCourseForm.departmentCode))
+              .map((f) => ({
+                value: f.name,
+                label: f.name,
+                description: `${f.title} • ${f.departmentCode} (${f.qualification})`,
+                avatarUrl: resolveAvatarUrl({ avatarUrl: f.avatarUrl, email: f.email, name: f.name }) || '',
+              }))}
             value={newCourseForm.lecturer}
-            onChange={(e) => setNewCourseForm({ ...newCourseForm, lecturer: e.target.value })}
+            onChange={(val) => setNewCourseForm({ ...newCourseForm, lecturer: val })}
           />
 
           <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
@@ -2350,10 +2635,19 @@ export const DepartmentsView: React.FC = () => {
                 onChange={(e) => setEditingCourse({ ...editingCourse, creditUnits: parseInt(e.target.value, 10) || 0 })}
                 required
               />
-              <Input
+              <Select
                 label="Assigned Lecturer"
+                placeholder="Search & select lecturer..."
+                options={[...facultyList]
+                  .sort((a, b) => Number(b.departmentCode === editingCourse.departmentCode) - Number(a.departmentCode === editingCourse.departmentCode))
+                  .map((f) => ({
+                    value: f.name,
+                    label: f.name,
+                    description: `${f.title} • ${f.departmentCode} (${f.qualification})`,
+                    avatarUrl: resolveAvatarUrl({ avatarUrl: f.avatarUrl, email: f.email, name: f.name }) || '',
+                  }))}
                 value={editingCourse.lecturer}
-                onChange={(e) => setEditingCourse({ ...editingCourse, lecturer: e.target.value })}
+                onChange={(val) => setEditingCourse({ ...editingCourse, lecturer: val })}
               />
             </div>
 

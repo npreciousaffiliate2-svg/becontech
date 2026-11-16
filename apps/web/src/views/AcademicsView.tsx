@@ -32,6 +32,8 @@ import {
   computeCourseResult,
   DEFAULT_GRADING_SCALE,
 } from '@campusone/contracts';
+import { exportToCsv, printInstitutionalDocument } from '../utils/documentExport.ts';
+import { PersonAvatar, pluralize } from '../components/common/PersonAvatar.tsx';
 
 interface StudentScoreRecord {
   matricNumber: string;
@@ -364,7 +366,10 @@ export const AcademicsView: React.FC = () => {
       key: 'studentName',
       header: 'Student Full Name',
       render: (s: StudentScoreRecord) => (
-        <span className="font-bold text-slate-900 font-sans">{s.studentName}</span>
+        <div className="flex items-center gap-2.5 whitespace-nowrap">
+          <PersonAvatar name={s.studentName} matricNumber={s.matricNumber} size="sm" />
+          <span className="font-bold text-slate-900 font-sans">{s.studentName}</span>
+        </div>
       ),
     },
     {
@@ -680,7 +685,60 @@ export const AcademicsView: React.FC = () => {
                 size="sm"
                 variant="secondary"
                 leftIcon={<Printer className="w-3.5 h-3.5" />}
-                onClick={() => window.print()}
+                onClick={() => {
+                  const rows = isStudent
+                    ? broadsheetData.filter(
+                        (b) => b.matricNumber === (persona?.matricNumber || 'CHE/2026/0014')
+                      )
+                    : broadsheetData;
+                  printInstitutionalDocument({
+                    title: `Examination Broadsheet — ${broadsheetDept} ${broadsheetLevel}`,
+                    badgeText: `OFFICIAL SENATE EXAMINATION BROADSHEET • ${broadsheetSemester.toUpperCase()} SEMESTER`,
+                    orientation: 'landscape',
+                    schoolProfile,
+                    officeSubtitle: 'Directorate of Academic Planning & Senate Examination Board',
+                    metaItems: [
+                      { label: 'Department / Track', value: broadsheetDept, highlight: true },
+                      { label: 'Academic Level', value: broadsheetLevel },
+                      { label: 'Semester & Session', value: `${broadsheetSemester} (${schoolProfile?.activeSession || '2026/2027'})` },
+                      { label: 'Senate Status', value: isBroadsheetRatified ? 'SENATE RATIFIED' : 'PENDING RATIFICATION', highlight: isBroadsheetRatified },
+                    ],
+                    tableColumns: [
+                      { key: 'matricNumber', header: 'Matric No.', highlight: true },
+                      { key: 'studentName', header: 'Candidate Full Name', bold: true },
+                      {
+                        key: 'che101',
+                        header: 'CHE 101 (3U)',
+                        align: 'center',
+                        format: (_, r) => `${r.courseScores['CHE 101'].total}% (${r.courseScores['CHE 101'].grade})`,
+                      },
+                      {
+                        key: 'che102',
+                        header: 'CHE 102 (3U)',
+                        align: 'center',
+                        format: (_, r) => `${r.courseScores['CHE 102'].total}% (${r.courseScores['CHE 102'].grade})`,
+                      },
+                      {
+                        key: 'che103',
+                        header: 'CHE 103 (4U)',
+                        align: 'center',
+                        format: (_, r) => `${r.courseScores['CHE 103'].total}% (${r.courseScores['CHE 103'].grade})`,
+                      },
+                      { key: 'totalUnits', header: 'Units', align: 'right', bold: true },
+                      { key: 'totalPoints', header: 'TQP', align: 'right', format: (v) => Number(v).toFixed(1) },
+                      { key: 'gpa', header: 'GPA', align: 'right', bold: true, format: (v) => Number(v).toFixed(2) },
+                      { key: 'cgpa', header: 'CGPA', align: 'right', highlight: true, format: (v) => Number(v).toFixed(2) },
+                      { key: 'standing', header: 'Standing', align: 'center', format: (v) => String(v).replace('_', ' ') },
+                    ],
+                    tableData: rows,
+                    stampText: isBroadsheetRatified ? 'SENATE RATIFIED' : 'PROVISIONAL',
+                    signatures: [
+                      { title: 'Head of Department', subtitle: `${broadsheetDept} Department` },
+                      { title: 'Chief Examination Officer', subtitle: 'Senate Examination Committee' },
+                      { title: 'College Provost', subtitle: schoolProfile?.institutionName || 'Bethsaida College of Health Tech' },
+                    ],
+                  });
+                }}
               >
                 Print Broadsheet
               </Button>
@@ -688,13 +746,37 @@ export const AcademicsView: React.FC = () => {
                 size="sm"
                 variant="secondary"
                 leftIcon={<Download className="w-3.5 h-3.5" />}
-                onClick={() =>
+                onClick={() => {
+                  const rows = isStudent
+                    ? broadsheetData.filter(
+                        (b) => b.matricNumber === (persona?.matricNumber || 'CHE/2026/0014')
+                      )
+                    : broadsheetData;
+                  exportToCsv({
+                    filename: `BCHT_Broadsheet_${broadsheetDept}_${broadsheetLevel.replace(/\s+/g, '')}_${new Date().toISOString().slice(0, 10)}.csv`,
+                    columns: [
+                      { key: 'matricNumber', header: 'Matric Number' },
+                      { key: 'studentName', header: 'Candidate Full Name' },
+                      { key: 'che101Score', header: 'CHE 101 Score (%)', format: (_, r) => r.courseScores['CHE 101'].total },
+                      { key: 'che101Grade', header: 'CHE 101 Grade', format: (_, r) => r.courseScores['CHE 101'].grade },
+                      { key: 'che102Score', header: 'CHE 102 Score (%)', format: (_, r) => r.courseScores['CHE 102'].total },
+                      { key: 'che102Grade', header: 'CHE 102 Grade', format: (_, r) => r.courseScores['CHE 102'].grade },
+                      { key: 'che103Score', header: 'CHE 103 Score (%)', format: (_, r) => r.courseScores['CHE 103'].total },
+                      { key: 'che103Grade', header: 'CHE 103 Grade', format: (_, r) => r.courseScores['CHE 103'].grade },
+                      { key: 'totalUnits', header: 'Total Units' },
+                      { key: 'totalPoints', header: 'Total Quality Points', format: (v) => Number(v).toFixed(1) },
+                      { key: 'gpa', header: 'Semester GPA', format: (v) => Number(v).toFixed(2) },
+                      { key: 'cgpa', header: 'Cumulative GPA', format: (v) => Number(v).toFixed(2) },
+                      { key: 'standing', header: 'Academic Standing', format: (v) => String(v).replace('_', ' ') },
+                    ],
+                    data: rows,
+                  });
                   showToast({
-                    type: 'info',
+                    type: 'success',
                     title: 'Broadsheet Exported',
-                    message: `${broadsheetDept} ${broadsheetLevel} broadsheet exported to signed spreadsheet.`,
-                  })
-                }
+                    message: `${broadsheetDept} ${broadsheetLevel} broadsheet downloaded as CSV.`,
+                  });
+                }}
               >
                 Export CSV
               </Button>
@@ -983,7 +1065,7 @@ export const AcademicsView: React.FC = () => {
                   header: 'Units',
                   align: 'center' as const,
                   render: (c: CurriculumCourse) => (
-                    <span className="font-bold text-slate-800">{c.creditUnits} Units</span>
+                    <span className="font-bold text-slate-800">{pluralize(c.creditUnits, 'Unit')}</span>
                   ),
                 },
                 {
@@ -1000,7 +1082,10 @@ export const AcademicsView: React.FC = () => {
                   key: 'lecturer',
                   header: 'Assigned Lecturer',
                   render: (c: CurriculumCourse) => (
-                    <span className="font-medium text-slate-800 whitespace-nowrap">{c.lecturer}</span>
+                    <div className="flex items-center gap-2 whitespace-nowrap">
+                      <PersonAvatar name={c.lecturer} size="xs" />
+                      <span className="font-medium text-slate-800">{c.lecturer}</span>
+                    </div>
                   ),
                 },
                 ...(!isStudent ? [{
@@ -1057,7 +1142,66 @@ export const AcademicsView: React.FC = () => {
               <Button
                 size="sm"
                 leftIcon={<Printer className="w-3.5 h-3.5" />}
-                onClick={() => window.print()}
+                onClick={() => {
+                  const matchedRow =
+                    broadsheetData.find((b) => b.matricNumber === transcriptMatric) || broadsheetData[0];
+                  printInstitutionalDocument({
+                    title: `Official Academic Transcript — ${transcriptMatric}`,
+                    badgeText: 'OFFICIAL ACADEMIC TRANSCRIPT & STATEMENT OF RESULT',
+                    referenceNo: `BCHT/TRN/2026/${transcriptMatric.replace(/\//g, '-')}`,
+                    schoolProfile,
+                    officeSubtitle: 'Office of the Academic Registrar • Transcripts & Records Division',
+                    metaItems: [
+                      { label: 'Candidate Full Name', value: matchedRow?.studentName || 'Blessing Adeyemi', highlight: true },
+                      { label: 'Matriculation Number', value: transcriptMatric, highlight: true },
+                      { label: 'Programme of Study', value: 'Community Health Extension Worker (CHEW)' },
+                      { label: 'Cumulative GPA (CGPA)', value: `${(matchedRow?.cgpa || 3.85).toFixed(2)} / 4.00`, highlight: true },
+                      { label: 'Academic Standing', value: 'PASSED IN GOOD STANDING' },
+                      { label: 'Regulatory Board', value: 'CHPRBN Full Accreditation' },
+                    ],
+                    tableColumns: [
+                      { key: 'code', header: 'Course Code', highlight: true },
+                      { key: 'title', header: 'Course Title', bold: true },
+                      { key: 'units', header: 'Credit Units', align: 'center' },
+                      { key: 'score', header: 'Total Score', align: 'center', bold: true },
+                      { key: 'grade', header: 'Letter Grade', align: 'center', highlight: true },
+                      { key: 'remark', header: 'Standing', align: 'center' },
+                    ],
+                    tableData: [
+                      {
+                        code: 'CHE 101',
+                        title: 'Introduction to Primary Healthcare',
+                        units: 3,
+                        score: `${matchedRow?.courseScores['CHE 101'].total ?? 80}%`,
+                        grade: matchedRow?.courseScores['CHE 101'].grade ?? 'A',
+                        remark: 'PASSED',
+                      },
+                      {
+                        code: 'CHE 102',
+                        title: 'Community Diagnosis & Field Survey',
+                        units: 3,
+                        score: `${matchedRow?.courseScores['CHE 102'].total ?? 68}%`,
+                        grade: matchedRow?.courseScores['CHE 102'].grade ?? 'B',
+                        remark: 'PASSED',
+                      },
+                      {
+                        code: 'CHE 103',
+                        title: 'Environmental Sanitation & Epidemiology',
+                        units: 4,
+                        score: `${matchedRow?.courseScores['CHE 103'].total ?? 72}%`,
+                        grade: matchedRow?.courseScores['CHE 103'].grade ?? 'A',
+                        remark: 'PASSED',
+                      },
+                    ],
+                    summaryNoteHtml:
+                      '<strong>Grading Scale (4.00 Point System):</strong> A (70–100% = 4.0) &bull; B (60–69% = 3.0) &bull; C (50–59% = 2.0) &bull; D (45–49% = 1.0) &bull; F (0–44% = 0.0). Any alteration or erasure renders this transcript invalid.',
+                    stampText: 'SEALED & VERIFIED',
+                    signatures: [
+                      { title: 'Academic Registrar', subtitle: 'Custodian of Academic Records' },
+                      { title: 'College Provost', subtitle: schoolProfile?.institutionName || 'Bethsaida College of Health Tech' },
+                    ],
+                  });
+                }}
               >
                 Print Transcript
               </Button>
@@ -1209,12 +1353,27 @@ export const AcademicsView: React.FC = () => {
             />
           </div>
 
-          <Input
+          <Select
             label="Assigned Lecturer"
-            placeholder="e.g. Dr. K. Bello"
+            placeholder="Search & select lecturer..."
+            options={Array.from(
+              new Set([
+                ...curriculumCourses.map((c) => c.lecturer),
+                'Dr. K. Bello',
+                'Mrs. R. Ajayi',
+                'Mr. D. Alabi',
+                'Nurse E. Okon',
+                'Mr. O. Adebisi',
+                'Dr. S. Nnamdi',
+                'Pharm. F. Oladipo',
+                'Mrs. T. Adeleke',
+                'Sanitarian B. Ibrahim',
+              ])
+            )
+              .filter(Boolean)
+              .map((name) => ({ value: name, label: name }))}
             value={newCourseForm.lecturer}
-            onChange={(e) => setNewCourseForm({ ...newCourseForm, lecturer: e.target.value })}
-            required
+            onChange={(val) => setNewCourseForm({ ...newCourseForm, lecturer: val })}
           />
         </form>
       </Modal>
@@ -1291,11 +1450,28 @@ export const AcademicsView: React.FC = () => {
               />
             </div>
 
-            <Input
+            <Select
               label="Assigned Lecturer"
+              placeholder="Search & select lecturer..."
+              options={Array.from(
+                new Set([
+                  ...curriculumCourses.map((c) => c.lecturer),
+                  editingCourse.lecturer,
+                  'Dr. K. Bello',
+                  'Mrs. R. Ajayi',
+                  'Mr. D. Alabi',
+                  'Nurse E. Okon',
+                  'Mr. O. Adebisi',
+                  'Dr. S. Nnamdi',
+                  'Pharm. F. Oladipo',
+                  'Mrs. T. Adeleke',
+                  'Sanitarian B. Ibrahim',
+                ])
+              )
+                .filter(Boolean)
+                .map((name) => ({ value: name, label: name }))}
               value={editingCourse.lecturer}
-              onChange={(e) => setEditingCourse({ ...editingCourse, lecturer: e.target.value })}
-              required
+              onChange={(val) => setEditingCourse({ ...editingCourse, lecturer: val })}
             />
 
             <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">

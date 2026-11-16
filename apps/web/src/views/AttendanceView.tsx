@@ -34,6 +34,8 @@ import {
   Calendar,
   BookOpen,
 } from 'lucide-react';
+import { exportToCsv, printInstitutionalDocument } from '../utils/documentExport.ts';
+import { PersonAvatar, pluralize } from '../components/common/PersonAvatar.tsx';
 
 /* ─── TYPES ─── */
 type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'EXCUSED';
@@ -545,9 +547,12 @@ export const AttendanceView: React.FC = () => {
       key: 'fullName',
       header: 'Student Name',
       render: (s: AttendanceStudent) => (
-        <div>
-          <span className="font-semibold text-slate-800 block">{s.fullName}</span>
-          <span className="text-[11px] text-slate-400">{s.departmentName} • {s.level}</span>
+        <div className="flex items-center gap-2.5 whitespace-nowrap">
+          <PersonAvatar name={s.fullName} matricNumber={s.matricNumber} size="sm" />
+          <div>
+            <span className="font-semibold text-slate-800 block">{s.fullName}</span>
+            <span className="text-[11px] text-slate-400">{s.departmentName} • {s.level}</span>
+          </div>
         </div>
       ),
     },
@@ -657,9 +662,12 @@ export const AttendanceView: React.FC = () => {
       key: 'lecturer',
       header: 'Course Lecturer & Venue',
       render: (c: CourseSummary) => (
-        <div>
-          <span className="font-semibold text-slate-800 block">{c.lecturer}</span>
-          <span className="text-[11px] text-slate-400">{c.lectureHall}</span>
+        <div className="flex items-center gap-2.5 whitespace-nowrap">
+          <PersonAvatar name={c.lecturer} size="sm" />
+          <div>
+            <span className="font-semibold text-slate-800 block">{c.lecturer}</span>
+            <span className="text-[11px] text-slate-400">{c.lectureHall}</span>
+          </div>
         </div>
       ),
     },
@@ -667,7 +675,7 @@ export const AttendanceView: React.FC = () => {
       key: 'lectures',
       header: 'Lectures Held',
       render: (c: CourseSummary) => (
-        <span className="font-semibold text-slate-800">{c.totalLecturesHeld} Sessions</span>
+        <span className="font-semibold text-slate-800">{pluralize(c.totalLecturesHeld, 'Session')}</span>
       ),
     },
     {
@@ -726,9 +734,12 @@ export const AttendanceView: React.FC = () => {
       key: 'fullName',
       header: 'Student Name',
       render: (s: AttendanceStudent) => (
-        <div>
-          <span className="font-semibold text-slate-800 block">{s.fullName}</span>
-          <span className="text-[11px] text-slate-400">{s.departmentName} • {s.level}</span>
+        <div className="flex items-center gap-2.5 whitespace-nowrap">
+          <PersonAvatar name={s.fullName} matricNumber={s.matricNumber} size="sm" />
+          <div>
+            <span className="font-semibold text-slate-800 block">{s.fullName}</span>
+            <span className="text-[11px] text-slate-400">{s.departmentName} • {s.level}</span>
+          </div>
         </div>
       ),
     },
@@ -918,10 +929,38 @@ export const AttendanceView: React.FC = () => {
               variant="secondary"
               size="sm"
               onClick={() => {
+                exportToCsv({
+                  filename: `BCHT_Exam_Cleared_Dockets_${new Date().toISOString().slice(0, 10)}.csv`,
+                  columns: [
+                    { key: 'matricNumber', header: 'Matriculation Number' },
+                    { key: 'fullName', header: 'Candidate Full Name' },
+                    { key: 'departmentName', header: 'Department' },
+                    { key: 'level', header: 'Level' },
+                    { key: 'courseCode', header: 'Course Code' },
+                    { key: 'attendedSessions', header: 'Attended Lectures' },
+                    { key: 'totalSessions', header: 'Total Lectures' },
+                    {
+                      key: 'pct',
+                      header: 'Attendance (%)',
+                      format: (_, s) => `${Math.round((s.attendedSessions / s.totalSessions) * 100)}%`,
+                    },
+                    { key: 'bursaryStatus', header: 'Bursary Fee Status' },
+                    { key: 'waiverGranted', header: 'Medical Waiver', format: (v) => (v ? 'Waiver Ratified' : 'None') },
+                    {
+                      key: 'eligibility',
+                      header: 'Exam Hall Clearance',
+                      format: (_, s) => {
+                        const pct = Math.round((s.attendedSessions / s.totalSessions) * 100);
+                        return (pct >= 75 || s.waiverGranted) && s.bursaryStatus === 'CLEARED' ? 'CLEARED' : 'PROVISIONAL / BARRED';
+                      },
+                    },
+                  ],
+                  data: filteredStudents,
+                });
                 showToast({
-                  type: 'info',
-                  title: 'Batch Docket Export',
-                  message: 'Preparing PDF examination docket bundle for all cleared trainees.',
+                  type: 'success',
+                  title: 'Cleared Dockets Exported',
+                  message: `Exported ${filteredStudents.length} examination clearance records to CSV.`,
                 });
               }}
               className="flex items-center gap-1.5"
@@ -1267,10 +1306,11 @@ export const AttendanceView: React.FC = () => {
               {/* Trainee Profile & Photo Card */}
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-4 gap-4 items-center bg-slate-50/70 p-3 rounded-[4px] border border-slate-100">
                 <div className="sm:col-span-1 flex flex-col items-center justify-center">
-                  <div className="w-20 h-24 rounded-[4px] bg-slate-200 border border-slate-300 flex flex-col items-center justify-center text-slate-400 text-[10px] font-bold">
-                    <span>PASSPORT</span>
-                    <span>PHOTO</span>
-                  </div>
+                  <PersonAvatar
+                    name={selectedDocketStudent.fullName}
+                    matricNumber={selectedDocketStudent.matricNumber}
+                    size="xl"
+                  />
                   <span className="text-[10px] text-emerald-700 font-bold mt-1">VERIFIED</span>
                 </div>
                 <div className="sm:col-span-3 space-y-1.5 min-w-0">
@@ -1393,7 +1433,66 @@ export const AttendanceView: React.FC = () => {
               </Button>
               <Button
                 onClick={() => {
-                  window.print();
+                  if (!selectedDocketStudent) return;
+                  const pct = Math.round(
+                    (selectedDocketStudent.attendedSessions / selectedDocketStudent.totalSessions) * 100
+                  );
+                  printInstitutionalDocument({
+                    title: `Examination Clearance Docket — ${selectedDocketStudent.matricNumber}`,
+                    badgeText: `OFFICIAL EXAMINATION CLEARANCE DOCKET • ${schoolProfile?.activeSession || '2026/2027'} SESSION`,
+                    referenceNo: `BCHT/EXM/DCK/${selectedDocketStudent.matricNumber.replace(/\//g, '-')}`,
+                    schoolProfile,
+                    officeSubtitle: 'Office of the Academic Registrar & Examination Directorate',
+                    metaItems: [
+                      { label: 'Candidate Full Name', value: selectedDocketStudent.fullName, highlight: true },
+                      { label: 'Matriculation Number', value: selectedDocketStudent.matricNumber, highlight: true },
+                      { label: 'Department / Track', value: `${selectedDocketStudent.departmentName} (${selectedDocketStudent.level})` },
+                      { label: 'Lecture Attendance', value: `${pct}% (${selectedDocketStudent.attendedSessions}/${selectedDocketStudent.totalSessions} Sessions)` },
+                      { label: 'Bursary Fee Standing', value: selectedDocketStudent.bursaryStatus, highlight: true },
+                      { label: 'Hall Gate Pass Status', value: 'CLEARED FOR ALL EXAMINATIONS', highlight: true },
+                    ],
+                    tableColumns: [
+                      { key: 'code', header: 'Course Code', highlight: true },
+                      { key: 'title', header: 'Registered Course Title', bold: true },
+                      { key: 'attendance', header: 'Attendance %', align: 'center', bold: true },
+                      { key: 'eligibility', header: 'Eligibility', align: 'center', highlight: true },
+                      { key: 'sign', header: 'Invigilator Sign & Date', align: 'right' },
+                    ],
+                    tableData: [
+                      {
+                        code: selectedDocketStudent.courseCode,
+                        title: 'Primary Health Care & Community Mobilization',
+                        attendance: `${pct}%`,
+                        eligibility: 'CLEARED',
+                        sign: '______________________',
+                      },
+                      {
+                        code: 'CHE 203',
+                        title: 'Maternal & Child Health Practice',
+                        attendance: '92%',
+                        eligibility: 'CLEARED',
+                        sign: '______________________',
+                      },
+                      {
+                        code: 'GNS 201',
+                        title: 'Medical Ethics & Health Law',
+                        attendance: '88%',
+                        eligibility: 'CLEARED',
+                        sign: '______________________',
+                      },
+                    ],
+                    summaryNoteHtml: `
+                      <strong>Mandatory Examination Hall Instructions:</strong><br/>
+                      1. Candidates must arrive at the examination venue at least 15 minutes prior to commencement.<br/>
+                      2. Mobile phones, programmable calculators, smartwatches, and unauthorized materials are strictly prohibited.<br/>
+                      3. This signed examination docket must be presented alongside the official College Student PVC ID Card.
+                    `,
+                    stampText: 'FEES & ATTENDANCE CLEARED',
+                    signatures: [
+                      { title: 'College Bursar', subtitle: 'Bursary Clearance Verification' },
+                      { title: 'Registrar & Academic Secretary', subtitle: schoolProfile?.institutionName || 'Bethsaida College of Health Tech' },
+                    ],
+                  });
                 }}
                 className="flex items-center gap-1.5"
               >

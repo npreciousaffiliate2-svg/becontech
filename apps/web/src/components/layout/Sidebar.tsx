@@ -355,7 +355,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <aside
         style={{
           width: isCollapsed ? '68px' : '260px',
-          top: isImpersonating ? '36px' : '0',
+          top: isImpersonating || Boolean(schoolProfile?.maintenanceMode) ? '36px' : '0',
           background: 'linear-gradient(180deg, #093322 0%, #052015 100%)',
           boxShadow: 'none',
           borderRadius: '0px',

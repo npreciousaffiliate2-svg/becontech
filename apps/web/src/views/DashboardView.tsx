@@ -26,9 +26,10 @@ import {
 } from 'lucide-react';
 import { Button, Badge, Card } from '@campusone/ui';
 import { useNavigate } from 'react-router-dom';
+import { PersonAvatar } from '../components/common/PersonAvatar.tsx';
 
 export const DashboardView: React.FC = () => {
-  const { session, receipts, ledgerEntries, schoolProfile, departments } = useApp();
+  const { session, persona, receipts, ledgerEntries, schoolProfile, departments } = useApp();
   const navigate = useNavigate();
 
   const [timeframe, setTimeframe] = useState<'30D' | '90D' | 'Session'>('30D');
@@ -36,7 +37,7 @@ export const DashboardView: React.FC = () => {
   const [hoveredDeptIndex, setHoveredDeptIndex] = useState<number | null>(null);
 
   const activeRole = session?.activeRole || 'PROVOST';
-  const currentPersona = PERSONA_PROFILES[activeRole] || PERSONA_PROFILES.PROVOST;
+  const currentPersona = persona || PERSONA_PROFILES[activeRole] || PERSONA_PROFILES.PROVOST;
 
   /* ──────────────────────────────────────────────────────────────────────────
    * 1. STUDENT & SPONSOR PORTAL DASHBOARD (STU / SPON)
@@ -102,26 +103,29 @@ export const DashboardView: React.FC = () => {
       <div className="flex flex-col gap-6 font-sans">
         {/* Trainee Welcome & Identification Banner */}
         <div className="bg-gradient-to-r from-[#0F7640] to-[#093322] rounded-[4px] p-5 sm:p-6 text-white shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2 flex-wrap">
-              <Badge variant="success" className="bg-white/20 text-white border-white/30 text-xs px-2.5 py-0.5">
-                Official Student Portal
-              </Badge>
-              <span className="text-white/70 text-xs">•</span>
-              <span className="text-xs font-semibold text-emerald-200">
+          <div className="flex items-center gap-4">
+            <PersonAvatar
+              name={studentData.fullName}
+              email={currentPersona.email}
+              matricNumber={studentData.matricNumber}
+              avatarUrl={currentPersona.avatarUrl}
+              role={activeRole}
+              size="lg"
+              className="border-white/40"
+            />
+            <div className="space-y-1">
+              <span className="text-xs font-semibold text-emerald-200 block">
                 {studentData.session}
               </span>
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+                Welcome, {studentData.fullName}
+              </h1>
+              <p className="text-xs sm:text-sm text-emerald-100/90 font-medium flex items-center gap-2 flex-wrap">
+                <span>Matric: <strong className="text-white font-bold">{studentData.matricNumber}</strong></span>
+                {studentData.department && <span>— {studentData.department}</span>}
+                <span className="bg-emerald-800/80 px-2 py-0.5 rounded text-[11px] text-emerald-100">{studentData.level}</span>
+              </p>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              Welcome, {studentData.fullName}
-            </h1>
-            <p className="text-xs sm:text-sm text-emerald-100/90 font-medium flex items-center gap-2 flex-wrap">
-              <span>Matric: <strong className="text-white font-bold">{studentData.matricNumber}</strong></span>
-              <span>•</span>
-              <span>{studentData.department}</span>
-              <span>•</span>
-              <span className="bg-emerald-800/80 px-2 py-0.5 rounded text-[11px] text-emerald-100">{studentData.level}</span>
-            </p>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
@@ -240,6 +244,56 @@ export const DashboardView: React.FC = () => {
                 <span className="text-xs text-slate-500">Gen Hosp Ijebu-Ode</span>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Student Academic Journey & Graduation Progression Bar */}
+        <div className="bg-white rounded-[4px] border border-slate-200 p-4 sm:p-5 shadow-sm space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900">
+                My Academic Journey &amp; Graduation Progress
+              </h2>
+              <p className="text-xs text-slate-500">
+                {studentData.unitsCompleted} of {studentData.totalUnitsRequired} Credit Units Completed (47%) &bull; Projected Diploma Class: <strong className="text-[#0F7640]">Distinction</strong>
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => navigate('/reports')}
+              leftIcon={<Award className="w-3.5 h-3.5" />}
+            >
+              View Transcript &amp; Standing
+            </Button>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
+            {[
+              { step: '1. Matriculated', desc: studentData.matricNumber, state: 'done' },
+              { step: '2. 100 Level', desc: '18 Units Passed (GPA 3.78)', state: 'done' },
+              { step: '3. 200 Level', desc: '16 Units Active (CGPA 3.82)', state: 'active' },
+              { step: '4. 300L & Clinicals', desc: 'Hospital Logbook 70%', state: 'upcoming' },
+              { step: '5. Graduation', desc: 'CHPRBN Diploma & License', state: 'upcoming' },
+            ].map((item, idx) => (
+              <div
+                key={idx}
+                className={`p-2.5 rounded-[4px] border ${
+                  item.state === 'done'
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-950'
+                    : item.state === 'active'
+                    ? 'bg-[#0F7640] border-[#0F7640] text-white'
+                    : 'bg-slate-50 border-slate-200 text-slate-500'
+                }`}
+              >
+                <div className="flex items-center justify-between font-bold text-[11px]">
+                  <span>{item.step}</span>
+                  {item.state === 'done' && <CheckCircle2 className="w-3.5 h-3.5 text-[#0F7640]" />}
+                </div>
+                <span className={`block text-[10px] mt-0.5 truncate ${item.state === 'active' ? 'text-emerald-100' : ''}`}>
+                  {item.desc}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -510,16 +564,28 @@ export const DashboardView: React.FC = () => {
     return (
       <div className="flex flex-col gap-6 font-sans">
         <div className="bg-gradient-to-r from-[#0F7640] to-[#093322] rounded-[4px] p-5 sm:p-6 text-white shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1.5">
-            <Badge variant="success" className="bg-white/20 text-white border-white/30 text-xs px-2.5 py-0.5">
-              Faculty Workspace
-            </Badge>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              Welcome, {currentPersona.fullName}
-            </h1>
-            <p className="text-xs sm:text-sm text-emerald-100 font-medium">
-              {currentPersona.title} • {currentPersona.department}
-            </p>
+          <div className="flex items-center gap-3.5">
+            <PersonAvatar
+              name={currentPersona.fullName}
+              email={currentPersona.email}
+              avatarUrl={currentPersona.avatarUrl}
+              role={activeRole}
+              size="lg"
+              className="border-white/40"
+            />
+            <div className="space-y-0.5">
+              <span className="text-xs text-emerald-200 font-medium block">
+                {[schoolProfile?.activeSession || '2026/2027', schoolProfile?.activeSemester || 'Harmattan Semester']
+                  .filter(Boolean)
+                  .join(' — ')}
+              </span>
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+                Welcome, {currentPersona.fullName}
+              </h1>
+              <p className="text-xs sm:text-sm text-emerald-100 font-medium">
+                {[currentPersona.title, currentPersona.department].filter(Boolean).join(' — ')}
+              </p>
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
@@ -850,18 +916,168 @@ export const DashboardView: React.FC = () => {
 
   return (
     <div className="flex flex-col gap-6 font-sans">
+      {/* Personalized Officer Welcome & Role Workspace Header */}
+      <div className="bg-gradient-to-r from-[#093322] to-[#0F7640] rounded-[4px] p-5 text-white shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <PersonAvatar
+            name={currentPersona.fullName}
+            email={currentPersona.email}
+            avatarUrl={currentPersona.avatarUrl}
+            role={activeRole}
+            size="lg"
+            className="border-white/40"
+          />
+          <div>
+            <span className="text-xs text-emerald-200 font-medium block">
+              {[schoolProfile?.activeSession || '2026/2027', schoolProfile?.activeSemester || 'Harmattan Semester']
+                .filter(Boolean)
+                .join(' — ')}
+            </span>
+            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight mt-0.5">
+              Welcome back, {currentPersona.fullName}
+            </h1>
+            <p className="text-xs text-emerald-100/90 mt-0.5">
+              {[currentPersona.title, currentPersona.department].filter(Boolean).join(' — ')}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          {activeRole === 'REG' && (
+            <>
+              <Button
+                size="sm"
+                variant="secondary"
+                className="bg-white text-[#0F7640] hover:bg-emerald-50 border-white font-bold"
+                onClick={() => navigate('/admissions')}
+              >
+                Admissions Queue
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-white border border-white/40 hover:bg-white/10"
+                onClick={() => navigate('/students/lifecycle')}
+              >
+                Issue Certificates
+              </Button>
+            </>
+          )}
+          {activeRole === 'BURSAR' && (
+            <>
+              <Button
+                size="sm"
+                variant="secondary"
+                className="bg-white text-[#0F7640] hover:bg-emerald-50 border-white font-bold"
+                onClick={() => navigate('/bursary')}
+              >
+                Student Fee Ledger
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-white border border-white/40 hover:bg-white/10"
+                onClick={() => navigate('/bursary/receipts')}
+              >
+                Official Receipts
+              </Button>
+            </>
+          )}
+          {activeRole === 'EXAM' && (
+            <>
+              <Button
+                size="sm"
+                variant="secondary"
+                className="bg-white text-[#0F7640] hover:bg-emerald-50 border-white font-bold"
+                onClick={() => navigate('/academics/broadsheets')}
+              >
+                Senate Broadsheets
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-white border border-white/40 hover:bg-white/10"
+                onClick={() => navigate('/learning/cbt')}
+              >
+                CBT Exam Center
+              </Button>
+            </>
+          )}
+          {activeRole === 'HOD' && (
+            <>
+              <Button
+                size="sm"
+                variant="secondary"
+                className="bg-white text-[#0F7640] hover:bg-emerald-50 border-white font-bold"
+                onClick={() => navigate('/departments')}
+              >
+                My Department
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-white border border-white/40 hover:bg-white/10"
+                onClick={() => navigate('/academics')}
+              >
+                Approve CA Scores
+              </Button>
+            </>
+          )}
+          {activeRole === 'CLINSUP' && (
+            <>
+              <Button
+                size="sm"
+                variant="secondary"
+                className="bg-white text-[#0F7640] hover:bg-emerald-50 border-white font-bold"
+                onClick={() => navigate('/postings')}
+              >
+                Hospital Postings
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-white border border-white/40 hover:bg-white/10"
+                onClick={() => navigate('/postings/logbooks')}
+              >
+                Grade Logbooks
+              </Button>
+            </>
+          )}
+          {(activeRole === 'PROVOST' || activeRole === 'SADMIN') && (
+            <>
+              <Button
+                size="sm"
+                variant="secondary"
+                className="bg-white text-[#0F7640] hover:bg-emerald-50 border-white font-bold"
+                onClick={() => navigate('/analytics')}
+              >
+                Executive Analytics
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-white border border-white/40 hover:bg-white/10"
+                onClick={() => navigate('/settings/school')}
+              >
+                College Settings
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+
       {/* Page Title & Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-            College Overview
-          </h1>
+          <h2 className="text-lg font-bold text-slate-900 tracking-tight">
+            Overview
+          </h2>
           <p className="text-xs text-slate-500 mt-0.5">
             {timeframe === '30D'
-              ? `Last 30 Days Activity • ${schoolProfile?.activeSession || '2026/2027'}`
+              ? `Last 30 Days Activity — ${schoolProfile?.activeSession || '2026/2027'}`
               : timeframe === '90D'
-              ? `Last 90 Days (Quarterly Assessment) • ${schoolProfile?.activeSession || '2026/2027'}`
-              : `${schoolProfile?.activeSession || '2026/2027'} Full Academic Session • Bethsaida College of Health Tech`}
+              ? `Last 90 Days (Quarterly Assessment) — ${schoolProfile?.activeSession || '2026/2027'}`
+              : `${schoolProfile?.activeSession || '2026/2027'} Full Academic Session`}
           </p>
         </div>
 

@@ -38,6 +38,8 @@ import {
   Trash2,
 } from 'lucide-react';
 import { formatNaira } from '@campusone/contracts';
+import { exportToCsv, printInstitutionalDocument } from '../utils/documentExport.ts';
+import { PersonAvatar, pluralize } from '../components/common/PersonAvatar.tsx';
 
 /* ─── TYPE DEFINITIONS ─── */
 export type HostelGender = 'FEMALE' | 'MALE';
@@ -569,6 +571,7 @@ export const HostelsView: React.FC = () => {
   const [editingRoom, setEditingRoom] = useState<HostelRoom | null>(null);
   const [isDeleteRoomOpen, setIsDeleteRoomOpen] = useState(false);
   const [deleteRoomTarget, setDeleteRoomTarget] = useState<HostelRoom | null>(null);
+  const [selectedCheckInForVerify, setSelectedCheckInForVerify] = useState<CheckInRecord | null>(null);
 
   const [newRoomForm, setNewRoomForm] = useState({
     roomCode: '',
@@ -1008,11 +1011,14 @@ export const HostelsView: React.FC = () => {
       key: 'studentName',
       header: 'Student Trainee',
       render: (a: BedAllocation) => (
-        <div>
-          <span className="font-bold text-slate-900 block">{a.studentName}</span>
-          <span className="text-[11px] text-slate-500 font-medium">
-            {a.matricNo} • {a.department} ({a.level})
-          </span>
+        <div className="flex items-center gap-2.5">
+          <PersonAvatar name={a.studentName} code={a.matricNo} size="sm" />
+          <div>
+            <span className="font-bold text-slate-900 block">{a.studentName}</span>
+            <span className="text-[11px] text-slate-500 font-medium">
+              {a.matricNo} • {a.department} ({a.level})
+            </span>
+          </div>
         </div>
       ),
     },
@@ -1079,9 +1085,12 @@ export const HostelsView: React.FC = () => {
       key: 'studentName',
       header: 'Student Name & Matric',
       render: (c: CheckInRecord) => (
-        <div>
-          <span className="font-bold text-slate-900 block">{c.studentName}</span>
-          <span className="text-[11px] text-slate-500 font-medium">{c.matricNo}</span>
+        <div className="flex items-center gap-2.5">
+          <PersonAvatar name={c.studentName} code={c.matricNo} size="sm" />
+          <div>
+            <span className="font-bold text-slate-900 block">{c.studentName}</span>
+            <span className="text-[11px] text-slate-500 font-medium">{c.matricNo}</span>
+          </div>
         </div>
       ),
     },
@@ -1140,13 +1149,7 @@ export const HostelsView: React.FC = () => {
         <Button
           size="sm"
           variant="secondary"
-          onClick={() => {
-            showToast({
-              type: 'info',
-              title: 'Asset Inspection Signed',
-              message: `Official hostel custody verified for ${c.studentName}.`,
-            });
-          }}
+          onClick={() => setSelectedCheckInForVerify({ ...c })}
           leftIcon={<Check className="w-3.5 h-3.5" />}
           className="whitespace-nowrap"
         >
@@ -1577,16 +1580,19 @@ export const HostelsView: React.FC = () => {
                       key={idx}
                       className="p-3 bg-white border border-slate-200 rounded-[4px] flex items-center justify-between"
                     >
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="px-1.5 py-0.5 bg-emerald-50 text-[#0F7640] rounded-[4px] font-bold text-[10px]">
-                            {occ.bedSlot}
+                      <div className="flex items-center gap-2.5">
+                        <PersonAvatar name={occ.studentName} code={occ.matricNo} size="sm" />
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="px-1.5 py-0.5 bg-emerald-50 text-[#0F7640] rounded-[4px] font-bold text-[10px]">
+                              {occ.bedSlot}
+                            </span>
+                            <span className="font-bold text-slate-900">{occ.studentName}</span>
+                          </div>
+                          <span className="text-[11px] text-slate-500 block mt-0.5">
+                            {occ.matricNo} • {occ.programme} ({occ.level})
                           </span>
-                          <span className="font-bold text-slate-900">{occ.studentName}</span>
                         </div>
-                        <span className="text-[11px] text-slate-500 block mt-0.5">
-                          {occ.matricNo} • {occ.programme} ({occ.level})
-                        </span>
                       </div>
                       <div className="text-right">
                         <span className="text-[11px] text-slate-600 font-semibold block">{occ.phone}</span>
@@ -1615,10 +1621,25 @@ export const HostelsView: React.FC = () => {
               </Button>
               <Button
                 onClick={() => {
+                  if (!selectedRoomForDossier) return;
+                  exportToCsv({
+                    filename: `BCHT_Room_Roster_${selectedRoomForDossier.roomCode}_${new Date().toISOString().slice(0, 10)}.csv`,
+                    columns: [
+                      { key: 'roomCode', header: 'Room Code', format: () => selectedRoomForDossier.roomCode },
+                      { key: 'blockName', header: 'Hall of Residence', format: () => selectedRoomForDossier.blockName },
+                      { key: 'bedSlot', header: 'Bed Slot' },
+                      { key: 'studentName', header: 'Occupant Full Name' },
+                      { key: 'matricNo', header: 'Matriculation Number' },
+                      { key: 'programme', header: 'Programme' },
+                      { key: 'level', header: 'Level' },
+                      { key: 'phone', header: 'Contact Phone' },
+                    ],
+                    data: selectedRoomForDossier.occupants,
+                  });
                   showToast({
-                    type: 'info',
-                    title: 'Roster Exported',
-                    message: `Occupancy list for ${selectedRoomForDossier.roomCode} exported for Hall Matron.`,
+                    type: 'success',
+                    title: 'Room Roster Exported',
+                    message: `Occupancy list for ${selectedRoomForDossier.roomCode} downloaded as CSV.`,
                   });
                 }}
                 leftIcon={<Download className="w-3.5 h-3.5" />}
@@ -1739,7 +1760,48 @@ export const HostelsView: React.FC = () => {
                 Close
               </Button>
               <Button
-                onClick={() => window.print()}
+                onClick={() => {
+                  if (!selectedAllocationForPass) return;
+                  printInstitutionalDocument({
+                    title: `Hostel Resident Pass — ${selectedAllocationForPass.studentName}`,
+                    badgeText: `OFFICIAL HOSTEL RESIDENT PASS • ${schoolProfile?.activeSession || '2026/2027'} SESSION`,
+                    referenceNo: selectedAllocationForPass.allocationRef || `BCHT/HST/${selectedAllocationForPass.roomCode}`,
+                    issuedDate: selectedAllocationForPass.allocationDate,
+                    schoolProfile,
+                    officeSubtitle: 'Division of Student Affairs & Directorate of Halls of Residence',
+                    metaItems: [
+                      { label: 'Resident Trainee', value: selectedAllocationForPass.studentName, highlight: true },
+                      { label: 'Matriculation Number', value: selectedAllocationForPass.matricNo, highlight: true },
+                      { label: 'Department & Level', value: `${selectedAllocationForPass.department} (${selectedAllocationForPass.level})` },
+                      { label: 'Hall of Residence', value: `${selectedAllocationForPass.blockName} (${selectedAllocationForPass.gender} Wing)` },
+                      { label: 'Assigned Room & Bed', value: `${selectedAllocationForPass.roomCode} — ${selectedAllocationForPass.bedSlot}`, highlight: true },
+                      { label: 'Room Key Tag', value: `${selectedAllocationForPass.keyTag} (Porter Verified)` },
+                    ],
+                    bodyHtml: `
+                      <div class="callout-green" style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                          <div style="font-weight:800; text-transform:uppercase;">Hostel Maintenance Levy Clearance</div>
+                          <div style="font-size:10px;">Double-entry verified by College Bursary</div>
+                        </div>
+                        <div style="text-align:right;">
+                          <div style="font-size:13px; font-weight:800; color:#0F7640;">${formatNaira(selectedAllocationForPass.feeAmountKobo)} PAID</div>
+                          <div style="font-size:9.5px; font-weight:700;">OFFICIAL BURSARY RECEIPT CLEARED</div>
+                        </div>
+                      </div>
+                    `,
+                    summaryNoteHtml: `
+                      <strong>Hostel Resident Terms &amp; Security Pledge:</strong><br/>
+                      1. Curfew is strictly 10:00 PM. Hall gates are locked by College Security and Porters.<br/>
+                      2. High-wattage heating coils, hot plates, and unauthorized electrical extensions are strictly prohibited.<br/>
+                      3. Room keys must be returned to the Hall Porter Lodge during semester vacations.
+                    `,
+                    stampText: 'WARDEN & BURSARY CLEARED',
+                    signatures: [
+                      { title: 'Hall Warden / Matron', subtitle: 'Directorate of Halls of Residence' },
+                      { title: 'Dean of Student Affairs', subtitle: schoolProfile?.institutionName || 'Bethsaida College of Health Tech' },
+                    ],
+                  });
+                }}
                 leftIcon={<Printer className="w-3.5 h-3.5" />}
                 className="whitespace-nowrap bg-[#0F7640] hover:bg-[#093322]"
               >
@@ -2148,6 +2210,121 @@ export const HostelsView: React.FC = () => {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* ─── MODAL: VERIFY STUDENT ROOM ASSETS & CUSTODY (REPLACES TOAST) ─── */}
+      <Modal
+        isOpen={Boolean(selectedCheckInForVerify)}
+        onClose={() => setSelectedCheckInForVerify(null)}
+        title={selectedCheckInForVerify ? `Room Asset & Custody Inspection — ${selectedCheckInForVerify.studentName}` : 'Verify Assets'}
+        description="Hall Warden checklist for mattress, wardrobe key, and room inventory sign-off."
+        size="md"
+        footer={
+          <div className="flex items-center justify-end gap-2 w-full">
+            <Button size="sm" variant="secondary" onClick={() => setSelectedCheckInForVerify(null)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                if (!selectedCheckInForVerify) return;
+                const allComplete =
+                  selectedCheckInForVerify.mattressIssued &&
+                  selectedCheckInForVerify.wardrobeKeyIssued &&
+                  selectedCheckInForVerify.inventorySigned;
+                const updated: CheckInRecord = {
+                  ...selectedCheckInForVerify,
+                  checkInStatus: allComplete ? 'CHECKED_IN' : 'PENDING',
+                  checkInDate: new Date().toISOString().replace('T', ' ').substring(0, 16),
+                };
+                setCheckIns((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+                recordAudit('HOSTEL_ASSET_VERIFIED', 'HOSTEL_PORTER', updated.matricNo);
+                setSelectedCheckInForVerify(null);
+                showToast({
+                  type: 'success',
+                  title: 'Custody Record Saved',
+                  message: `Room inventory and asset sign-off updated for ${updated.studentName}.`,
+                });
+              }}
+            >
+              Save Custody Verification
+            </Button>
+          </div>
+        }
+      >
+        {selectedCheckInForVerify && (
+          <div className="space-y-4 text-xs text-slate-800 font-sans">
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-[4px] flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <PersonAvatar name={selectedCheckInForVerify.studentName} code={selectedCheckInForVerify.matricNo} size="sm" />
+                <div>
+                  <span className="font-bold text-slate-900 block">{selectedCheckInForVerify.studentName}</span>
+                  <span className="text-[11px] text-slate-500">
+                    {selectedCheckInForVerify.matricNo} &bull; {selectedCheckInForVerify.roomCode} ({selectedCheckInForVerify.bedSlot})
+                  </span>
+                </div>
+              </div>
+              <Badge variant={selectedCheckInForVerify.checkInStatus === 'CHECKED_IN' ? 'success' : 'warning'} size="sm">
+                {selectedCheckInForVerify.checkInStatus}
+              </Badge>
+            </div>
+
+            <div className="space-y-2">
+              <span className="font-bold text-slate-900 uppercase tracking-wider text-[10px] block">
+                Issued Hostel Custody Items
+              </span>
+              {[
+                {
+                  key: 'mattressIssued' as const,
+                  label: 'Orthopaedic Hostel Mattress Issued',
+                  sub: 'Standard college-branded high-density foam mattress',
+                },
+                {
+                  key: 'wardrobeKeyIssued' as const,
+                  label: `Room & Wardrobe Key Issued (${selectedCheckInForVerify.keyTag})`,
+                  sub: 'Duplicate master key retained at Hall Porter Lodge',
+                },
+                {
+                  key: 'inventorySigned' as const,
+                  label: 'Room Condition & Electrical Fittings Undertaking Signed',
+                  sub: 'Student inspected fan, lighting, socket, and window nets',
+                },
+              ].map((item) => {
+                const checked = selectedCheckInForVerify[item.key];
+                return (
+                  <div
+                    key={item.key}
+                    onClick={() =>
+                      setSelectedCheckInForVerify({
+                        ...selectedCheckInForVerify,
+                        [item.key]: !checked,
+                      })
+                    }
+                    className={`p-3 rounded-[4px] border cursor-pointer flex items-center justify-between gap-3 ${
+                      checked ? 'bg-emerald-50 border-emerald-300' : 'bg-white border-slate-200'
+                    }`}
+                  >
+                    <div>
+                      <p className="font-bold text-slate-900">{item.label}</p>
+                      <p className="text-[11px] text-slate-500">{item.sub}</p>
+                    </div>
+                    <Badge variant={checked ? 'success' : 'neutral'} size="sm">
+                      {checked ? 'VERIFIED' : 'PENDING'}
+                    </Badge>
+                  </div>
+                );
+              })}
+            </div>
+
+            <Input
+              label="Hall Warden / Matron Remarks"
+              value={selectedCheckInForVerify.wardenRemarks}
+              onChange={(e) =>
+                setSelectedCheckInForVerify({ ...selectedCheckInForVerify, wardenRemarks: e.target.value })
+              }
+            />
+          </div>
+        )}
       </Modal>
     </div>
   );

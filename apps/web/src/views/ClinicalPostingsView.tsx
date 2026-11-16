@@ -36,6 +36,8 @@ import {
   Check,
   X,
 } from 'lucide-react';
+import { escapeHtml, exportToCsv, printInstitutionalDocument } from '../utils/documentExport.ts';
+import { PersonAvatar } from '../components/common/PersonAvatar.tsx';
 
 /* ─── TYPES ─── */
 type FacilityType = 'TEACHING_HOSPITAL' | 'STATE_GENERAL_HOSPITAL' | 'PRIMARY_HEALTH_CENTRE' | 'SPECIALIST_LAB';
@@ -629,9 +631,12 @@ export const ClinicalPostingsView: React.FC = () => {
       key: 'studentName',
       header: 'Trainee Name',
       render: (a: AllocationRecord) => (
-        <div>
-          <span className="font-semibold text-slate-800 block">{a.studentName}</span>
-          <span className="text-[11px] text-slate-400">{a.departmentName} • {a.level}</span>
+        <div className="flex items-center gap-2.5 whitespace-nowrap">
+          <PersonAvatar name={a.studentName} matricNumber={a.matricNumber} size="sm" />
+          <div>
+            <span className="font-semibold text-slate-800 block">{a.studentName}</span>
+            <span className="text-[11px] text-slate-400">{a.departmentName} • {a.level}</span>
+          </div>
         </div>
       ),
     },
@@ -748,13 +753,16 @@ export const ClinicalPostingsView: React.FC = () => {
       },
     },
     {
-      key: 'supervisor',
+      key: 'supervisorName',
       header: 'Chief Preceptor Supervisor',
       render: (s: PostingSite) => (
-        <div>
-          <span className="font-semibold text-slate-800 block">{s.supervisorName}</span>
-          <span className="text-[11px] text-slate-400 block">{s.supervisorRole}</span>
-          <span className="text-[11px] text-slate-500 font-medium block">{s.contactPhone}</span>
+        <div className="flex items-center gap-2.5 whitespace-nowrap">
+          <PersonAvatar name={s.supervisorName} size="sm" />
+          <div>
+            <span className="font-semibold text-slate-800 block">{s.supervisorName}</span>
+            <span className="text-[11px] text-slate-400 block">{s.supervisorRole}</span>
+            <span className="text-[11px] text-slate-500 font-medium block">{s.contactPhone}</span>
+          </div>
         </div>
       ),
     },
@@ -842,9 +850,12 @@ export const ClinicalPostingsView: React.FC = () => {
       key: 'studentName',
       header: 'Trainee & Site',
       render: (a: AllocationRecord) => (
-        <div>
-          <span className="font-semibold text-slate-800 block">{a.studentName}</span>
-          <span className="text-[11px] text-slate-400">{a.siteName}</span>
+        <div className="flex items-center gap-2.5 whitespace-nowrap">
+          <PersonAvatar name={a.studentName} matricNumber={a.matricNumber} size="sm" />
+          <div>
+            <span className="font-semibold text-slate-800 block">{a.studentName}</span>
+            <span className="text-[11px] text-slate-400">{a.siteName}</span>
+          </div>
         </div>
       ),
     },
@@ -1038,10 +1049,31 @@ export const ClinicalPostingsView: React.FC = () => {
               variant="secondary"
               size="sm"
               onClick={() => {
+                exportToCsv({
+                  filename: `BCHT_Clinical_Clearance_Dossier_${new Date().toISOString().slice(0, 10)}.csv`,
+                  columns: [
+                    { key: 'matricNumber', header: 'Matriculation Number' },
+                    { key: 'studentName', header: 'Trainee Full Name' },
+                    { key: 'departmentName', header: 'Academic Department' },
+                    { key: 'level', header: 'Level' },
+                    { key: 'siteName', header: 'Hospital Facility' },
+                    { key: 'clinicalUnit', header: 'Clinical Unit' },
+                    { key: 'rotationPeriod', header: 'Rotation Period' },
+                    {
+                      key: 'procedures',
+                      header: 'Procedures Completed',
+                      format: (_, a) => `${a.proceduresCompleted}/${a.totalProceduresRequired}`,
+                    },
+                    { key: 'logbookStatus', header: 'Logbook Standing' },
+                    { key: 'supervisorScore', header: 'Preceptor Score (%)', format: (v) => (v ? `${v}%` : 'Pending') },
+                    { key: 'clearanceGenerated', header: 'Board Clearance', format: (v) => (v ? 'CERTIFIED' : 'PENDING') },
+                  ],
+                  data: filteredAllocations,
+                });
                 showToast({
-                  type: 'info',
-                  title: 'Batch Certificate Export',
-                  message: 'Exporting clinical training clearance dossier for statutory boards.',
+                  type: 'success',
+                  title: 'Clearance Dossier Exported',
+                  message: `Exported ${filteredAllocations.length} clinical training clearance records to CSV.`,
                 });
               }}
               leftIcon={<Download className="w-3.5 h-3.5" />}
@@ -1342,7 +1374,44 @@ export const ClinicalPostingsView: React.FC = () => {
                 Close
               </Button>
               <Button
-                onClick={() => window.print()}
+                onClick={() => {
+                  if (!selectedLetterRecord) return;
+                  printInstitutionalDocument({
+                    title: `Clinical Posting Introduction Letter — ${selectedLetterRecord.studentName}`,
+                    badgeText: 'DIRECTORATE OF CLINICAL TRAINING • HOSPITAL ROTATION PLACEMENT',
+                    referenceNo: `${schoolProfile?.institutionAcronym || 'BCHT'}/CLN/POST/${schoolProfile?.activeSession?.split('/')[0] || '2026'}/0491`,
+                    schoolProfile,
+                    officeSubtitle: 'Directorate of Clinical Training & Hospital Postings',
+                    metaItems: [
+                      { label: 'Trainee Full Name', value: selectedLetterRecord.studentName, highlight: true },
+                      { label: 'Matriculation Number', value: selectedLetterRecord.matricNumber, highlight: true },
+                      { label: 'Department & Level', value: `${selectedLetterRecord.departmentName} (${selectedLetterRecord.level})` },
+                      { label: 'Receiving Hospital', value: selectedLetterRecord.siteName, highlight: true },
+                      { label: 'Assigned Clinical Unit', value: selectedLetterRecord.clinicalUnit },
+                      { label: 'Rotation Period', value: selectedLetterRecord.rotationPeriod },
+                    ],
+                    bodyHtml: `
+                      <p><strong>To: The Chief Medical Director / Medical Superintendent,</strong><br/>${escapeHtml(selectedLetterRecord.siteName)}<br/>Oyo State, Nigeria</p>
+                      <p style="font-weight:800; text-transform:uppercase; text-decoration:underline; margin: 10px 0;">
+                        Subject: Clinical Hospital Rotation &amp; Trainee Placement — ${escapeHtml(selectedLetterRecord.studentName.toUpperCase())} (${escapeHtml(selectedLetterRecord.matricNumber)})
+                      </p>
+                      <p>
+                        We write to formally introduce <strong>${escapeHtml(selectedLetterRecord.studentName)}</strong> with Matriculation Number <strong>${escapeHtml(selectedLetterRecord.matricNumber)}</strong>, a bona fide ${escapeHtml(selectedLetterRecord.level)} student of the <strong>${escapeHtml(selectedLetterRecord.departmentName)}</strong> at ${escapeHtml(schoolProfile?.institutionName || 'Bethsaida College of Health Technology')}.
+                      </p>
+                      <p>
+                        The candidate has been duly allocated to your esteemed institution for mandatory clinical practical rotation in the specialty unit of <strong>${escapeHtml(selectedLetterRecord.clinicalUnit)}</strong> for the period spanning <strong>${escapeHtml(selectedLetterRecord.rotationPeriod)}</strong>.
+                      </p>
+                      <p>
+                        This rotation is an indispensable requirement of the statutory regulatory curriculum. The trainee has been briefed on clinical ethics, patient confidentiality, infection control, and professional hospital conduct. Kindly grant the trainee access to practical clinical exposure and assign a qualified clinical preceptor to verify daily e-logbook entries.
+                      </p>
+                    `,
+                    stampText: 'CLINICAL DIRECTORATE SEAL',
+                    signatures: [
+                      { title: 'Dr. K. Bello, FWACP', subtitle: 'Director of Clinical Training & Postings' },
+                      { title: 'Dr. Timothy Balogun', subtitle: `College Provost, ${schoolProfile?.institutionAcronym || 'BCHT'}` },
+                    ],
+                  });
+                }}
                 leftIcon={<Printer className="w-3.5 h-3.5" />}
                 className="whitespace-nowrap"
               >
@@ -1429,7 +1498,47 @@ export const ClinicalPostingsView: React.FC = () => {
                 Close
               </Button>
               <Button
-                onClick={() => window.print()}
+                onClick={() => {
+                  if (!selectedCertRecord) return;
+                  const score = selectedCertRecord.supervisorScore || 85;
+                  printInstitutionalDocument({
+                    title: `Clinical Completion Certificate — ${selectedCertRecord.studentName}`,
+                    badgeText: 'CERTIFICATE OF CLINICAL TRAINING COMPLETION',
+                    referenceNo: `BCHT/CLN/CERT/${selectedCertRecord.matricNumber.replace(/\//g, '-')}`,
+                    schoolProfile,
+                    officeSubtitle: 'Approved by Federal Ministry of Health & National Regulatory Councils',
+                    certificateStyle: true,
+                    metaItems: [
+                      { label: 'Certified Trainee', value: selectedCertRecord.studentName, highlight: true },
+                      { label: 'Matriculation Number', value: selectedCertRecord.matricNumber, highlight: true },
+                      { label: 'Academic Department', value: selectedCertRecord.departmentName },
+                      { label: 'Training Hospital', value: selectedCertRecord.siteName, highlight: true },
+                      { label: 'Specialty Unit', value: selectedCertRecord.clinicalUnit },
+                      { label: 'Rotation Period', value: selectedCertRecord.rotationPeriod },
+                    ],
+                    bodyHtml: `
+                      <div style="text-align:center; padding: 12px 10px;">
+                        <div style="font-size:10px; text-transform:uppercase; letter-spacing:0.12em; color:#64748b;">This is to certify that</div>
+                        <div style="font-size:18px; font-weight:800; color:#093322; text-decoration:underline; margin: 6px 0;">${escapeHtml(selectedCertRecord.studentName)}</div>
+                        <div style="font-size:11px; color:#334155; margin-bottom:10px;">Matriculation Number: <strong>${escapeHtml(selectedCertRecord.matricNumber)}</strong></div>
+                        <p style="max-width:520px; margin: 0 auto 12px auto; font-size:11.5px; line-height:1.6;">
+                          has satisfactorily completed the prescribed clinical hospital rotation in <strong>${escapeHtml(selectedCertRecord.departmentName)}</strong> at <strong>${escapeHtml(selectedCertRecord.siteName)}</strong> during the period of <strong>${escapeHtml(selectedCertRecord.rotationPeriod)}</strong>, having fulfilled all mandatory clinical procedures (${selectedCertRecord.proceduresCompleted}/${selectedCertRecord.totalProceduresRequired}) with an assessed score of:
+                        </p>
+                        <div class="callout-green" style="display:inline-block; padding: 8px 20px; font-size:15px; font-weight:800;">
+                          ${score}% (${score >= 75 ? 'DISTINCTION' : 'CREDIT PASS'})
+                        </div>
+                        <div style="margin-top:10px; font-size:10.5px; font-weight:800; color:#13A348; text-transform:uppercase;">
+                          Duly Cleared for the National Professional Licensing Board Examination
+                        </div>
+                      </div>
+                    `,
+                    stampText: 'SEAL CERTIFIED',
+                    signatures: [
+                      { title: 'Hospital Clinical Preceptor', subtitle: selectedCertRecord.siteName },
+                      { title: 'Dr. Timothy Balogun', subtitle: `Provost, ${schoolProfile?.institutionAcronym || 'BCHT'}` },
+                    ],
+                  });
+                }}
                 leftIcon={<Printer className="w-3.5 h-3.5" />}
                 className="whitespace-nowrap"
               >
@@ -1614,6 +1723,54 @@ export const ClinicalPostingsView: React.FC = () => {
         size="md"
       >
         <form onSubmit={handleCreateAllocation} className="space-y-4 text-xs font-sans">
+          <Select
+            label="Select Trainee from Roster (Search by Name or Matric)"
+            placeholder="Search & select trainee to auto-fill..."
+            options={Array.from(
+              new Map(
+                [
+                  ...allocations.map((a) => ({
+                    matric: a.matricNumber,
+                    name: a.studentName,
+                    dept: a.departmentName,
+                  })),
+                  { matric: 'CHE/2026/0014', name: 'Blessing Adeyemi', dept: 'Community Health Department' },
+                  { matric: 'DHT/2026/0029', name: 'Emmanuel Chukwuma', dept: 'Dental Health Department' },
+                  { matric: 'PHT/2026/0009', name: 'Khadijat Sani', dept: 'Pharmacy Technician Department' },
+                  { matric: 'HIM/2026/0004', name: 'David Adeleke', dept: 'Health Information Management Department' },
+                  { matric: 'EHT/2026/0002', name: 'Fatima Ibrahim', dept: 'Environmental Health Department' },
+                  { matric: 'HTD/2026/0061', name: 'Zainab Bello', dept: 'Health Technician Department' },
+                ].map((item) => [item.matric, item])
+              ).values()
+            ).map((item) => ({
+              value: item.matric,
+              label: `${item.name} (${item.matric})`,
+              description: item.dept,
+            }))}
+            value={newAllocMatric}
+            onChange={(matricVal) => {
+              const allKnown = [
+                ...allocations.map((a) => ({
+                  matric: a.matricNumber,
+                  name: a.studentName,
+                  dept: a.departmentName,
+                })),
+                { matric: 'CHE/2026/0014', name: 'Blessing Adeyemi', dept: 'Community Health Department' },
+                { matric: 'DHT/2026/0029', name: 'Emmanuel Chukwuma', dept: 'Dental Health Department' },
+                { matric: 'PHT/2026/0009', name: 'Khadijat Sani', dept: 'Pharmacy Technician Department' },
+                { matric: 'HIM/2026/0004', name: 'David Adeleke', dept: 'Health Information Management Department' },
+                { matric: 'EHT/2026/0002', name: 'Fatima Ibrahim', dept: 'Environmental Health Department' },
+                { matric: 'HTD/2026/0061', name: 'Zainab Bello', dept: 'Health Technician Department' },
+              ];
+              const found = allKnown.find((x) => x.matric === matricVal);
+              if (found) {
+                setNewAllocMatric(found.matric);
+                setNewAllocStudentName(found.name);
+                setNewAllocDept(found.dept);
+              }
+            }}
+          />
+
           <div className="grid grid-cols-2 gap-3">
             <Input
               label="Trainee Matric No."

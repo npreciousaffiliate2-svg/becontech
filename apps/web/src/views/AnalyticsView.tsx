@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext.tsx';
 import { formatNaira } from '@campusone/contracts';
+import { exportToCsv, printInstitutionalDocument } from '../utils/documentExport.ts';
 
 /* ─── TYPE DEFINITIONS ─── */
 export interface DepartmentPassRate {
@@ -512,10 +513,59 @@ export const AnalyticsView: React.FC = () => {
           <Button
             size="sm"
             onClick={() => {
+              if (activeTab === 'financial') {
+                exportToCsv({
+                  filename: `BCHT_Fee_Recovery_Analytics_${new Date().toISOString().slice(0, 10)}.csv`,
+                  columns: [
+                    { key: 'level', header: 'Academic Level' },
+                    { key: 'enrolledStudents', header: 'Enrolled Students' },
+                    { key: 'totalBilledKobo', header: 'Total Billed', format: (v) => formatNaira(Number(v)) },
+                    { key: 'totalCollectedKobo', header: 'Total Collected', format: (v) => formatNaira(Number(v)) },
+                    { key: 'outstandingKobo', header: 'Outstanding Arrears', format: (v) => formatNaira(Number(v)) },
+                    { key: 'recoveryRatePct', header: 'Recovery Rate (%)', format: (v) => `${v}%` },
+                    { key: 'debtorsCount', header: 'Debtors Count' },
+                    { key: 'paymentGatewayShare', header: 'Gateway Split' },
+                  ],
+                  data: feeRecoveryData,
+                });
+              } else if (activeTab === 'clinical') {
+                exportToCsv({
+                  filename: `BCHT_Clinical_Posting_Compliance_${new Date().toISOString().slice(0, 10)}.csv`,
+                  columns: [
+                    { key: 'hospitalName', header: 'Hospital Facility' },
+                    { key: 'hospitalType', header: 'Facility Tier' },
+                    { key: 'accreditedSlots', header: 'Accredited Slots' },
+                    { key: 'postedTrainees', header: 'Posted Trainees' },
+                    { key: 'logbookCompletionPct', header: 'Logbook Completion (%)', format: (v) => `${v}%` },
+                    { key: 'clinicalAttendancePct', header: 'Clinical Attendance (%)', format: (v) => `${v}%` },
+                    { key: 'preceptorEvaluation', header: 'Preceptor Evaluation' },
+                    { key: 'status', header: 'Compliance Standing' },
+                  ],
+                  data: filteredHospitals,
+                });
+              } else {
+                exportToCsv({
+                  filename: `BCHT_Board_Pass_Rates_${new Date().toISOString().slice(0, 10)}.csv`,
+                  columns: [
+                    { key: 'departmentCode', header: 'Department Code' },
+                    { key: 'departmentName', header: 'Academic Programme' },
+                    { key: 'accreditingCouncil', header: 'Regulatory Council' },
+                    { key: 'candidatesExamined', header: 'Candidates Examined' },
+                    { key: 'candidatesPassed', header: 'Candidates Passed' },
+                    { key: 'passRatePct', header: 'Pass Rate (%)', format: (v) => `${v}%` },
+                    { key: 'distinctionCount', header: 'Distinctions' },
+                    { key: 'creditCount', header: 'Credits' },
+                    { key: 'passCount', header: 'Passes' },
+                    { key: 'failCount', header: 'Resits' },
+                    { key: 'councilRating', header: 'Council Rating' },
+                  ],
+                  data: filteredAcademic,
+                });
+              }
               showToast({
                 type: 'success',
-                title: 'Analytics Data Synchronized',
-                message: 'All metrics compiled from Bursary, Examination Broadsheets, and Clinical registers.',
+                title: 'Analytics Dataset Exported',
+                message: 'Compiled institutional analytics downloaded as CSV.',
               });
             }}
             leftIcon={<Download className="w-3.5 h-3.5" />}
@@ -945,7 +995,46 @@ export const AnalyticsView: React.FC = () => {
               Close
             </Button>
             <Button
-              onClick={() => window.print()}
+              onClick={() => {
+                printInstitutionalDocument({
+                  title: 'Official Executive Intelligence Report',
+                  badgeText: `EXECUTIVE ACADEMIC & FINANCIAL SUMMARY • ${schoolProfile?.activeSession || '2026/2027'} SESSION`,
+                  referenceNo: `BCHT/DAP/${schoolProfile?.activeSession?.split('/')[0] || '2026'}/EXEC-01`,
+                  schoolProfile,
+                  officeSubtitle: 'Directorate of Academic Planning & Quality Assurance',
+                  metaItems: [
+                    { label: 'Total Enrolled Students', value: '1,248 (+8.4% YoY)', highlight: true },
+                    { label: 'Student Retention Rate', value: '94.8%' },
+                    { label: 'Tuition Recovery Rate', value: '74.0% (₦84.25M Collected)', highlight: true },
+                    { label: 'Board Qualifying Pass Rate', value: '88.4% (First Diet)', highlight: true },
+                    { label: 'Clinical Posting Compliance', value: '96.2% (640 Trainees)' },
+                    { label: 'Accredited Health Tracks', value: '5 / 5 Full Standing' },
+                  ],
+                  bodyHtml: `
+                    <div class="callout-box">
+                      <p><strong>1. Enrollment Expansion:</strong> Total college enrollment reached 1,248 students (+8.4% YoY), driven by strong demand in Community Health Extension Worker (CHEW) and Medical Laboratory Technology programmes.</p>
+                      <p><strong>2. Financial Performance:</strong> Revenue recovery efficiency stands at 74.0% with ₦84.25M realized out of ₦114.0M billable tuition. Final year debtors recovery protocols remain in effect.</p>
+                      <p><strong>3. Board Examination Excellence:</strong> Aggregate first diet pass rate across national regulatory boards reached 88.4%, with Health Information Management leading at 93.3%.</p>
+                      <p style="margin-bottom:0;"><strong>4. Clinical Hospital Postings:</strong> 640 trainees deployed across accredited teaching &amp; specialist hospitals with 96.2% procedural logbook completion verified by consultant preceptors.</p>
+                    </div>
+                  `,
+                  tableColumns: [
+                    { key: 'departmentCode', header: 'Code', highlight: true },
+                    { key: 'departmentName', header: 'Programme / Discipline', bold: true },
+                    { key: 'accreditingCouncil', header: 'Council' },
+                    { key: 'candidatesExamined', header: 'Examined', align: 'right' },
+                    { key: 'candidatesPassed', header: 'Passed', align: 'right', bold: true },
+                    { key: 'passRatePct', header: 'Pass Rate', align: 'right', highlight: true, format: (v) => `${v}%` },
+                    { key: 'councilRating', header: 'Standing', align: 'center', format: (v) => String(v).replace('_', ' ') },
+                  ],
+                  tableData: academicData,
+                  stampText: 'SENATE & PROVOST VERIFIED',
+                  signatures: [
+                    { title: 'Director of Academic Planning', subtitle: 'Planning & Quality Assurance' },
+                    { title: 'Dr. Timothy Balogun (Provost)', subtitle: schoolProfile?.institutionName || 'Bethsaida College of Health Tech' },
+                  ],
+                });
+              }}
               leftIcon={<Printer className="w-3.5 h-3.5" />}
               className="whitespace-nowrap bg-[#0F7640] hover:bg-[#093322]"
             >
