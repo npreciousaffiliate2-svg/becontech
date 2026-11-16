@@ -812,11 +812,15 @@ export const AnalyticsView: React.FC = () => {
               keyExtractor={(r) => r.id}
               isDense={isDense}
               toolbarFilters={
-                <div className="text-xs text-slate-500 flex items-center gap-1.5 font-sans">
-                  <span className="font-semibold text-slate-700">Net Reconciled:</span>
-                  <span className="font-bold text-[#0F7640]">₦84,250,000.00</span>
-                  <span className="text-slate-300">•</span>
-                  <span>Target: ₦114,000,000.00 (74.0% recovery)</span>
+                <div className="text-xs text-slate-600 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 font-sans w-full">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-semibold text-slate-700 whitespace-nowrap">Net Reconciled:</span>
+                    <span className="font-bold text-[#0F7640] whitespace-nowrap">₦84,250,000.00</span>
+                  </div>
+                  <span className="hidden sm:inline text-slate-300">•</span>
+                  <span className="text-slate-500 text-[11px] sm:text-xs">
+                    Target: ₦114,000,000.00 (74.0% recovery)
+                  </span>
                 </div>
               }
             />
@@ -916,11 +920,13 @@ export const AnalyticsView: React.FC = () => {
               onSearchChange={setHospitalSearch}
               searchPlaceholder="Search hospital facility or facility type..."
               toolbarFilters={
-                <div className="text-xs text-slate-500 flex items-center gap-1.5 font-sans">
-                  <span className="font-semibold text-slate-700">Total Trainees Posted:</span>
-                  <span className="font-bold text-[#0F7640]">640 Students</span>
-                  <span className="text-slate-300">•</span>
-                  <span>96.2% Overall Posting Compliance</span>
+                <div className="text-xs text-slate-600 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 font-sans w-full">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-semibold text-slate-700 whitespace-nowrap">Total Trainees Posted:</span>
+                    <span className="font-bold text-[#0F7640] whitespace-nowrap">640 Students</span>
+                  </div>
+                  <span className="hidden sm:inline text-slate-300">•</span>
+                  <span className="text-slate-500 text-[11px] sm:text-xs">96.2% Overall Posting Compliance</span>
                 </div>
               }
             />

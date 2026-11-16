@@ -1426,9 +1426,9 @@ export const TimetableView: React.FC = () => {
             onSearchChange={setVenueSearch}
             searchPlaceholder="Search lecture hall, code, or building..."
             toolbarFilters={
-              <div className="text-xs text-slate-500 flex items-center gap-1.5">
-                <span className="font-semibold text-slate-700">Facilities Status:</span>
-                <span>All main halls equipped with Solar Inverters & PA Audio</span>
+              <div className="text-xs text-slate-600 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 font-sans">
+                <span className="font-semibold text-slate-700 whitespace-nowrap">Facilities Status:</span>
+                <span className="text-slate-500 text-[11px] sm:text-xs">All main halls equipped with Solar Inverters & PA Audio</span>
               </div>
             }
           />

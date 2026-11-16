@@ -1038,9 +1038,9 @@ export const StaffView: React.FC = () => {
             onSearchChange={setPayrollSearch}
             searchPlaceholder="Search employee name or staff ID..."
             toolbarFilters={
-              <div className="text-xs text-slate-500 flex items-center gap-1.5">
-                <span className="font-semibold text-slate-700">Salary Schedule:</span>
-                <span>CONPCASS Structure (November 2026 Run)</span>
+              <div className="text-xs text-slate-600 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 font-sans">
+                <span className="font-semibold text-slate-700 whitespace-nowrap">Salary Schedule:</span>
+                <span className="text-slate-500 text-[11px] sm:text-xs">CONPCASS Structure (November 2026 Run)</span>
               </div>
             }
           />

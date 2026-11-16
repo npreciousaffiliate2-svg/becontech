@@ -149,10 +149,10 @@ export function Table<T>({
       {/* ─── Standardized Table Header Toolbar (Search, Filters & Actions) ─── */}
       {(onSearchChange || useInternalSearch || toolbarFilters || toolbarActions) && (
         <div className="p-3 border-b border-slate-200/80 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto min-w-0">
             {toolbarFilters}
           </div>
-          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto min-w-0 shrink-0">
             {(onSearchChange || useInternalSearch) && (
               <div className="relative w-full sm:w-64">
                 <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
