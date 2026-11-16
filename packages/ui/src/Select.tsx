@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown, Check, Search } from 'lucide-react';
 
 export interface SelectOption {
@@ -32,32 +33,52 @@ export const Select: React.FC<SelectProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [openUpwards, setOpenUpwards] = useState(false);
+  const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
   const containerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const selectedOption = options.find((opt) => opt.value === value);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
+      const target = e.target as Node;
+      if (containerRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setIsOpen(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Smart upward/downward flip to prevent clipping inside modals and small screens
   useEffect(() => {
-    if (isOpen && containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
+    if (!isOpen || !containerRef.current) return;
+    const update = () => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
       const spaceBelow = window.innerHeight - rect.bottom;
-      if (spaceBelow < 230 && rect.top > 230) {
-        setOpenUpwards(true);
-      } else {
-        setOpenUpwards(false);
+      const openUp = spaceBelow < 230 && rect.top > 230;
+      const margin = 8;
+      const width = Math.min(Math.max(rect.width, 260), window.innerWidth - margin * 2);
+      let left = rect.left;
+      if (left + width > window.innerWidth - margin) {
+        left = Math.max(margin, window.innerWidth - margin - width);
       }
-    }
+      setMenuStyle({
+        position: 'fixed',
+        left,
+        width,
+        maxWidth: window.innerWidth - margin * 2,
+        zIndex: 10000,
+        top: openUp ? rect.top - 4 : rect.bottom + 4,
+        transform: openUp ? 'translateY(-100%)' : undefined,
+      });
+    };
+    update();
+    window.addEventListener('resize', update);
+    window.addEventListener('scroll', update, true);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('scroll', update, true);
+    };
   }, [isOpen]);
 
   const filteredOptions = searchable
@@ -77,7 +98,7 @@ export const Select: React.FC<SelectProps> = ({
         type="button"
         disabled={disabled}
         onClick={() => !disabled && setIsOpen(!isOpen)}
-        className={`w-full h-9 rounded-[4px] border px-3 flex items-center justify-between text-sm transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-[#0F7640] focus:ring-offset-1 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed ${
+        className={`w-full h-9 rounded-[4px] border px-3 flex items-center justify-between text-sm transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0F7640] focus-visible:ring-offset-1 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed ${
           error ? 'border-[#F83A20]' : 'border-slate-300 hover:border-slate-400 bg-white'
         } ${selectedOption ? 'text-slate-900 font-medium' : 'text-slate-400'}`}
       >
@@ -89,14 +110,12 @@ export const Select: React.FC<SelectProps> = ({
         />
       </button>
 
-      {isOpen && (
+      {isOpen &&
+        createPortal(
         <div
-          className={`absolute z-[100] left-0 right-0 rounded-[4px] border border-slate-200 bg-white overflow-hidden max-h-60 flex flex-col ${
-            openUpwards ? 'bottom-full mb-1' : 'top-full mt-1'
-          }`}
-          style={{
-            boxShadow: '0 2px 6px 2px rgba(60, 64, 67, 0.15), 0 1px 2px 0 rgba(60, 64, 67, 0.30)',
-          }}
+          ref={menuRef}
+          className="rounded-[4px] border border-slate-200 bg-white overflow-x-hidden max-h-60 flex flex-col shadow-md"
+          style={menuStyle}
         >
           {searchable && (
             <div className="p-2 border-b border-slate-100 flex items-center gap-1.5 bg-slate-50">
@@ -111,7 +130,7 @@ export const Select: React.FC<SelectProps> = ({
               />
             </div>
           )}
-          <div className="overflow-y-auto divide-y divide-slate-50 p-1">
+          <div className="overflow-y-auto overflow-x-hidden divide-y divide-slate-50 p-1">
             {filteredOptions.length === 0 ? (
               <div className="p-3 text-center text-xs text-slate-400">No matching options</div>
             ) : (
@@ -126,16 +145,16 @@ export const Select: React.FC<SelectProps> = ({
                       setIsOpen(false);
                       setSearchQuery('');
                     }}
-                    className={`w-full px-2.5 py-1.5 text-left text-xs rounded-[4px] flex items-center justify-between transition-colors ${
+                    className={`w-full min-w-0 px-2.5 py-1.5 text-left text-xs rounded-[4px] flex items-start justify-between gap-2 transition-colors ${
                       isSelected
                         ? 'bg-emerald-50 text-[#0F7640] font-semibold'
                         : 'text-slate-700 hover:bg-slate-50'
                     }`}
                   >
-                    <div>
-                      <div className="truncate">{opt.label}</div>
+                    <div className="min-w-0">
+                      <div className="whitespace-normal break-words">{opt.label}</div>
                       {opt.description && (
-                        <div className="text-[10px] text-slate-400">{opt.description}</div>
+                        <div className="text-[10px] text-slate-400 whitespace-normal break-words">{opt.description}</div>
                       )}
                     </div>
                     {isSelected && <Check className="w-3.5 h-3.5 text-[#0F7640] shrink-0" />}
@@ -144,8 +163,9 @@ export const Select: React.FC<SelectProps> = ({
               })
             )}
           </div>
-        </div>
-      )}
+        </div>,
+        document.body
+        )}
       {error && <p className="text-xs text-[#F83A20] font-medium">{error}</p>}
     </div>
   );

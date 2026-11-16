@@ -72,7 +72,7 @@ export interface HospitalCompliance {
 }
 
 export const AnalyticsView: React.FC = () => {
-  const { isDense } = useApp();
+  const { isDense, schoolProfile } = useApp();
   const { showToast } = useToast();
   const { tab: routeTab } = useParams();
   const navigate = useNavigate();
@@ -331,7 +331,7 @@ export const AnalyticsView: React.FC = () => {
           <span className="px-1.5 py-0.2 bg-emerald-50 text-[#0F7640] rounded-[4px] font-bold">
             {r.distinctionCount} Dist
           </span>
-          <span className="px-1.5 py-0.2 bg-blue-50 text-blue-700 rounded-[4px] font-bold">
+          <span className="px-1.5 py-0.2 bg-emerald-50 text-[#0F7640] rounded-[4px] font-bold">
             {r.creditCount} Cred
           </span>
           <span className="px-1.5 py-0.2 bg-slate-100 text-slate-700 rounded-[4px] font-bold">
@@ -352,7 +352,7 @@ export const AnalyticsView: React.FC = () => {
       nowrap: true,
       render: (r: DepartmentPassRate) => (
         <Badge variant={r.councilRating === 'EXCELLENT' ? 'success' : 'primary'} size="sm">
-          {r.councilRating}
+          {r.councilRating.replace(/_/g, ' ')}
         </Badge>
       ),
     },
@@ -494,7 +494,7 @@ export const AnalyticsView: React.FC = () => {
       {/* ─── MODULE HEADER ─── */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">Institutional Analytics</h1>
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight font-sans">College Analytics & Performance</h1>
           <p className="text-xs text-slate-500 mt-0.5">
             College Intelligence • 3-Year Enrollment Trajectory • Tuition Recovery Efficiency • Council Qualifying Pass Rates
           </p>
@@ -571,14 +571,14 @@ export const AnalyticsView: React.FC = () => {
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Board Qualifying Average
             </span>
-            <div className="w-8 h-8 rounded-[4px] bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center shrink-0">
               <GraduationCap className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
             <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">88.4%</div>
             <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
-              <span className="text-blue-700 font-semibold">First Diet Pass</span>
+              <span className="text-[#0F7640] font-semibold">First Diet Pass</span>
               <span className="text-slate-300">•</span>
               <span className="text-[11px] text-slate-400">CHPRBN, MLSCN & PCN</span>
             </div>
@@ -723,7 +723,7 @@ export const AnalyticsView: React.FC = () => {
               </div>
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-[4px] text-center">
                 <span className="font-bold text-slate-900 text-xs block">Medical Laboratory</span>
-                <span className="text-xl font-extrabold text-blue-700 block my-1 font-sans">320</span>
+                <span className="text-xl font-extrabold text-[#0F7640] block my-1 font-sans">320</span>
                 <span className="text-[10px] text-slate-500 font-semibold">Quota: 350 (91.4%)</span>
               </div>
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-[4px] text-center">
@@ -752,7 +752,7 @@ export const AnalyticsView: React.FC = () => {
           <Card
             header={
               <span className="font-bold text-slate-900 uppercase tracking-wider text-xs">
-                Tuition & Institutional Fee Recovery Efficiency by Cohort Level
+                Tuition & College Fee Collection Efficiency by Level
               </span>
             }
           >
@@ -789,7 +789,7 @@ export const AnalyticsView: React.FC = () => {
               <span className="text-slate-400 block uppercase font-semibold text-[10px]">Commercial Bank e-Collection</span>
               <div className="flex items-center justify-between">
                 <span className="font-bold text-slate-900 text-sm">Remita RRR Gateway</span>
-                <span className="font-extrabold text-blue-700 text-sm font-sans">36.0%</span>
+                <span className="font-extrabold text-[#0F7640] text-sm font-sans">36.0%</span>
               </div>
               <p className="text-slate-500 text-[11px]">
                 ₦30,330,000.00 verified via direct bank branch teller settlements.
@@ -853,7 +853,7 @@ export const AnalyticsView: React.FC = () => {
           <Card
             header={
               <span className="font-bold text-slate-900 uppercase tracking-wider text-xs">
-                Institutional Hospital Clinical Postings & Logbook Performance
+                Hospital Clinical Postings & Logbook Performance
               </span>
             }
           >
@@ -889,23 +889,28 @@ export const AnalyticsView: React.FC = () => {
           <div className="border border-slate-200 p-6 rounded-[4px] bg-white relative">
             {/* Header Letterhead */}
             <div className="text-center pb-4 border-b border-slate-200">
-              <div className="w-12 h-12 mx-auto mb-2 rounded-[4px] bg-[#0F7640] text-white flex items-center justify-center font-bold text-sm shadow-sm">
-                BCHT
-              </div>
+              <img
+                src={schoolProfile?.logoUrl || '/BeonTech-Logo.png'}
+                alt="College Crest"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '/BeonTech-Logo.png';
+                }}
+                className="w-14 h-14 mx-auto mb-2 rounded-[4px] object-contain shadow-xs"
+              />
               <h2 className="text-base font-bold text-slate-900 tracking-wide uppercase">
-                Bethsaida College of Health Technology
+                {schoolProfile?.institutionName || 'Bethsaida College of Health Technology'}
               </h2>
               <p className="text-[11px] text-slate-500">
-                Office of Institutional Research, Planning & Quality Assurance • Moniya, Ibadan
+                Directorate of Academic Planning & Quality Assurance • {schoolProfile?.campusAddress || 'Ogbomoso, Oyo State'}
               </p>
               <div className="mt-2 inline-block px-3 py-1 bg-emerald-50 rounded-[4px] text-xs font-bold text-[#0F7640] border border-emerald-200 uppercase">
-                EXECUTIVE INSTITUTIONAL INTELLIGENCE SUMMARY • 2026/2027 ACADEMIC SESSION
+                EXECUTIVE ACADEMIC & FINANCIAL SUMMARY • {schoolProfile?.activeSession || "2026/2027"} ACADEMIC SESSION
               </div>
             </div>
 
             {/* Key Findings Summary */}
             <div className="space-y-3 py-4 border-b border-slate-100 text-xs text-slate-700">
-              <h4 className="font-bold text-slate-900 uppercase text-[11px]">Executive Summary & Institutional Standing:</h4>
+              <h4 className="font-bold text-slate-900 uppercase text-[11px]">Executive Summary & College Standing:</h4>
               <p>
                 1. <strong>Enrollment Expansion:</strong> Total college enrollment reached 1,248 students (+8.4% YoY), driven by strong demand in Community Health Extension Worker (CHEW) and Medical Laboratory Technology programs.
               </p>
@@ -913,7 +918,7 @@ export const AnalyticsView: React.FC = () => {
                 2. <strong>Financial Performance:</strong> Revenue recovery efficiency stands at 74.0% with ₦84.25M realized out of ₦114.0M billable tuition. Final year debtors recovery protocols remain in effect.
               </p>
               <p>
-                3. <strong>Board Examination Excellence:</strong> Aggregate first diet pass rate across national regulatory boards (CHPRBN, MLSCN, PCN, HRORBN, EHORECON) reached 88.4%, with Health Information Management leading at 93.3%.
+                3. <strong>Board Examination Excellence:</strong> Aggregate first diet pass rate across national regulatory boards ({schoolProfile?.regulatoryCouncils?.join(", ") || "NBTE, CHPRBN, MLSCN, PCN"}) reached 88.4%, with Health Information Management leading at 93.3%.
               </p>
               <p>
                 4. <strong>Clinical Hospital Postings:</strong> 640 trainees successfully deployed across 4 accredited hospital complexes with 96.2% procedural logbook completion verified by consultant preceptors.

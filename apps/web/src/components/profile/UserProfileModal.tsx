@@ -27,6 +27,8 @@ import {
   GraduationCap,
   Sparkles,
 } from 'lucide-react';
+import { supabase } from '../../lib/supabase.ts';
+import { optimizeImage } from '../../utils/imageOptimizer.ts';
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -62,10 +64,11 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const [examGatePassAlerts, setExamGatePassAlerts] = useState(true);
 
   const [isSaving, setIsSaving] = useState(false);
+  const [stagedFile, setStagedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Handle custom photo file selection
-  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle custom photo file selection with automatic client-side optimization
+  const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -78,41 +81,61 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
       return;
     }
 
-    if (file.size > 2 * 1024 * 1024) {
-      showToast({
-        type: 'danger',
-        title: 'File Too Large',
-        message: 'Profile photos must be less than 2MB in size.',
-      });
-      return;
-    }
+    try {
+      const optimized = await optimizeImage(file, { maxWidth: 512, maxHeight: 512, quality: 0.82 });
+      setStagedFile(optimized.file);
+      setAvatarPreview(optimized.dataUrl);
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
-      setAvatarPreview(dataUrl);
       showToast({
         type: 'info',
-        title: 'Photo Uploaded',
-        message: 'Profile picture staged. Click Save Changes to commit to database.',
+        title: 'Photo Optimized',
+        message: `Image compressed (${optimized.compressionRatio}). Click Save Changes to update your account.`,
       });
-    };
-    reader.readAsDataURL(file);
+    } catch (err: any) {
+      showToast({
+        type: 'danger',
+        title: 'Optimization Error',
+        message: err?.message || 'Could not process photo.',
+      });
+    }
   };
 
   const handleRemovePhoto = () => {
     setAvatarPreview(null);
+    setStagedFile(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
     showToast({
       type: 'info',
       title: 'Photo Removed',
-      message: 'Avatar reset to institutional initials.',
+      message: 'Avatar reset to initials.',
     });
   };
 
   const handleSaveProfile = async () => {
     setIsSaving(true);
     try {
+      let finalAvatarUrl = avatarPreview || undefined;
+
+      // If a new photo was staged, upload to Supabase Storage 'avatars'
+      if (stagedFile) {
+        const filePath = `${session.userId}-${Date.now()}.webp`;
+        const { data: uploadData, error: uploadErr } = await supabase.storage
+          .from('avatars')
+          .upload(filePath, stagedFile, {
+            contentType: 'image/webp',
+            upsert: true,
+          });
+
+        if (!uploadErr && uploadData) {
+          const { data: publicUrlData } = supabase.storage
+            .from('avatars')
+            .getPublicUrl(filePath);
+          if (publicUrlData?.publicUrl) {
+            finalAvatarUrl = publicUrlData.publicUrl;
+          }
+        }
+      }
+
       if (updateProfile) {
         await updateProfile({
           fullName,
@@ -120,21 +143,21 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           address,
           bio,
           emergencyContact,
-          avatarUrl: avatarPreview || undefined,
+          avatarUrl: finalAvatarUrl,
         });
       }
 
       showToast({
         type: 'success',
-        title: 'Profile Updated Successfully',
-        message: 'Your personal information and avatar have been saved to the institutional database.',
+        title: 'Profile Saved',
+        message: 'Your personal information and photo have been saved securely.',
       });
       onClose();
     } catch (err: any) {
       showToast({
         type: 'danger',
         title: 'Update Failed',
-        message: err?.message || 'Could not update profile in database.',
+        message: err?.message || 'Could not update profile.',
       });
     } finally {
       setIsSaving(false);
@@ -295,7 +318,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
               <div>
                 <label className="block text-slate-700 font-semibold mb-1">
-                  Institutional Email (Login ID)
+                  College Email (Login ID)
                 </label>
                 <div className="relative">
                   <Input
@@ -362,7 +385,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             <form onSubmit={handleUpdatePassword} className="space-y-4">
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-[4px] flex items-center gap-2 text-slate-700 font-medium">
                 <KeyRound className="w-4 h-4 text-[#0F7640]" />
-                <span>Change Your Institutional Account Password</span>
+                <span>Change Account Password</span>
               </div>
 
               <div className="space-y-3">
@@ -453,7 +476,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               <div className="flex items-center justify-between pt-2">
                 <div>
                   <span className="font-bold text-slate-900 block">
-                    Institutional Email Bulletins & Grades
+                    College Email Bulletins & Grades
                   </span>
                   <span className="text-slate-500">
                     Receive semester results, circulars, and course schedules via email

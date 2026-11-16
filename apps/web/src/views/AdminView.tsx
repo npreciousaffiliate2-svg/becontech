@@ -22,7 +22,6 @@ import {
   Settings,
   Building2,
   Globe,
-  Database,
   CheckCircle2,
   AlertCircle,
   RefreshCw,
@@ -77,7 +76,21 @@ export interface IntegrationGatewaySetting {
 }
 
 export const AdminView: React.FC = () => {
-  const { auditLogs, isDense, recordAudit } = useApp();
+  const {
+    auditLogs,
+    isDense,
+    recordAudit,
+    schoolProfile,
+    updateSchoolProfile,
+    addAcademicLevel,
+    removeAcademicLevel,
+    addRegulatoryCouncil,
+    removeRegulatoryCouncil,
+    addAcademicSemester,
+    addAcademicSession,
+    isSuperAdmin,
+    impersonateUser,
+  } = useApp();
   const { showToast } = useToast();
   const { tab: routeTab } = useParams();
   const navigate = useNavigate();
@@ -118,13 +131,24 @@ export const AdminView: React.FC = () => {
   const [actionFilter, setActionFilter] = useState('ALL');
   const [roleSearch, setRoleSearch] = useState('');
 
+  /* ─── DYNAMIC CONFIGURATION INPUTS ─── */
+  const [newLevelInput, setNewLevelInput] = useState('');
+  const [newCouncilInput, setNewCouncilInput] = useState('');
+  const [newSemesterInput, setNewSemesterInput] = useState('');
+  const [newSessionInput, setNewSessionInput] = useState('');
+  const [editSchoolForm, setEditSchoolForm] = useState(schoolProfile);
+
+  useEffect(() => {
+    setEditSchoolForm(schoolProfile);
+  }, [schoolProfile]);
+
   /* ─── DATA: ROLES & PERMISSIONS ─── */
   const [roles, setRoles] = useState<UserRoleItem[]>([
     {
       id: 'rol-01',
       roleCode: 'SUPER_ADMIN',
       roleTitle: 'College Provost & Chief Executive',
-      description: 'Unrestricted institutional oversight, cryptographic audit inspections, and governance sign-off.',
+      description: 'College leadership, school activity records, and academic oversight.',
       assignedUsersCount: 1,
       accessTier: 'SYSTEM_SUPER_ADMIN',
       permissionsCount: 48,
@@ -240,7 +264,7 @@ export const AdminView: React.FC = () => {
       is_enabled: true,
       environment: 'LIVE',
       secret_key: 're_live_bcht_918237198231',
-      sender_email: 'admissions@bethsaida.edu.ng',
+      sender_email: 'admissions@becohtech.edu.ng',
       sender_name: 'Bethsaida College Admissions',
     },
     {
@@ -255,28 +279,9 @@ export const AdminView: React.FC = () => {
     },
   ]);
 
-  /* ─── DATA: SCHOOL PROFILE STATE ─── */
-  const [schoolProfile, setSchoolProfile] = useState({
-    institutionName: 'Bethsaida College of Health Technology Ltd',
-    institutionAcronym: 'BCHT',
-    institutionCode: 'BCHT-OYO',
-    campusAddress: 'Health Sciences Complex, Moniya, Ibadan, Oyo State, Nigeria',
-    officialEmail: 'info@bethsaida.edu.ng',
-    officialPhone: '+234 803 124 5590',
-    websiteUrl: 'https://bethsaida.edu.ng',
-    accreditationRegNo: 'FMOH/NBTE/CHPRBN/2022/048',
-    activeSession: '2026/2027 Academic Session',
-    activeSemester: 'Harmattan Semester',
-    attendanceCutoffPct: 75,
-    caWeightPct: 30,
-    examWeightPct: 70,
-    twoFactorEnforced: true,
-    sessionTimeoutMins: 15,
-  });
-
-  // ─── HYDRATE SETTINGS LIVE FROM SUPABASE ───
+  // ─── HYDRATE GATEWAYS LIVE FROM SUPABASE ───
   useEffect(() => {
-    async function fetchLiveSettings() {
+    async function fetchLiveGateways() {
       try {
         const { data: gwData, error: gwErr } = await supabase
           .from('integration_settings')
@@ -285,38 +290,12 @@ export const AdminView: React.FC = () => {
         if (!gwErr && gwData && gwData.length > 0) {
           setGatewaySettings(gwData);
         }
-
-        const { data: tenantData } = await supabase
-          .from('tenant_settings')
-          .select('*')
-          .limit(1)
-          .single();
-
-        if (tenantData) {
-          setSchoolProfile({
-            institutionName: tenantData.institution_name,
-            institutionAcronym: tenantData.institution_acronym,
-            institutionCode: tenantData.institution_code,
-            campusAddress: tenantData.campus_address,
-            officialEmail: tenantData.official_email,
-            officialPhone: tenantData.official_phone,
-            websiteUrl: tenantData.website_url || 'https://bethsaida.edu.ng',
-            accreditationRegNo: tenantData.accreditation_reg_no || 'FMOH/NBTE/CHPRBN/2022/048',
-            activeSession: tenantData.active_session || '2026/2027 Academic Session',
-            activeSemester: tenantData.active_semester || 'Harmattan Semester',
-            attendanceCutoffPct: tenantData.attendance_cutoff_pct || 75,
-            caWeightPct: tenantData.ca_weight_pct || 30,
-            examWeightPct: tenantData.exam_weight_pct || 70,
-            twoFactorEnforced: tenantData.two_factor_enforced ?? true,
-            sessionTimeoutMins: tenantData.session_timeout_mins || 15,
-          });
-        }
       } catch (err) {
         console.warn('[CampusOne] Settings live hydration note:', err);
       }
     }
 
-    fetchLiveSettings();
+    fetchLiveGateways();
   }, []);
 
   /* ─── FILTERED AUDIT LOGS ─── */
@@ -386,12 +365,18 @@ export const AdminView: React.FC = () => {
         prev.map((g) => (g.id === editingGateway.id ? editingGateway : g))
       );
 
+      if (editingGateway.gateway_type === 'payment_paystack' && editingGateway.public_key) {
+        try {
+          localStorage.setItem('campusone_paystack_public_key', editingGateway.public_key);
+        } catch (e) {}
+      }
+
       recordAudit('GATEWAY_CREDENTIALS_UPDATED', 'INTEGRATION_GATEWAY', editingGateway.provider);
 
       showToast({
         type: 'success',
         title: 'Gateway Saved',
-        message: `${editingGateway.provider} details updated in the school database.`,
+        message: `${editingGateway.provider} details updated in school records.`,
       });
 
       setIsEditGatewayModalOpen(false);
@@ -410,39 +395,18 @@ export const AdminView: React.FC = () => {
   const handleSaveSchoolProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const { error } = await supabase.from('tenant_settings').upsert({
-        id: 'tenant_bethsaida',
-        college_id: 'bethsaida',
-        institution_name: schoolProfile.institutionName,
-        institution_acronym: schoolProfile.institutionAcronym,
-        institution_code: schoolProfile.institutionCode,
-        campus_address: schoolProfile.campusAddress,
-        official_email: schoolProfile.officialEmail,
-        official_phone: schoolProfile.officialPhone,
-        website_url: schoolProfile.websiteUrl,
-        accreditation_reg_no: schoolProfile.accreditationRegNo,
-        active_session: schoolProfile.activeSession,
-        active_semester: schoolProfile.activeSemester,
-        attendance_cutoff_pct: schoolProfile.attendanceCutoffPct,
-        ca_weight_pct: schoolProfile.caWeightPct,
-        exam_weight_pct: schoolProfile.examWeightPct,
-        updated_at: new Date().toISOString(),
-      });
-
-      if (error) throw error;
-
-      recordAudit('SCHOOL_SETTINGS_UPDATED', 'TENANT_CONFIG', schoolProfile.institutionCode);
+      await updateSchoolProfile(editSchoolForm);
       showToast({
         type: 'success',
-        title: 'School Profile Saved',
-        message: 'School information and academic calendar updated in the live database.',
+        title: 'College Profile Saved',
+        message: 'College profile, accreditation information, and calendar policies updated.',
       });
       setIsEditSchoolModalOpen(false);
     } catch (err: any) {
       showToast({
         type: 'danger',
         title: 'Save Error',
-        message: err.message || 'Could not update school settings.',
+        message: err.message || 'Could not update college settings.',
       });
     }
   };
@@ -566,31 +530,64 @@ export const AdminView: React.FC = () => {
       nowrap: true,
       render: (r: UserRoleItem) => (
         <Badge variant={r.isSystemImmutable ? 'neutral' : 'success'} size="sm">
-          {r.isSystemImmutable ? 'CORE IMMUTABLE' : 'CUSTOMIZABLE'}
+          {r.isSystemImmutable ? 'STANDARD ROLE' : 'CUSTOM ROLE'}
         </Badge>
       ),
     },
     {
       key: 'action',
-      header: 'Action',
+      header: 'Actions',
       align: 'right' as const,
       nowrap: true,
       render: (r: UserRoleItem) => (
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={() => {
-            showToast({
-              type: 'info',
-              title: `${r.roleTitle} Policy`,
-              message: `Permissions verified for ${r.roleTitle} (${r.permissionsCount} granular privileges).`,
-            });
-          }}
-          leftIcon={<Lock className="w-3.5 h-3.5 text-slate-500" />}
-          className="whitespace-nowrap"
-        >
-          View Privileges
-        </Button>
+        <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
+          {isSuperAdmin && r.roleCode !== 'SUPER_ADMIN' && (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                const roleMap: Record<string, any> = {
+                  SUPER_ADMIN: 'SADMIN',
+                  REGISTRAR: 'REG',
+                  BURSAR: 'BURSAR',
+                  HOD_DEAN: 'HOD',
+                  LECTURER: 'INSTR',
+                  EXAM_OFFICER: 'EXAM',
+                  CLINICAL_SUPERVISOR: 'CLINSUP',
+                  STUDENT: 'STU',
+                  HOSTEL_WARDEN: 'SADMIN',
+                };
+                const mappedRole = roleMap[r.roleCode] || 'INSTR';
+                impersonateUser(mappedRole);
+                showToast({
+                  type: 'info',
+                  title: 'Impersonation Mode Active',
+                  message: `Now accessing system as ${r.roleTitle}.`,
+                });
+                navigate('/');
+              }}
+              leftIcon={<UserCheck className="w-3.5 h-3.5 text-[#0F7640]" />}
+              className="text-[#0F7640] border-emerald-200 hover:bg-emerald-50"
+            >
+              Impersonate
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              showToast({
+                type: 'info',
+                title: `${r.roleTitle} Policy`,
+                message: `Permissions verified for ${r.roleTitle} (${r.permissionsCount} granular privileges).`,
+              });
+            }}
+            leftIcon={<Lock className="w-3.5 h-3.5 text-slate-500" />}
+            className="whitespace-nowrap"
+          >
+            View Privileges
+          </Button>
+        </div>
       ),
     },
   ];
@@ -669,7 +666,7 @@ export const AdminView: React.FC = () => {
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
               Staff Access Roles
             </span>
-            <div className="w-8 h-8 rounded-[4px] bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center shrink-0">
               <UserCheck className="w-4 h-4" />
             </div>
           </div>
@@ -678,7 +675,7 @@ export const AdminView: React.FC = () => {
               7 Roles
             </div>
             <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
-              <span className="text-blue-700 font-semibold">Configured</span>
+              <span className="text-[#0F7640] font-semibold">Configured</span>
               <span className="text-slate-300">•</span>
               <span className="text-[11px] text-slate-400">64 Staff Assigned</span>
             </div>
@@ -691,7 +688,7 @@ export const AdminView: React.FC = () => {
               System Activity Log
             </span>
             <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center shrink-0">
-              <Database className="w-4 h-4" />
+              <ShieldCheck className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
@@ -773,8 +770,8 @@ export const AdminView: React.FC = () => {
                   onClick={() => {
                     showToast({
                       type: 'success',
-                      title: 'Cryptographic Export Ready',
-                      message: `Exported ${filteredAuditLogs.length} verified audit records with SHA-256 chain signatures.`,
+                      title: 'Activity Log Exported',
+                      message: `Exported ${filteredAuditLogs.length} verified activity log records.`,
                     });
                   }}
                   leftIcon={<Download className="w-3.5 h-3.5" />}
@@ -791,7 +788,7 @@ export const AdminView: React.FC = () => {
       {/* ─── TAB 2: RBAC ROLES & PERMISSIONS MATRIX ─── */}
       {activeTab === 'rbac' && (
         <div className="space-y-6">
-          {/* Institutional Governance Hard Rules Banner */}
+          {/* Governance Hard Rules Banner */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="p-3.5 rounded-[4px] border border-slate-200 bg-white shadow-sm flex items-start gap-3">
               <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center shrink-0 mt-0.5">
@@ -806,7 +803,7 @@ export const AdminView: React.FC = () => {
             </div>
 
             <div className="p-3.5 rounded-[4px] border border-slate-200 bg-white shadow-sm flex items-start gap-3">
-              <div className="w-8 h-8 rounded-[4px] bg-blue-50 text-blue-700 flex items-center justify-center shrink-0 mt-0.5">
+              <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center shrink-0 mt-0.5">
                 <ShieldCheck className="w-4 h-4" />
               </div>
               <div>
@@ -853,134 +850,384 @@ export const AdminView: React.FC = () => {
 
       {/* ─── TAB 3: SCHOOL SETTINGS / TENANT PROFILE ─── */}
       {activeTab === 'tenant' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 text-xs">
-          {/* Institutional Bio Card */}
-          <Card
-            header={
-              <span className="font-bold text-slate-900 uppercase tracking-wider text-xs">
-                Institutional Identity & Accreditation
-              </span>
-            }
-          >
-            <div className="space-y-3.5">
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-[4px] flex items-center gap-3">
-                <div className="w-12 h-12 rounded-[4px] bg-[#0F7640] text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
-                  {schoolProfile.institutionAcronym}
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 text-sm">{schoolProfile.institutionName}</h3>
-                  <p className="text-slate-500 text-[11px]">Institution Code: {schoolProfile.institutionCode}</p>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div>
-                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">Campus Address</span>
-                  <span className="font-semibold text-slate-800">{schoolProfile.campusAddress}</span>
-                </div>
-                <div className="grid grid-cols-2 gap-3 pt-1">
-                  <div>
-                    <span className="text-slate-400 block text-[10px] uppercase font-semibold">Official Email</span>
-                    <span className="font-semibold text-slate-800">{schoolProfile.officialEmail}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block text-[10px] uppercase font-semibold">Telephone Line</span>
-                    <span className="font-semibold text-slate-800">{schoolProfile.officialPhone}</span>
-                  </div>
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">Statutory Accreditation Authority</span>
-                  <span className="font-semibold text-slate-800">{schoolProfile.accreditationRegNo}</span>
-                  <span className="text-[11px] text-slate-500 block">
-                    Federal Ministry of Health • NBTE • CHPRBN • MLSCN • PCN • HRORBN • EHORECON
+        <div className="space-y-6 text-xs font-sans">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Card 1: College Identity & Profile */}
+            <Card
+              header={
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-900 uppercase tracking-wider text-xs">
+                    College Profile & Accreditation
                   </span>
+                  <Badge variant="primary" size="sm">
+                    {schoolProfile.institutionCode}
+                  </Badge>
                 </div>
-              </div>
-
-              <div className="pt-3 border-t border-slate-200 flex justify-end">
-                <Button size="sm" variant="secondary" onClick={() => setIsEditSchoolModalOpen(true)} leftIcon={<Edit3 className="w-3.5 h-3.5" />}>
-                  Modify Institutional Details
-                </Button>
-              </div>
-            </div>
-          </Card>
-
-          {/* Academic Calendar Policies Card */}
-          <Card
-            header={
-              <span className="font-bold text-slate-900 uppercase tracking-wider text-xs">
-                Academic Session & Progression Policies
-              </span>
-            }
-          >
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-[4px]">
-                  <span className="text-slate-500 block text-[10px] uppercase font-semibold">Active Session</span>
-                  <span className="font-bold text-slate-900 text-xs mt-0.5 block">{schoolProfile.activeSession}</span>
-                  <Badge variant="success" size="sm" className="mt-1">CURRENT</Badge>
+              }
+            >
+              <div className="space-y-3.5">
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-[4px] flex items-center gap-3">
+                  <img
+                    src={schoolProfile.logoUrl || '/BeonTech-Logo.png'}
+                    alt="Platform Crest"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = '/BeonTech-Logo.png';
+                    }}
+                    className="w-12 h-12 rounded-[4px] object-contain p-0.5 bg-white border border-slate-200 shrink-0 shadow-xs"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-bold text-slate-900 text-sm truncate">{schoolProfile.institutionName}</h3>
+                    <p className="text-slate-500 text-[11px]">
+                      {schoolProfile.institutionalSector || 'Higher Education Institution'} • Code: <strong className="text-slate-700">{schoolProfile.institutionCode}</strong>
+                    </p>
+                  </div>
                 </div>
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-[4px]">
-                  <span className="text-slate-500 block text-[10px] uppercase font-semibold">Active Semester</span>
-                  <span className="font-bold text-slate-900 text-xs mt-0.5 block">{schoolProfile.activeSemester}</span>
-                  <Badge variant="success" size="sm" className="mt-1">IN SESSION</Badge>
-                </div>
-              </div>
 
-              <div className="space-y-2">
-                <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                <div className="space-y-2">
                   <div>
-                    <span className="font-semibold text-slate-900 block">Minimum Exam Attendance Threshold</span>
-                    <span className="text-slate-500 text-[11px]">Strict clearance rule for examination docket gating</span>
+                    <span className="text-slate-400 block text-[10px] uppercase font-semibold">Campus Address</span>
+                    <span className="font-semibold text-slate-800">{schoolProfile.campusAddress}</span>
                   </div>
-                  <span className="font-bold text-[#0F7640] text-sm font-sans">{schoolProfile.attendanceCutoffPct}%</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-semibold">Official Email</span>
+                      <span className="font-semibold text-slate-800">{schoolProfile.officialEmail}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-semibold">Telephone Line</span>
+                      <span className="font-semibold text-slate-800">{schoolProfile.officialPhone}</span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-semibold">Website Portal</span>
+                      <span className="font-semibold text-slate-800">{schoolProfile.websiteUrl || 'Not configured'}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-semibold">Accreditation Reg No</span>
+                      <span className="font-semibold text-[#0F7640]">{schoolProfile.accreditationRegNo}</span>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex justify-between items-center py-2 border-b border-slate-100">
-                  <div>
-                    <span className="font-semibold text-slate-900 block">Continuous Assessment (CA) Weight</span>
-                    <span className="text-slate-500 text-[11px]">Tests, practical lab quizzes, and attendance</span>
-                  </div>
-                  <span className="font-bold text-slate-800 text-sm font-sans">{schoolProfile.caWeightPct}%</span>
-                </div>
-
-                <div className="flex justify-between items-center py-2">
-                  <div>
-                    <span className="font-semibold text-slate-900 block">Semester Examination Weight</span>
-                    <span className="text-slate-500 text-[11px]">Standardized final written and clinical examination</span>
-                  </div>
-                  <span className="font-bold text-slate-800 text-sm font-sans">{schoolProfile.examWeightPct}%</span>
+                <div className="pt-3 border-t border-slate-200 flex justify-end">
+                  <Button size="sm" variant="secondary" onClick={() => {
+                    setEditSchoolForm(schoolProfile);
+                    setIsEditSchoolModalOpen(true);
+                  }} leftIcon={<Edit3 className="w-3.5 h-3.5" />}>
+                    Edit College Profile
+                  </Button>
                 </div>
               </div>
+            </Card>
 
-              {/* RFC Standard Grading Scale Reference */}
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-[4px] space-y-1.5">
-                <span className="font-bold text-slate-900 block text-[11px]">Statutory 5-Point Health College Grading Scale:</span>
-                <div className="grid grid-cols-5 gap-1.5 text-center text-[10px]">
-                  <div className="p-1 bg-white border border-slate-200 rounded-[4px]">
-                    <span className="font-bold text-[#13A348] block">A (5.0)</span>
-                    <span className="text-slate-500">70 – 100%</span>
+            {/* Card 2: Academic Calendar & Sessions */}
+            <Card
+              header={
+                <span className="font-bold text-slate-900 uppercase tracking-wider text-xs">
+                  Academic Sessions & Semesters
+                </span>
+              }
+            >
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-[4px]">
+                    <span className="text-slate-500 block text-[10px] uppercase font-semibold">Active Session</span>
+                    <span className="font-bold text-slate-900 text-xs mt-0.5 block">{schoolProfile.activeSession}</span>
+                    <Badge variant="success" size="sm" className="mt-1">CURRENT</Badge>
                   </div>
-                  <div className="p-1 bg-white border border-slate-200 rounded-[4px]">
-                    <span className="font-bold text-blue-700 block">B (4.0)</span>
-                    <span className="text-slate-500">60 – 69%</span>
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-[4px]">
+                    <span className="text-slate-500 block text-[10px] uppercase font-semibold">Active Semester</span>
+                    <span className="font-bold text-slate-900 text-xs mt-0.5 block">{schoolProfile.activeSemester}</span>
+                    <Badge variant="success" size="sm" className="mt-1">IN SESSION</Badge>
                   </div>
-                  <div className="p-1 bg-white border border-slate-200 rounded-[4px]">
-                    <span className="font-bold text-amber-700 block">C (3.0)</span>
-                    <span className="text-slate-500">50 – 59%</span>
+                </div>
+
+                {/* Switch Active Session / Semester */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Set Active Session:</label>
+                    <Select
+                      options={schoolProfile.academicSessions.map((s) => ({ value: s, label: s }))}
+                      value={schoolProfile.activeSession}
+                      onChange={(val) => updateSchoolProfile({ activeSession: val })}
+                    />
                   </div>
-                  <div className="p-1 bg-white border border-slate-200 rounded-[4px]">
-                    <span className="font-bold text-slate-700 block">E (2.0)</span>
-                    <span className="text-slate-500">40 – 49%</span>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Set Active Semester:</label>
+                    <Select
+                      options={schoolProfile.academicSemesters.map((s) => ({ value: s, label: s }))}
+                      value={schoolProfile.activeSemester}
+                      onChange={(val) => updateSchoolProfile({ activeSemester: val })}
+                    />
                   </div>
-                  <div className="p-1 bg-white border border-slate-200 rounded-[4px]">
-                    <span className="font-bold text-[#F83A20] block">F (0.0)</span>
-                    <span className="text-slate-500">0 – 39%</span>
+                </div>
+
+                {/* Add new session or semester */}
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-[4px] space-y-2">
+                  <span className="font-bold text-slate-900 block text-[11px]">Add New Session or Semester:</span>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="e.g. 2027/2028 or First Semester..."
+                      value={newSessionInput}
+                      onChange={(e) => setNewSessionInput(e.target.value)}
+                      className="flex-1 h-8 px-2.5 text-xs bg-white border border-slate-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
+                    />
+                    <Button size="sm" onClick={() => {
+                      if (!newSessionInput.trim()) return;
+                      if (newSessionInput.includes('/') || newSessionInput.toLowerCase().includes('session')) {
+                        addAcademicSession(newSessionInput.trim());
+                      } else {
+                        addAcademicSemester(newSessionInput.trim());
+                      }
+                      setNewSessionInput('');
+                      showToast({ type: 'success', title: 'Added', message: 'Academic calendar option registered.' });
+                    }} leftIcon={<Plus className="w-3.5 h-3.5" />}>
+                      Add
+                    </Button>
                   </div>
                 </div>
               </div>
-            </div>
-          </Card>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Card 3: Statutory Regulatory Councils & Accreditation Bodies */}
+            <Card
+              header={
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="font-bold text-slate-900 uppercase tracking-wider text-xs block">
+                      Accredited Statutory Regulatory Councils
+                    </span>
+                    <span className="text-[11px] text-slate-500 font-normal">
+                      Councils & boards governing college curricula and professional licensure.
+                    </span>
+                  </div>
+                  <Badge variant="success" size="sm">{schoolProfile.regulatoryCouncils.length} Active</Badge>
+                </div>
+              }
+            >
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-1.5 min-h-[80px] p-2.5 bg-slate-50 border border-slate-200 rounded-[4px]">
+                  {schoolProfile.regulatoryCouncils.map((c) => (
+                    <span
+                      key={c}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 text-slate-800 rounded-[4px] text-[11px] font-medium shadow-xs"
+                    >
+                      <span>{c}</span>
+                      {schoolProfile.regulatoryCouncils.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeRegulatoryCouncil(c)}
+                          className="text-slate-400 hover:text-rose-600 transition-colors ml-0.5"
+                          title={`Remove ${c}`}
+                        >
+                          ×
+                        </button>
+                      )}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="flex gap-2 pt-1">
+                  <input
+                    type="text"
+                    placeholder="e.g. Nursing and Midwifery Council of Nigeria (NMCN)..."
+                    value={newCouncilInput}
+                    onChange={(e) => setNewCouncilInput(e.target.value)}
+                    className="flex-1 h-8 px-2.5 text-xs bg-white border border-slate-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
+                  />
+                  <Button size="sm" onClick={() => {
+                    if (!newCouncilInput.trim()) return;
+                    addRegulatoryCouncil(newCouncilInput.trim());
+                    setNewCouncilInput('');
+                    showToast({ type: 'success', title: 'Council Added', message: 'Regulatory council added to college registry.' });
+                  }} leftIcon={<Plus className="w-3.5 h-3.5" />}>
+                    Add Council
+                  </Button>
+                </div>
+              </div>
+            </Card>
+
+            {/* Card 4: Academic Study Levels & Cohorts */}
+            <Card
+              header={
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="font-bold text-slate-900 uppercase tracking-wider text-xs block">
+                      Configured Academic Study Levels
+                    </span>
+                    <span className="text-[11px] text-slate-500 font-normal">
+                      Levels available across admissions, students, departments, broadsheets, and fees.
+                    </span>
+                  </div>
+                  <Badge variant="primary" size="sm">{schoolProfile.academicLevels.length} Levels</Badge>
+                </div>
+              }
+            >
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-1.5 min-h-[80px] p-2.5 bg-slate-50 border border-slate-200 rounded-[4px]">
+                  {schoolProfile.academicLevels.map((lvl) => (
+                    <span
+                      key={lvl}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 text-slate-800 rounded-[4px] text-[11px] font-medium shadow-xs"
+                    >
+                      <span className="font-semibold text-[#0F7640]">{lvl}</span>
+                      {schoolProfile.academicLevels.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeAcademicLevel(lvl)}
+                          className="text-slate-400 hover:text-rose-600 transition-colors ml-0.5"
+                          title={`Remove ${lvl}`}
+                        >
+                          ×
+                        </button>
+                      )}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="flex gap-2 pt-1">
+                  <input
+                    type="text"
+                    placeholder="e.g. 400 Level, ND I, HND I, Post-Basic..."
+                    value={newLevelInput}
+                    onChange={(e) => setNewLevelInput(e.target.value)}
+                    className="flex-1 h-8 px-2.5 text-xs bg-white border border-slate-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
+                  />
+                  <Button size="sm" onClick={() => {
+                    if (!newLevelInput.trim()) return;
+                    addAcademicLevel(newLevelInput.trim());
+                    setNewLevelInput('');
+                    showToast({ type: 'success', title: 'Level Added', message: 'Study level added to academic framework.' });
+                  }} leftIcon={<Plus className="w-3.5 h-3.5" />}>
+                    Add Level
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Card 5: Admissions Setup & Gating */}
+            <Card
+              header={
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-900 uppercase tracking-wider text-xs">
+                    Admissions Engine Setup & Fees
+                  </span>
+                  <Badge variant={schoolProfile.admissionsOpen ? 'success' : 'danger'} size="sm">
+                    {schoolProfile.admissionsOpen ? 'PORTAL OPEN' : 'PORTAL CLOSED'}
+                  </Badge>
+                </div>
+              }
+            >
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-[4px]">
+                  <div>
+                    <span className="font-bold text-slate-900 block">Online Application Portal Status</span>
+                    <span className="text-[11px] text-slate-500">Allow prospective students to apply online</span>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant={schoolProfile.admissionsOpen ? 'danger' : 'primary'}
+                    onClick={() => updateSchoolProfile({ admissionsOpen: !schoolProfile.admissionsOpen })}
+                  >
+                    {schoolProfile.admissionsOpen ? 'Close Portal' : 'Open Portal'}
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="p-3 bg-white border border-slate-200 rounded-[4px]">
+                    <span className="text-slate-400 block text-[10px] uppercase font-semibold">Active Batch</span>
+                    <span className="font-bold text-slate-900 text-xs mt-0.5 block truncate">{schoolProfile.admissionBatch}</span>
+                  </div>
+                  <div className="p-3 bg-white border border-slate-200 rounded-[4px]">
+                    <span className="text-slate-400 block text-[10px] uppercase font-semibold">Application Fee</span>
+                    <span className="font-bold text-[#0F7640] text-xs mt-0.5 block">₦{(schoolProfile.applicationFeeKobo / 100).toLocaleString()}</span>
+                  </div>
+                  <div className="p-3 bg-white border border-slate-200 rounded-[4px]">
+                    <span className="text-slate-400 block text-[10px] uppercase font-semibold">Acceptance Fee</span>
+                    <span className="font-bold text-[#0F7640] text-xs mt-0.5 block">₦{(schoolProfile.acceptanceFeeKobo / 100).toLocaleString()}</span>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-[4px] flex justify-between items-center">
+                  <div>
+                    <span className="font-bold text-slate-900 block">Entrance Exam Cutoff Score</span>
+                    <span className="text-[11px] text-slate-500">Minimum CBT score required for automatic merit screening</span>
+                  </div>
+                  <span className="font-bold text-slate-900 text-sm">{schoolProfile.minimumCutoffScore}%</span>
+                </div>
+              </div>
+            </Card>
+
+            {/* Card 6: Academic Assessment Policies */}
+            <Card
+              header={
+                <span className="font-bold text-slate-900 uppercase tracking-wider text-xs">
+                  Academic Assessment & Progression Policies
+                </span>
+              }
+            >
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
+                    <div>
+                      <span className="font-semibold text-slate-900 block">Minimum Exam Attendance Threshold</span>
+                      <span className="text-slate-500 text-[11px]">Strict clearance rule for examination docket gating</span>
+                    </div>
+                    <span className="font-bold text-[#0F7640] text-sm">{schoolProfile.attendanceCutoffPct}%</span>
+                  </div>
+
+                  <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
+                    <div>
+                      <span className="font-semibold text-slate-900 block">Continuous Assessment (CA) Weight</span>
+                      <span className="text-slate-500 text-[11px]">Tests, practical lab quizzes, and attendance</span>
+                    </div>
+                    <span className="font-bold text-slate-800 text-sm">{schoolProfile.caWeightPct}%</span>
+                  </div>
+
+                  <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
+                    <div>
+                      <span className="font-semibold text-slate-900 block">Semester Examination Weight</span>
+                      <span className="text-slate-500 text-[11px]">Standardized final written and clinical examination</span>
+                    </div>
+                    <span className="font-bold text-slate-800 text-sm">{schoolProfile.examWeightPct}%</span>
+                  </div>
+                </div>
+
+                {/* 5-point grading scale */}
+                <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-[4px] space-y-1.5">
+                  <span className="font-bold text-slate-900 block text-[11px]">Standard Health Training 5-Point Grading Scale:</span>
+                  <div className="grid grid-cols-5 gap-1 text-center text-[10px]">
+                    <div className="p-1 bg-white border border-slate-200 rounded-[4px]">
+                      <span className="font-bold text-[#13A348] block">A (5.0)</span>
+                      <span className="text-slate-500">70–100%</span>
+                    </div>
+                    <div className="p-1 bg-white border border-slate-200 rounded-[4px]">
+                      <span className="font-bold text-[#093322] block">B (4.0)</span>
+                      <span className="text-slate-500">60–69%</span>
+                    </div>
+                    <div className="p-1 bg-white border border-slate-200 rounded-[4px]">
+                      <span className="font-bold text-amber-700 block">C (3.0)</span>
+                      <span className="text-slate-500">50–59%</span>
+                    </div>
+                    <div className="p-1 bg-white border border-slate-200 rounded-[4px]">
+                      <span className="font-bold text-slate-700 block">E (2.0)</span>
+                      <span className="text-slate-500">40–49%</span>
+                    </div>
+                    <div className="p-1 bg-white border border-slate-200 rounded-[4px]">
+                      <span className="font-bold text-[#F83A20] block">F (0.0)</span>
+                      <span className="text-slate-500">0–39%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
         </div>
       )}
 
@@ -1184,7 +1431,7 @@ export const AdminView: React.FC = () => {
             <Card
               header={
                 <span className="font-bold text-slate-900 uppercase tracking-wider text-xs">
-                  Database & Document Protection
+                  School Records & Document Protection
                 </span>
               }
             >
@@ -1243,40 +1490,117 @@ export const AdminView: React.FC = () => {
         </Modal>
       )}
 
-      {/* ─── MODAL 2: EDIT SCHOOL PROFILE ─── */}
+      {/* ─── MODAL 2: EDIT SCHOOL PROFILE & ACADEMIC FRAMEWORK ─── */}
       <Modal
         isOpen={isEditSchoolModalOpen}
         onClose={() => setIsEditSchoolModalOpen(false)}
-        title="Edit School Information & Academic Calendar"
-        size="md"
+        title="Edit College Profile & Academic Settings"
+        size="lg"
       >
-        <form onSubmit={handleSaveSchoolProfile} className="space-y-4 text-xs text-slate-800 font-sans">
+        <form onSubmit={handleSaveSchoolProfile} className="space-y-4 text-xs text-slate-800 font-sans max-h-[75vh] overflow-y-auto pr-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="font-bold text-slate-900 block">Institution Sector & Category:</label>
+              <Select
+                value={editSchoolForm.institutionType || 'HEALTH_TECHNOLOGY'}
+                onChange={(v) => {
+                  const val = v as any;
+                  const sectors: Record<string, string> = {
+                    HEALTH_TECHNOLOGY: 'Monotechnic & Health Sciences College',
+                    CONVENTIONAL_UNIVERSITY: 'Conventional University & Degree Awarding Institution',
+                    POLYTECHNIC: 'Polytechnic & Technology Institute',
+                    COLLEGE_OF_EDUCATION: 'College of Education & Teacher Training',
+                    SPECIALIZED_INSTITUTE: 'Specialized Professional Academy',
+                  };
+                  setEditSchoolForm({
+                    ...editSchoolForm,
+                    institutionType: val,
+                    institutionalSector: sectors[val] || 'Higher Education Institution',
+                  });
+                }}
+                options={[
+                  { value: 'HEALTH_TECHNOLOGY', label: 'Health Sciences & Technology College (Monotechnic)' },
+                  { value: 'CONVENTIONAL_UNIVERSITY', label: 'Conventional University (Degrees, Faculties & SIWES)' },
+                  { value: 'POLYTECHNIC', label: 'Polytechnic (ND, HND & Industrial Training)' },
+                  { value: 'COLLEGE_OF_EDUCATION', label: 'College of Education (NCE & Teaching Practice)' },
+                  { value: 'SPECIALIZED_INSTITUTE', label: 'Specialized Professional Academy & Institute' },
+                ]}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="font-bold text-slate-900 block">School Classification:</label>
+              <input
+                type="text"
+                value={editSchoolForm.institutionalSector || 'Higher Education Institution'}
+                onChange={(e) => setEditSchoolForm({ ...editSchoolForm, institutionalSector: e.target.value })}
+                className="w-full h-9 px-3 text-xs bg-white border border-slate-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
+                placeholder="e.g. Conventional University / Health Tech"
+              />
+            </div>
+          </div>
+
           <div className="space-y-1.5">
-            <label className="font-bold text-slate-900 block">Institution Legal Name:</label>
+            <label className="font-bold text-slate-900 block">College / University Legal Name:</label>
             <input
               type="text"
-              value={schoolProfile.institutionName}
-              onChange={(e) => setSchoolProfile({ ...schoolProfile, institutionName: e.target.value })}
+              value={editSchoolForm.institutionName}
+              onChange={(e) => setEditSchoolForm({ ...editSchoolForm, institutionName: e.target.value })}
               className="w-full h-9 px-3 text-xs bg-white border border-slate-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          {/* Platform Crest & Official Logo Field */}
+          <div className="space-y-1.5 p-3 bg-slate-50 border border-slate-200 rounded-[4px]">
+            <label className="font-bold text-slate-900 block">Platform Crest & Official Logo:</label>
+            <div className="flex items-center gap-3">
+              <img
+                src={editSchoolForm.logoUrl || '/BeonTech-Logo.png'}
+                alt="Platform Crest"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '/BeonTech-Logo.png';
+                }}
+                className="w-12 h-12 rounded-[4px] object-contain p-1 bg-white border border-slate-200 shadow-xs shrink-0"
+              />
+              <div className="flex-1 min-w-0">
+                <input
+                  type="text"
+                  value={editSchoolForm.logoUrl || '/BeonTech-Logo.png'}
+                  onChange={(e) => setEditSchoolForm({ ...editSchoolForm, logoUrl: e.target.value })}
+                  className="w-full h-9 px-3 text-xs bg-white border border-slate-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
+                  placeholder="/BeonTech-Logo.png or image path"
+                />
+                <span className="text-[10px] text-slate-500 block mt-1">
+                  Default: BeonTech Platform Logo (<code className="text-slate-700">/BeonTech-Logo.png</code>). Rendered across receipts, broadsheets, clearances, topbar, and sidebar.
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <label className="font-bold text-slate-900 block">School Acronym:</label>
               <input
                 type="text"
-                value={schoolProfile.institutionAcronym}
-                onChange={(e) => setSchoolProfile({ ...schoolProfile, institutionAcronym: e.target.value })}
+                value={editSchoolForm.institutionAcronym}
+                onChange={(e) => setEditSchoolForm({ ...editSchoolForm, institutionAcronym: e.target.value })}
                 className="w-full h-9 px-3 text-xs bg-white border border-slate-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="font-bold text-slate-900 block">Institutional Code:</label>
+              <label className="font-bold text-slate-900 block">College Code:</label>
               <input
                 type="text"
-                value={schoolProfile.institutionCode}
-                onChange={(e) => setSchoolProfile({ ...schoolProfile, institutionCode: e.target.value })}
+                value={editSchoolForm.institutionCode}
+                onChange={(e) => setEditSchoolForm({ ...editSchoolForm, institutionCode: e.target.value })}
+                className="w-full h-9 px-3 text-xs bg-white border border-slate-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="font-bold text-slate-900 block">Accreditation Reg No:</label>
+              <input
+                type="text"
+                value={editSchoolForm.accreditationRegNo}
+                onChange={(e) => setEditSchoolForm({ ...editSchoolForm, accreditationRegNo: e.target.value })}
                 className="w-full h-9 px-3 text-xs bg-white border border-slate-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
               />
             </div>
@@ -1286,19 +1610,19 @@ export const AdminView: React.FC = () => {
             <label className="font-bold text-slate-900 block">Campus Address:</label>
             <input
               type="text"
-              value={schoolProfile.campusAddress}
-              onChange={(e) => setSchoolProfile({ ...schoolProfile, campusAddress: e.target.value })}
+              value={editSchoolForm.campusAddress}
+              onChange={(e) => setEditSchoolForm({ ...editSchoolForm, campusAddress: e.target.value })}
               className="w-full h-9 px-3 text-xs bg-white border border-slate-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <label className="font-bold text-slate-900 block">Official Support Email:</label>
               <input
                 type="email"
-                value={schoolProfile.officialEmail}
-                onChange={(e) => setSchoolProfile({ ...schoolProfile, officialEmail: e.target.value })}
+                value={editSchoolForm.officialEmail}
+                onChange={(e) => setEditSchoolForm({ ...editSchoolForm, officialEmail: e.target.value })}
                 className="w-full h-9 px-3 text-xs bg-white border border-slate-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
               />
             </div>
@@ -1306,20 +1630,29 @@ export const AdminView: React.FC = () => {
               <label className="font-bold text-slate-900 block">Official Contact Phone:</label>
               <input
                 type="text"
-                value={schoolProfile.officialPhone}
-                onChange={(e) => setSchoolProfile({ ...schoolProfile, officialPhone: e.target.value })}
+                value={editSchoolForm.officialPhone}
+                onChange={(e) => setEditSchoolForm({ ...editSchoolForm, officialPhone: e.target.value })}
+                className="w-full h-9 px-3 text-xs bg-white border border-slate-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="font-bold text-slate-900 block">Website Portal URL:</label>
+              <input
+                type="text"
+                value={editSchoolForm.websiteUrl}
+                onChange={(e) => setEditSchoolForm({ ...editSchoolForm, websiteUrl: e.target.value })}
                 className="w-full h-9 px-3 text-xs bg-white border border-slate-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
             <div className="space-y-1.5">
               <label className="font-bold text-slate-900 block">Active Academic Session:</label>
               <input
                 type="text"
-                value={schoolProfile.activeSession}
-                onChange={(e) => setSchoolProfile({ ...schoolProfile, activeSession: e.target.value })}
+                value={editSchoolForm.activeSession}
+                onChange={(e) => setEditSchoolForm({ ...editSchoolForm, activeSession: e.target.value })}
                 className="w-full h-9 px-3 text-xs bg-white border border-slate-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
               />
             </div>
@@ -1327,8 +1660,78 @@ export const AdminView: React.FC = () => {
               <label className="font-bold text-slate-900 block">Active Semester:</label>
               <input
                 type="text"
-                value={schoolProfile.activeSemester}
-                onChange={(e) => setSchoolProfile({ ...schoolProfile, activeSemester: e.target.value })}
+                value={editSchoolForm.activeSemester}
+                onChange={(e) => setEditSchoolForm({ ...editSchoolForm, activeSemester: e.target.value })}
+                className="w-full h-9 px-3 text-xs bg-white border border-slate-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-100">
+            <div className="space-y-1.5">
+              <label className="font-bold text-slate-900 block">Min Attendance Cutoff (%):</label>
+              <input
+                type="number"
+                min="50"
+                max="100"
+                value={editSchoolForm.attendanceCutoffPct}
+                onChange={(e) => setEditSchoolForm({ ...editSchoolForm, attendanceCutoffPct: Number(e.target.value) })}
+                className="w-full h-9 px-3 text-xs bg-white border border-slate-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="font-bold text-slate-900 block">CA Weight (%):</label>
+              <input
+                type="number"
+                min="10"
+                max="50"
+                value={editSchoolForm.caWeightPct}
+                onChange={(e) => setEditSchoolForm({ ...editSchoolForm, caWeightPct: Number(e.target.value) })}
+                className="w-full h-9 px-3 text-xs bg-white border border-slate-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="font-bold text-slate-900 block">Exam Weight (%):</label>
+              <input
+                type="number"
+                min="50"
+                max="90"
+                value={editSchoolForm.examWeightPct}
+                onChange={(e) => setEditSchoolForm({ ...editSchoolForm, examWeightPct: Number(e.target.value) })}
+                className="w-full h-9 px-3 text-xs bg-white border border-slate-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-100">
+            <div className="space-y-1.5">
+              <label className="font-bold text-slate-900 block">Active Admission Batch:</label>
+              <input
+                type="text"
+                value={editSchoolForm.admissionBatch}
+                onChange={(e) => setEditSchoolForm({ ...editSchoolForm, admissionBatch: e.target.value })}
+                className="w-full h-9 px-3 text-xs bg-white border border-slate-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="font-bold text-slate-900 block">Application Fee (₦):</label>
+              <input
+                type="number"
+                min="0"
+                step="500"
+                value={editSchoolForm.applicationFeeKobo / 100}
+                onChange={(e) => setEditSchoolForm({ ...editSchoolForm, applicationFeeKobo: Number(e.target.value) * 100 })}
+                className="w-full h-9 px-3 text-xs bg-white border border-slate-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="font-bold text-slate-900 block">Acceptance Fee (₦):</label>
+              <input
+                type="number"
+                min="0"
+                step="1000"
+                value={editSchoolForm.acceptanceFeeKobo / 100}
+                onChange={(e) => setEditSchoolForm({ ...editSchoolForm, acceptanceFeeKobo: Number(e.target.value) * 100 })}
                 className="w-full h-9 px-3 text-xs bg-white border border-slate-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
               />
             </div>
@@ -1354,61 +1757,130 @@ export const AdminView: React.FC = () => {
             setEditingGateway(null);
           }}
           title={`Configure ${editingGateway.provider}`}
-          description="Enter your API credentials. Changes are saved directly to the school database."
+          description="Enter your API credentials. Changes are saved directly to school records."
           size="md"
         >
           <form onSubmit={handleSaveGateway} className="space-y-4 text-xs text-slate-800 font-sans">
-            {/* Status & Environment */}
-            <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 border border-slate-200 rounded-[4px]">
-              <div className="space-y-1">
-                <label className="font-bold text-slate-900 block">Gateway Status:</label>
-                <div className="flex items-center gap-2 mt-1">
-                  <label className="inline-flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={editingGateway.is_enabled}
-                      onChange={(e) =>
-                        setEditingGateway({ ...editingGateway, is_enabled: e.target.checked })
-                      }
-                      className="w-4 h-4 rounded-[4px] text-[#0F7640] focus:ring-[#0F7640]"
-                    />
-                    <span className="font-semibold text-slate-800">
-                      {editingGateway.is_enabled ? 'Active (Enabled)' : 'Disabled'}
-                    </span>
-                  </label>
+            {/* Status & Environment Segmented Controls (Strict 4px Radius, Zero Native Chrome) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3.5 bg-slate-50 border border-slate-200 rounded-[4px]">
+              {/* Gateway Status Segmented Control */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-slate-900 block text-xs">Gateway Status:</label>
+                  <span
+                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded-[4px] ${
+                      editingGateway.is_enabled
+                        ? 'bg-emerald-100 text-[#0F7640]'
+                        : 'bg-slate-200 text-slate-600'
+                    }`}
+                  >
+                    {editingGateway.is_enabled ? 'OPERATIONAL' : 'OFFLINE'}
+                  </span>
                 </div>
+                <div className="grid grid-cols-2 gap-2 pt-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setEditingGateway({ ...editingGateway, is_enabled: true })}
+                    className={`h-9 px-2.5 rounded-[4px] border text-xs font-bold transition-all flex items-center justify-center gap-1.5 select-none ${
+                      editingGateway.is_enabled
+                        ? 'bg-white border-[#0F7640] text-[#0F7640] shadow-xs ring-1 ring-[#0F7640]'
+                        : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-white hover:text-slate-800'
+                    }`}
+                  >
+                    <span
+                      className={`w-2 h-2 rounded-[2px] shrink-0 ${
+                        editingGateway.is_enabled ? 'bg-[#0F7640]' : 'bg-slate-300'
+                      }`}
+                    />
+                    Active
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingGateway({ ...editingGateway, is_enabled: false })}
+                    className={`h-9 px-2.5 rounded-[4px] border text-xs font-bold transition-all flex items-center justify-center gap-1.5 select-none ${
+                      !editingGateway.is_enabled
+                        ? 'bg-white border-slate-400 text-slate-800 shadow-xs ring-1 ring-slate-400'
+                        : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-white hover:text-slate-800'
+                    }`}
+                  >
+                    <span
+                      className={`w-2 h-2 rounded-[2px] shrink-0 ${
+                        !editingGateway.is_enabled ? 'bg-slate-500' : 'bg-slate-300'
+                      }`}
+                    />
+                    Disabled
+                  </button>
+                </div>
+                <p className="text-[10px] text-slate-500 leading-tight">
+                  {editingGateway.is_enabled
+                    ? 'Channel is active and processing live fee transactions.'
+                    : 'Channel is disabled. Requests will be suspended.'}
+                </p>
               </div>
 
-              <div className="space-y-1">
-                <label className="font-bold text-slate-900 block">Environment:</label>
-                <div className="flex items-center gap-3 mt-1">
-                  <label className="inline-flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="env"
-                      value="TEST"
-                      checked={editingGateway.environment === 'TEST'}
-                      onChange={() =>
-                        setEditingGateway({ ...editingGateway, environment: 'TEST' })
-                      }
-                      className="text-[#0F7640] focus:ring-[#0F7640]"
-                    />
-                    <span className="font-medium text-slate-700">Test / Sandbox</span>
-                  </label>
-                  <label className="inline-flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="env"
-                      value="LIVE"
-                      checked={editingGateway.environment === 'LIVE'}
-                      onChange={() =>
-                        setEditingGateway({ ...editingGateway, environment: 'LIVE' })
-                      }
-                      className="text-[#0F7640] focus:ring-[#0F7640]"
-                    />
-                    <span className="font-bold text-[#0F7640]">Live Production</span>
-                  </label>
+              {/* Environment Mode Segmented Control */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-slate-900 block text-xs">Environment:</label>
+                  <span
+                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded-[4px] ${
+                      editingGateway.environment === 'LIVE'
+                        ? 'bg-emerald-100 text-[#0F7640]'
+                        : 'bg-amber-100 text-amber-800'
+                    }`}
+                  >
+                    {editingGateway.environment === 'LIVE' ? 'PRODUCTION' : 'SANDBOX'}
+                  </span>
                 </div>
+                <div className="grid grid-cols-2 gap-2 pt-0.5">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditingGateway({
+                        ...editingGateway,
+                        environment: 'TEST',
+                      })
+                    }
+                    className={`h-9 px-2 rounded-[4px] border text-xs font-bold transition-all flex items-center justify-center gap-1.5 select-none ${
+                      editingGateway.environment === 'TEST'
+                        ? 'bg-white border-amber-600 text-amber-900 shadow-xs ring-1 ring-amber-600'
+                        : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-white hover:text-slate-800'
+                    }`}
+                  >
+                    <span
+                      className={`w-2 h-2 rounded-[2px] shrink-0 ${
+                        editingGateway.environment === 'TEST' ? 'bg-amber-500' : 'bg-slate-300'
+                      }`}
+                    />
+                    Test / Sandbox
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditingGateway({
+                        ...editingGateway,
+                        environment: 'LIVE',
+                      })
+                    }
+                    className={`h-9 px-2 rounded-[4px] border text-xs font-bold transition-all flex items-center justify-center gap-1.5 select-none ${
+                      editingGateway.environment === 'LIVE'
+                        ? 'bg-white border-[#0F7640] text-[#0F7640] shadow-xs ring-1 ring-[#0F7640]'
+                        : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-white hover:text-slate-800'
+                    }`}
+                  >
+                    <span
+                      className={`w-2 h-2 rounded-[2px] shrink-0 ${
+                        editingGateway.environment === 'LIVE' ? 'bg-[#0F7640]' : 'bg-slate-300'
+                      }`}
+                    />
+                    Live Production
+                  </button>
+                </div>
+                <p className="text-[10px] text-slate-500 leading-tight">
+                  {editingGateway.environment === 'LIVE'
+                    ? 'Connects to live bank switch for real fee payments.'
+                    : 'Safe test simulation mode with sample transactions.'}
+                </p>
               </div>
             </div>
 
@@ -1445,7 +1917,7 @@ export const AdminView: React.FC = () => {
                 className="w-full h-9 px-3 text-xs bg-white border border-slate-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640] font-sans"
               />
               <p className="text-[10px] text-slate-500">
-                Encrypted in the database. Never shared with students or public browsers.
+                Encrypted securely. Never shared with students or public browsers.
               </p>
             </div>
 
@@ -1469,7 +1941,7 @@ export const AdminView: React.FC = () => {
 
             {/* Sender Email & Name (For email/SMS channels) */}
             {!editingGateway.gateway_type.startsWith('payment') && (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="font-bold text-slate-900 block">Sender Email / Address:</label>
                   <input
@@ -1478,7 +1950,7 @@ export const AdminView: React.FC = () => {
                     onChange={(e) =>
                       setEditingGateway({ ...editingGateway, sender_email: e.target.value })
                     }
-                    placeholder="e.g. info@bethsaida.edu.ng"
+                    placeholder="e.g. info@becohtech.edu.ng"
                     className="w-full h-9 px-3 text-xs bg-white border border-slate-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
                   />
                 </div>
@@ -1513,7 +1985,7 @@ export const AdminView: React.FC = () => {
                 isLoading={isSavingGateway}
                 className="bg-[#0F7640] hover:bg-[#093322]"
               >
-                Save to Database
+                Save Changes
               </Button>
             </div>
           </form>

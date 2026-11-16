@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import type { RoleCode, UserSession } from '@campusone/contracts';
 import {
   StudentLedgerEntry,
@@ -8,9 +8,113 @@ import {
 } from '@campusone/contracts';
 import { PERSONA_PROFILES, PersonaProfile } from './personas.ts';
 import { supabase } from '../lib/supabase.ts';
+import { sha256Hex } from '../lib/sha256.ts';
 
 export { PERSONA_PROFILES };
 export type { PersonaProfile };
+
+export type InstitutionType =
+  | 'HEALTH_TECHNOLOGY'
+  | 'CONVENTIONAL_UNIVERSITY'
+  | 'POLYTECHNIC'
+  | 'COLLEGE_OF_EDUCATION'
+  | 'SPECIALIZED_INSTITUTE';
+
+export interface SchoolProfile {
+  institutionName: string;
+  logoUrl?: string;
+  institutionType?: InstitutionType;
+  institutionalSector?: string;
+  institutionAcronym: string;
+  institutionCode: string;
+  campusAddress: string;
+  officialEmail: string;
+  officialPhone: string;
+  websiteUrl: string;
+  accreditationRegNo: string;
+  regulatoryCouncils: string[];
+  academicLevels: string[];
+  academicSemesters: string[];
+  academicSessions: string[];
+  activeSession: string;
+  activeSemester: string;
+  attendanceCutoffPct: number;
+  caWeightPct: number;
+  examWeightPct: number;
+  twoFactorEnforced: boolean;
+  sessionTimeoutMins: number;
+  // Admissions Configuration
+  admissionsOpen: boolean;
+  admissionBatch: string;
+  applicationFeeKobo: number;
+  acceptanceFeeKobo: number;
+  minimumCutoffScore: number;
+}
+
+export interface DepartmentItem {
+  id: string;
+  name: string;
+  code: string;
+  hod: string;
+  hodTitle: string;
+  hodEmail: string;
+  hodPhone: string;
+  office: string;
+  approvedQuota: number;
+  programmesCount: number;
+  studentsCount: number;
+  facultyCount: number;
+  accreditationStatus: 'FULL' | 'PROVISIONAL' | 'RENEWAL_DUE';
+  accreditationValidUntil: string;
+  regulatoryBody: string;
+  regulatoryBodyFull: string;
+  isArchived?: boolean;
+  programmes: { name: string; duration: string; students: number }[];
+  courses?: any[];
+}
+
+export interface CurriculumCourseItem {
+  code: string;
+  title: string;
+  departmentCode: string;
+  departmentName: string;
+  level: string;
+  semester: string;
+  creditUnits: number;
+  theoryHours: number;
+  practicalHours: number;
+  lecturer: string;
+}
+
+export interface AdmissionCandidateItem {
+  id: string;
+  applicationNumber: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  gender: 'Female' | 'Male';
+  stateOfOrigin: string;
+  lga: string;
+  programmeCode: string;
+  programme: string;
+  department: string;
+  regulatoryBody: string;
+  olevelExamBody: 'WAEC' | 'NECO' | 'NABTEB';
+  olevelExamYear: string;
+  olevelStatus: 'VERIFIED' | 'PENDING' | 'DEFICIENT';
+  olevelSubjects: { subject: string; grade: string }[];
+  cbtScore: number;
+  utmeScore?: number;
+  cbtDate: string;
+  status: 'APPLIED' | 'SCREENED' | 'ADMITTED' | 'ENROLLED';
+  admissionListBatch?: string;
+  matricNumber?: string;
+  applicationFeePaid?: boolean;
+  applicationFeeRef?: string;
+  acceptanceFeePaid: boolean;
+  acceptanceFeeRef?: string;
+  admittedAt?: string;
+}
 
 export interface AppContextType {
   session: UserSession;
@@ -35,11 +139,486 @@ export interface AppContextType {
     category: any;
     description: string;
     paymentMethod: any;
+    referenceId?: string;
+    gatewayReference?: string;
+    programme?: string;
+    level?: string;
   }) => OfficialReceipt;
   receipts: OfficialReceipt[];
   auditLogs: AuditEventRecord[];
-  recordAudit: (action: string, entityType: string, entityId: string, details?: any) => void;
+  recordAudit: (
+    action: string,
+    entityType: string,
+    entityId: string,
+    details?: any,
+    actor?: { userId: string; actorRole: string }
+  ) => void;
+  // Dynamic School Profile & Academic Framework
+  schoolProfile: SchoolProfile;
+  updateSchoolProfile: (updates: Partial<SchoolProfile>) => Promise<void>;
+  addAcademicLevel: (levelName: string) => void;
+  removeAcademicLevel: (levelName: string) => void;
+  addRegulatoryCouncil: (councilName: string) => void;
+  removeRegulatoryCouncil: (councilName: string) => void;
+  addAcademicSemester: (semesterName: string) => void;
+  addAcademicSession: (sessionName: string) => void;
+  // Departments
+  departments: DepartmentItem[];
+  addDepartment: (dept: DepartmentItem) => void;
+  updateDepartment: (id: string, updates: Partial<DepartmentItem>) => void;
+  deleteDepartment: (id: string) => void;
+  // Courses
+  courses: CurriculumCourseItem[];
+  addCourse: (course: CurriculumCourseItem) => void;
+  updateCourse: (code: string, updates: Partial<CurriculumCourseItem>) => void;
+  deleteCourse: (code: string) => void;
+  // Admissions Candidates
+  candidates: AdmissionCandidateItem[];
+  addCandidate: (candidate: AdmissionCandidateItem) => AdmissionCandidateItem;
+  updateCandidate: (id: string, updates: Partial<AdmissionCandidateItem>) => void;
+  deleteCandidate: (id: string) => void;
+  admitCandidate: (id: string, matricNumber?: string, batch?: string) => void;
+  enrollCandidate: (id: string, matricNo?: string) => void;
+  // Help Desk & Support System
+  supportTickets: SupportTicketItem[];
+  createSupportTicket: (ticket: {
+    subject: string;
+    category: SupportTicketItem['category'];
+    priority: SupportTicketItem['priority'];
+    message: string;
+    department?: string;
+  }) => Promise<void>;
+  replyToSupportTicket: (ticketId: string, message: string) => Promise<void>;
+  resolveSupportTicket: (ticketId: string, resolutionNotes: string) => Promise<void>;
+  // Session, RBAC & Impersonation
+  authenticatedRole: RoleCode | null;
+  impersonatedRole: RoleCode | null;
+  isSuperAdmin: boolean;
+  isImpersonating: boolean;
+  impersonatedUserMeta?: { id: string; name: string; email: string; matricNumber?: string } | null;
+  impersonateUser: (
+    role: RoleCode,
+    targetUser?: { id: string; name: string; email: string; matricNumber?: string }
+  ) => void;
+  stopImpersonating: () => void;
+  loginAs: (role: RoleCode) => void;
+  signOut: () => Promise<void>;
+  authReady: boolean;
+  isAuthenticated: boolean;
+  // Live Notifications System
+  notifications: RealNotificationItem[];
+  unreadNotificationsCount: number;
+  addNotification: (item: Omit<RealNotificationItem, 'id' | 'createdAt' | 'isRead' | 'time'>) => Promise<void>;
+  markNotificationAsRead: (id: string) => Promise<void>;
+  markAllNotificationsAsRead: () => Promise<void>;
 }
+
+export interface SupportTicketReply {
+  id: string;
+  authorId: string;
+  authorName: string;
+  authorRole: string;
+  message: string;
+  createdAt: string;
+}
+
+export interface SupportTicketItem {
+  id: string;
+  ticketNumber: string;
+  collegeId: string;
+  userId: string;
+  userName: string;
+  userRole: string;
+  userEmail: string;
+  userPhone?: string;
+  department?: string;
+  category: 'TUITION_FEES' | 'COURSE_REG' | 'EXAM_RESULTS' | 'HOSTEL' | 'PORTAL_ACCESS' | 'GENERAL';
+  priority: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
+  status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+  subject: string;
+  message: string;
+  replies?: SupportTicketReply[];
+  resolutionNotes?: string;
+  resolvedAt?: string;
+  resolvedBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RealNotificationItem {
+  id: string;
+  collegeId: string;
+  userId?: string;
+  role?: string;
+  title: string;
+  desc: string;
+  time: string;
+  isRead: boolean;
+  type: 'success' | 'warning' | 'info';
+  link: string;
+  createdAt: string;
+}
+
+const DEFAULT_SCHOOL_PROFILE: SchoolProfile = {
+  institutionName: 'Bethsaida College of Health Technology Ltd',
+  logoUrl: '/BeonTech-Logo.png',
+  institutionType: 'HEALTH_TECHNOLOGY',
+  institutionalSector: 'College of Health Technology',
+  institutionAcronym: 'BCHT',
+  institutionCode: 'BCHT-OGB',
+  campusAddress: 'Ikolaba Aladan layout, off Ayegun Yemetu Road, along CAC grammar school, Ogbomoso, Oyo State, Nigeria',
+  officialEmail: 'info@becohtech.edu.ng',
+  officialPhone: '+234 907 578 9045, +234 907 451 7476',
+  websiteUrl: 'https://becohtech.edu.ng',
+  accreditationRegNo: 'FMOH/NBTE/CHPRBN/2022/048',
+  regulatoryCouncils: [
+    'Community Health Practitioners Registration Board of Nigeria (CHPRBN)',
+    'Environmental Health Officers Registration Council of Nigeria (EHORECON)',
+    'Health Records Officers Registration Board of Nigeria (HRORBN)',
+    'Dental Therapists Registration Board of Nigeria (DTRBN)',
+    'Pharmacy Council of Nigeria (PCN)',
+    'Federal Ministry of Health (FMOH)',
+    'National Board for Technical Education (NBTE)',
+  ],
+  academicLevels: [
+    '100 Level',
+    '200 Level',
+    '300 Level',
+    '400 Level',
+    '500 Level',
+    'ND I',
+    'ND II',
+    'HND I',
+    'HND II',
+    'Certificate Year 1',
+    'Certificate Year 2',
+  ],
+  academicSemesters: [
+    'Harmattan Semester',
+    'Rain Semester',
+    'First Semester',
+    'Second Semester',
+  ],
+  academicSessions: [
+    '2024/2025',
+    '2025/2026',
+    '2026/2027',
+    '2027/2028',
+  ],
+  activeSession: '2026/2027 Academic Session',
+  activeSemester: 'Harmattan Semester',
+  attendanceCutoffPct: 75,
+  caWeightPct: 30,
+  examWeightPct: 70,
+  twoFactorEnforced: true,
+  sessionTimeoutMins: 15,
+  admissionsOpen: true,
+  admissionBatch: 'Merit List (Batch 1)',
+  applicationFeeKobo: 1000000, // N10,000
+  acceptanceFeeKobo: 3500000, // N35,000
+  minimumCutoffScore: 50,
+};
+
+const DEFAULT_DEPARTMENTS: DepartmentItem[] = [
+  {
+    id: 'dept-dhd',
+    name: 'Dental Health Department',
+    code: 'DHD',
+    hod: 'Dr. A. O. Adeleke',
+    hodTitle: 'Consultant Dental Surgeon & Head of Department',
+    hodEmail: 'hod.dhd@becohtech.edu.ng',
+    hodPhone: '+234 907 578 9045',
+    office: 'Dental Sciences Complex, Block A, Room 102',
+    approvedQuota: 150,
+    programmesCount: 2,
+    studentsCount: 185,
+    facultyCount: 7,
+    accreditationStatus: 'FULL',
+    accreditationValidUntil: 'October 2028',
+    regulatoryBody: 'DTRBN',
+    regulatoryBodyFull: 'Dental Therapists Registration Board of Nigeria',
+    programmes: [
+      { name: 'Dental Health Technician (DHT)', duration: '3-Year Diploma', students: 105 },
+      { name: 'Dental Surgery Technician (DST)', duration: '3-Year Diploma', students: 80 },
+    ],
+    courses: [
+      { code: 'DHT 101', title: 'Dental Anatomy & Tooth Morphology', units: 3, semester: 'Harmattan Semester', level: '100 Level', lecturer: 'Dr. A. O. Adeleke' },
+      { code: 'DHT 102', title: 'Dental Materials Science & Technology', units: 3, semester: 'Harmattan Semester', level: '100 Level', lecturer: 'Dr. M. S. Bello' },
+      { code: 'DHT 201', title: 'Oral Pathology & Microbiology', units: 4, semester: 'Harmattan Semester', level: '200 Level', lecturer: 'Dr. A. O. Adeleke' },
+      { code: 'DHT 301', title: 'Prosthetics & Dental Radiography', units: 4, semester: 'Harmattan Semester', level: '300 Level', lecturer: 'Mr. T. Ogunyemi' },
+    ],
+  },
+  {
+    id: 'dept-ehd',
+    name: 'Environmental Health Department',
+    code: 'EHD',
+    hod: 'Sanitarian B. Ibrahim',
+    hodTitle: 'Chief Environmental Health Officer & Head of Department',
+    hodEmail: 'hod.ehd@becohtech.edu.ng',
+    hodPhone: '+234 907 451 7476',
+    office: 'Public Health Pavilion, Suite E1',
+    approvedQuota: 200,
+    programmesCount: 2,
+    studentsCount: 198,
+    facultyCount: 9,
+    accreditationStatus: 'FULL',
+    accreditationValidUntil: 'September 2028',
+    regulatoryBody: 'EHORECON',
+    regulatoryBodyFull: 'Environmental Health Officers Registration Council of Nigeria',
+    programmes: [
+      { name: 'Environmental Health Technician (EHT)', duration: '3-Year Diploma', students: 130 },
+      { name: 'Environmental Health Assistant (EHA)', duration: '2-Year Certificate', students: 68 },
+    ],
+    courses: [
+      { code: 'EHT 101', title: 'Principles of Environmental Health & Sanitation', units: 3, semester: 'Harmattan Semester', level: '100 Level', lecturer: 'Sanitarian B. Ibrahim' },
+      { code: 'EHT 102', title: 'Waste & Sewage Management', units: 4, semester: 'Harmattan Semester', level: '100 Level', lecturer: 'Mr. A. Salawu' },
+      { code: 'EHT 201', title: 'Water Supply, Sanitation & Water Quality Analysis', units: 4, semester: 'Harmattan Semester', level: '200 Level', lecturer: 'Mrs. F. Oseni' },
+      { code: 'EHT 301', title: 'Epidemiology, Vector Control & Environmental Legislation', units: 3, semester: 'Harmattan Semester', level: '300 Level', lecturer: 'Sanitarian B. Ibrahim' },
+    ],
+  },
+  {
+    id: 'dept-him',
+    name: 'Health Information Management Department',
+    code: 'HIM',
+    hod: 'Mrs. T. Adeleke',
+    hodTitle: 'Principal Lecturer & Head of Department',
+    hodEmail: 'hod.him@becohtech.edu.ng',
+    hodPhone: '+234 907 578 9045',
+    office: 'Administration Annex, Room 108',
+    approvedQuota: 180,
+    programmesCount: 2,
+    studentsCount: 172,
+    facultyCount: 8,
+    accreditationStatus: 'FULL',
+    accreditationValidUntil: 'January 2029',
+    regulatoryBody: 'HRORBN',
+    regulatoryBodyFull: 'Health Records Officers Registration Board of Nigeria',
+    programmes: [
+      { name: 'National Diploma (ND) in Health Information Management', duration: '2-Year National Diploma', students: 102 },
+      { name: 'Higher National Diploma (HND) in Health Information Management', duration: '2-Year Higher National Diploma', students: 70 },
+    ],
+    courses: [
+      { code: 'HIM 101', title: 'Medical Terminology & Disease Classification (ICD-10/11)', units: 3, semester: 'Harmattan Semester', level: '100 Level', lecturer: 'Mrs. T. Adeleke' },
+      { code: 'HIM 102', title: 'Health Data Processing & Biostatistics', units: 4, semester: 'Harmattan Semester', level: '100 Level', lecturer: 'Mr. J. Ogunlesi' },
+      { code: 'HIM 201', title: 'Electronic Health Records & Medico-Legal Practice', units: 3, semester: 'Harmattan Semester', level: '200 Level', lecturer: 'Mrs. T. Adeleke' },
+      { code: 'HIM 301', title: 'Health Ethics, Law, Confidentiality & Informatics', units: 3, semester: 'Harmattan Semester', level: '300 Level', lecturer: 'Mr. S. Danjuma' },
+    ],
+  },
+  {
+    id: 'dept-htd',
+    name: 'Health Technician Department',
+    code: 'HTD',
+    hod: 'Mr. S. O. Alabi',
+    hodTitle: 'Senior Lecturer & Head of Department',
+    hodEmail: 'hod.htd@becohtech.edu.ng',
+    hodPhone: '+234 907 451 7476',
+    office: 'Primary Care Education Center, Wing C',
+    approvedQuota: 160,
+    programmesCount: 1,
+    studentsCount: 145,
+    facultyCount: 7,
+    accreditationStatus: 'FULL',
+    accreditationValidUntil: 'November 2027',
+    regulatoryBody: 'FMOH',
+    regulatoryBodyFull: 'Federal Ministry of Health & Primary Health Care Development Agency',
+    programmes: [
+      { name: 'Health Technician (HT)', duration: '3-Year Diploma', students: 145 },
+    ],
+    courses: [
+      { code: 'HTD 101', title: 'Anatomy, Physiology & Basic Clinical Care', units: 3, semester: 'Harmattan Semester', level: '100 Level', lecturer: 'Mr. S. O. Alabi' },
+      { code: 'HTD 102', title: 'Primary Health Care & Community Health Education', units: 3, semester: 'Harmattan Semester', level: '100 Level', lecturer: 'Mrs. K. Adeola' },
+      { code: 'HTD 201', title: 'Maternal & Child Health Care & Immunization', units: 4, semester: 'Harmattan Semester', level: '200 Level', lecturer: 'Mr. S. O. Alabi' },
+      { code: 'HTD 301', title: 'First Aid, Emergency Care & Disease Surveillance', units: 3, semester: 'Harmattan Semester', level: '300 Level', lecturer: 'Nurse D. Bakare' },
+    ],
+  },
+  {
+    id: 'dept-pht',
+    name: 'Pharmacy Technician Department',
+    code: 'PHT',
+    hod: 'Pharm. F. Oladipo',
+    hodTitle: 'Chief Pharmacist & Head of Department',
+    hodEmail: 'hod.pht@becohtech.edu.ng',
+    hodPhone: '+234 907 578 9045',
+    office: 'Pharmaceutical Sciences Wing, Lab P1',
+    approvedQuota: 250,
+    programmesCount: 1,
+    studentsCount: 230,
+    facultyCount: 9,
+    accreditationStatus: 'FULL',
+    accreditationValidUntil: 'June 2028',
+    regulatoryBody: 'PCN',
+    regulatoryBodyFull: 'Pharmacy Council of Nigeria',
+    programmes: [
+      { name: 'Pharmacy Technician (PHT)', duration: '3-Year Diploma', students: 230 },
+    ],
+    courses: [
+      { code: 'PHT 101', title: 'Dispensing Principles & Pharmaceutical Calculations', units: 3, semester: 'Harmattan Semester', level: '100 Level', lecturer: 'Pharm. F. Oladipo' },
+      { code: 'PHT 102', title: 'Pharmacology for Pharmacy Technicians', units: 4, semester: 'Harmattan Semester', level: '100 Level', lecturer: 'Pharm. T. Adele' },
+      { code: 'PHT 201', title: 'Pharmaceutics & Hospital Drug Storage', units: 3, semester: 'Harmattan Semester', level: '200 Level', lecturer: 'Mr. K. Lawal' },
+      { code: 'PHT 301', title: 'Clinical Pharmacy Practice & Drug Quality Control', units: 4, semester: 'Harmattan Semester', level: '300 Level', lecturer: 'Pharm. F. Oladipo' },
+    ],
+  },
+  {
+    id: 'dept-had',
+    name: 'Health Assistant Department',
+    code: 'HAD',
+    hod: 'Nurse E. O. Okon',
+    hodTitle: 'Chief Nursing Officer & Head of Department',
+    hodEmail: 'hod.had@becohtech.edu.ng',
+    hodPhone: '+234 907 451 7476',
+    office: 'Clinical Practice Annex, Ground Floor',
+    approvedQuota: 150,
+    programmesCount: 1,
+    studentsCount: 135,
+    facultyCount: 6,
+    accreditationStatus: 'FULL',
+    accreditationValidUntil: 'August 2027',
+    regulatoryBody: 'FMOH',
+    regulatoryBodyFull: 'Federal Ministry of Health & State Health Management Board',
+    programmes: [
+      { name: 'Health Assistant (HA)', duration: '2-Year Certificate', students: 135 },
+    ],
+    courses: [
+      { code: 'HAD 101', title: 'Basic Human Anatomy, Physiology & Patient Hygiene', units: 3, semester: 'Harmattan Semester', level: '100 Level', lecturer: 'Nurse E. O. Okon' },
+      { code: 'HAD 102', title: 'First Aid, Emergency Care & Ward Assistance', units: 3, semester: 'Harmattan Semester', level: '100 Level', lecturer: 'Mr. P. Ajayi' },
+      { code: 'HAD 201', title: 'Maternal & Child Health & Nutrition Support', units: 3, semester: 'Harmattan Semester', level: '200 Level', lecturer: 'Nurse E. O. Okon' },
+    ],
+  },
+  {
+    id: 'dept-chd',
+    name: 'Community Health Department',
+    code: 'CHD',
+    hod: 'Dr. K. Bello',
+    hodTitle: 'Chief Lecturer & Head of Department',
+    hodEmail: 'hod.chd@becohtech.edu.ng',
+    hodPhone: '+234 907 578 9045',
+    office: 'Health Sciences Complex, Suite B101',
+    approvedQuota: 400,
+    programmesCount: 2,
+    studentsCount: 380,
+    facultyCount: 14,
+    accreditationStatus: 'FULL',
+    accreditationValidUntil: 'November 2028',
+    regulatoryBody: 'CHPRBN',
+    regulatoryBodyFull: 'Community Health Practitioners Registration Board of Nigeria',
+    programmes: [
+      { name: 'Community Health Extension Worker (CHEW)', duration: '3-Year Diploma', students: 260 },
+      { name: 'Junior Community Health Extension Worker (JCHEW)', duration: '2-Year Certificate', students: 120 },
+    ],
+    courses: [
+      { code: 'CHE 101', title: 'Introduction to Primary Healthcare', units: 3, semester: 'Harmattan Semester', level: '100 Level', lecturer: 'Dr. K. Bello' },
+      { code: 'CHE 102', title: 'Community Diagnosis & Field Survey', units: 3, semester: 'Harmattan Semester', level: '100 Level', lecturer: 'Mrs. R. Ajayi' },
+      { code: 'CHE 201', title: 'Maternal & Child Health Clinicals', units: 4, semester: 'Harmattan Semester', level: '200 Level', lecturer: 'Mr. D. Alabi' },
+      { code: 'CHE 301', title: 'Rural Healthcare Administration', units: 3, semester: 'Harmattan Semester', level: '300 Level', lecturer: 'Dr. K. Bello' },
+    ],
+  },
+];
+
+const DEFAULT_COURSES: CurriculumCourseItem[] = [
+  { code: 'DHT 101', title: 'Dental Anatomy & Tooth Morphology', departmentCode: 'DHD', departmentName: 'Dental Health Department', level: '100 Level', semester: 'Harmattan Semester', creditUnits: 3, theoryHours: 2, practicalHours: 3, lecturer: 'Dr. A. O. Adeleke' },
+  { code: 'DHT 102', title: 'Dental Materials Science & Technology', departmentCode: 'DHD', departmentName: 'Dental Health Department', level: '100 Level', semester: 'Harmattan Semester', creditUnits: 3, theoryHours: 2, practicalHours: 3, lecturer: 'Dr. M. S. Bello' },
+  { code: 'EHT 101', title: 'Principles of Environmental Health & Sanitation', departmentCode: 'EHD', departmentName: 'Environmental Health Department', level: '100 Level', semester: 'Harmattan Semester', creditUnits: 3, theoryHours: 2, practicalHours: 3, lecturer: 'Sanitarian B. Ibrahim' },
+  { code: 'EHT 102', title: 'Waste & Sewage Management', departmentCode: 'EHD', departmentName: 'Environmental Health Department', level: '100 Level', semester: 'Harmattan Semester', creditUnits: 4, theoryHours: 2, practicalHours: 6, lecturer: 'Mr. A. Salawu' },
+  { code: 'HIM 101', title: 'Medical Terminology & Disease Classification (ICD-10/11)', departmentCode: 'HIM', departmentName: 'Health Information Management Department', level: '100 Level', semester: 'Harmattan Semester', creditUnits: 3, theoryHours: 3, practicalHours: 0, lecturer: 'Mrs. T. Adeleke' },
+  { code: 'HIM 102', title: 'Health Data Processing & Biostatistics', departmentCode: 'HIM', departmentName: 'Health Information Management Department', level: '100 Level', semester: 'Harmattan Semester', creditUnits: 4, theoryHours: 2, practicalHours: 6, lecturer: 'Mr. J. Ogunlesi' },
+  { code: 'HTD 101', title: 'Anatomy, Physiology & Basic Clinical Care', departmentCode: 'HTD', departmentName: 'Health Technician Department', level: '100 Level', semester: 'Harmattan Semester', creditUnits: 3, theoryHours: 2, practicalHours: 3, lecturer: 'Mr. S. O. Alabi' },
+  { code: 'PHT 101', title: 'Dispensing Principles & Pharmaceutical Calculations', departmentCode: 'PHT', departmentName: 'Pharmacy Technician Department', level: '100 Level', semester: 'Harmattan Semester', creditUnits: 3, theoryHours: 2, practicalHours: 3, lecturer: 'Pharm. F. Oladipo' },
+  { code: 'PHT 102', title: 'Pharmacology for Pharmacy Technicians', departmentCode: 'PHT', departmentName: 'Pharmacy Technician Department', level: '100 Level', semester: 'Harmattan Semester', creditUnits: 4, theoryHours: 3, practicalHours: 3, lecturer: 'Pharm. T. Adele' },
+  { code: 'HAD 101', title: 'Basic Human Anatomy, Physiology & Patient Hygiene', departmentCode: 'HAD', departmentName: 'Health Assistant Department', level: '100 Level', semester: 'Harmattan Semester', creditUnits: 3, theoryHours: 2, practicalHours: 3, lecturer: 'Nurse E. O. Okon' },
+  { code: 'CHE 101', title: 'Introduction to Primary Healthcare', departmentCode: 'CHD', departmentName: 'Community Health Department', level: '100 Level', semester: 'Harmattan Semester', creditUnits: 3, theoryHours: 2, practicalHours: 3, lecturer: 'Dr. K. Bello' },
+  { code: 'CHE 102', title: 'Community Diagnosis & Field Survey', departmentCode: 'CHD', departmentName: 'Community Health Department', level: '100 Level', semester: 'Harmattan Semester', creditUnits: 3, theoryHours: 2, practicalHours: 3, lecturer: 'Mrs. R. Ajayi' },
+];
+
+const DEFAULT_CANDIDATES: AdmissionCandidateItem[] = [
+  {
+    id: 'app-01',
+    applicationNumber: 'APP/2026/0142',
+    fullName: 'Amina Yusuf',
+    email: 'amina.yusuf@gmail.com',
+    phone: '+234 803 445 1190',
+    gender: 'Female',
+    stateOfOrigin: 'Oyo',
+    lga: 'Ibadan North',
+    programmeCode: 'CHEW',
+    programme: 'Community Health Extension Worker (CHEW)',
+    department: 'Department of Community Health',
+    regulatoryBody: 'CHPRBN',
+    olevelExamBody: 'WAEC',
+    olevelExamYear: '2025',
+    olevelStatus: 'VERIFIED',
+    olevelSubjects: [
+      { subject: 'English Language', grade: 'B3' },
+      { subject: 'Mathematics', grade: 'C4' },
+      { subject: 'Biology', grade: 'B2' },
+      { subject: 'Chemistry', grade: 'B3' },
+      { subject: 'Physics', grade: 'C5' },
+    ],
+    cbtScore: 78,
+    cbtDate: '2026-10-18',
+    status: 'SCREENED',
+    acceptanceFeePaid: false,
+  },
+  {
+    id: 'app-02',
+    applicationNumber: 'APP/2026/0143',
+    fullName: 'David Adeleke',
+    email: 'david.adeleke@yahoo.com',
+    phone: '+234 802 771 8820',
+    gender: 'Male',
+    stateOfOrigin: 'Osun',
+    lga: 'Ede South',
+    programmeCode: 'DHT',
+    programme: 'Dental Health Technician (DHT)',
+    department: 'Dental Health Department',
+    regulatoryBody: 'DTRBN',
+    olevelExamBody: 'WAEC',
+    olevelExamYear: '2025',
+    olevelStatus: 'VERIFIED',
+    olevelSubjects: [
+      { subject: 'English Language', grade: 'B2' },
+      { subject: 'Mathematics', grade: 'B3' },
+      { subject: 'Biology', grade: 'A1' },
+      { subject: 'Chemistry', grade: 'B2' },
+      { subject: 'Physics', grade: 'B3' },
+    ],
+    cbtScore: 82,
+    cbtDate: '2026-10-18',
+    status: 'SCREENED',
+    acceptanceFeePaid: false,
+  },
+  {
+    id: 'app-03',
+    applicationNumber: 'APP/2026/0144',
+    fullName: 'Zainab Bello',
+    email: 'zainab.bello@outlook.com',
+    phone: '+234 805 119 4432',
+    gender: 'Female',
+    stateOfOrigin: 'Oyo',
+    lga: 'Oyo West',
+    programmeCode: 'PHT',
+    programme: 'Pharmacy Technician',
+    department: 'Department of Pharmacy Technician Studies',
+    regulatoryBody: 'PCN',
+    olevelExamBody: 'NECO',
+    olevelExamYear: '2024',
+    olevelStatus: 'VERIFIED',
+    olevelSubjects: [
+      { subject: 'English Language', grade: 'C4' },
+      { subject: 'Mathematics', grade: 'C5' },
+      { subject: 'Biology', grade: 'B3' },
+      { subject: 'Chemistry', grade: 'B3' },
+      { subject: 'Physics', grade: 'C4' },
+    ],
+    cbtScore: 71,
+    cbtDate: '2026-10-19',
+    status: 'ADMITTED',
+    admissionListBatch: 'Merit List (Batch 1)',
+    matricNumber: 'PHT/2026/0018',
+    acceptanceFeePaid: true,
+    acceptanceFeeRef: 'REC-ACC-2026-0041',
+    admittedAt: '2026-11-04',
+  },
+];
 
 const INITIAL_AUDIT_LOGS: AuditEventRecord[] = [
   {
@@ -52,27 +631,11 @@ const INITIAL_AUDIT_LOGS: AuditEventRecord[] = [
     entityId: 'bethsaida:2026/2027',
     beforeSnapshot: null,
     afterSnapshot: { session: '2026/2027', status: 'ACTIVE' },
-    ipAddress: '102.89.44.12',
+    ipAddress: 'client-unresolved',
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
     timestamp: '2026-11-01T08:00:00Z',
     chainHash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
     prevHash: '0000000000000000000000000000000000000000000000000000000000000000',
-  },
-  {
-    id: 'aud-002',
-    collegeId: 'bethsaida',
-    actorId: 'user-bursar',
-    actorRole: 'BURSAR',
-    action: 'FEE_SCHEDULE_VERSION_PUBLISHED',
-    entityType: 'FEE_STRUCTURE',
-    entityId: 'fee-sched-2026/2027',
-    beforeSnapshot: null,
-    afterSnapshot: { schedule: '2026/2027 Approved Schedule', tuitionKobo: 15000000 },
-    ipAddress: '102.89.44.18',
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-    timestamp: '2026-11-02T09:30:00Z',
-    chainHash: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
-    prevHash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
   },
 ];
 
@@ -84,7 +647,7 @@ const INITIAL_LEDGER_ENTRIES: StudentLedgerEntry[] = [
     matricNumber: 'CHE/2026/0014',
     entryType: 'debit',
     category: 'tuition',
-    description: 'Harmattan Semester 2026/2027 Tuition Fee (CHEW 200L)',
+    description: 'First Semester Tuition Fee (CHEW 200L)',
     amountKobo: 12000000,
     balanceAfterKobo: 12000000,
     referenceId: 'chg-chew-200-t1',
@@ -95,52 +658,13 @@ const INITIAL_LEDGER_ENTRIES: StudentLedgerEntry[] = [
     collegeId: 'bethsaida',
     studentId: 'stu-001',
     matricNumber: 'CHE/2026/0014',
-    entryType: 'debit',
-    category: 'clinical_posting',
-    description: 'Rural Health Clinical Posting Levy (PHC Posting)',
-    amountKobo: 3500000,
-    balanceAfterKobo: 15500000,
-    referenceId: 'chg-chew-cln-01',
-    createdAt: '2026-11-03T08:05:00Z',
-  },
-  {
-    id: 'led-003',
-    collegeId: 'bethsaida',
-    studentId: 'stu-001',
-    matricNumber: 'CHE/2026/0014',
     entryType: 'credit',
     category: 'tuition',
     description: 'Paystack Card Settlement — Part Payment Ref: PSTK_91823719',
     amountKobo: 10000000,
-    balanceAfterKobo: 5500000,
+    balanceAfterKobo: 2000000,
     referenceId: 'pay-pstk-001',
     createdAt: '2026-11-05T11:20:00Z',
-  },
-  {
-    id: 'led-004',
-    collegeId: 'bethsaida',
-    studentId: 'stu-002',
-    matricNumber: 'MLT/2026/0029',
-    entryType: 'debit',
-    category: 'tuition',
-    description: 'Harmattan Semester 2026/2027 Tuition Fee (MLT 100L)',
-    amountKobo: 14000000,
-    balanceAfterKobo: 14000000,
-    referenceId: 'chg-mlt-100-t1',
-    createdAt: '2026-11-03T08:00:00Z',
-  },
-  {
-    id: 'led-005',
-    collegeId: 'bethsaida',
-    studentId: 'stu-002',
-    matricNumber: 'MLT/2026/0029',
-    entryType: 'credit',
-    category: 'tuition',
-    description: 'Remita Bank Branch Transfer Settlement — Ref: RMT_8820192',
-    amountKobo: 14000000,
-    balanceAfterKobo: 0,
-    referenceId: 'pay-rmt-002',
-    createdAt: '2026-11-06T14:15:00Z',
   },
 ];
 
@@ -163,35 +687,273 @@ const INITIAL_RECEIPTS: OfficialReceipt[] = [
     qrVerificationHash: 'a1b2c3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef0',
     issuer: 'Bursary Department, Bethsaida College',
   },
+];
+
+function formatRelativeTime(isoDate: string): string {
+  try {
+    const diffMs = Date.now() - new Date(isoDate).getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    if (diffSec < 60) return 'Just now';
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin} min${diffMin > 1 ? 's' : ''} ago`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `${diffHr} hr${diffHr > 1 ? 's' : ''} ago`;
+    const diffDay = Math.floor(diffHr / 24);
+    if (diffDay < 7) return `${diffDay} day${diffDay > 1 ? 's' : ''} ago`;
+    return new Date(isoDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  } catch (e) {
+    return 'Recently';
+  }
+}
+
+const INITIAL_SUPPORT_TICKETS: SupportTicketItem[] = [
   {
-    receiptNumber: 'RCP-2026-00105',
+    id: 'tic-001',
+    ticketNumber: 'TIC-2026-0041',
     collegeId: 'bethsaida',
-    studentId: 'stu-002',
-    studentName: 'Emmanuel Chukwuma',
-    matricNumber: 'MLT/2026/0029',
-    programme: 'Medical Laboratory Technician (MLT)',
-    level: '100 Level',
-    category: 'tuition',
-    amountKobo: 14000000,
-    formattedAmount: formatNaira(14000000),
-    paymentMethod: 'remita',
-    transactionReference: 'BTH-TX-2026-9022',
-    gatewayReference: 'RMT_8820192',
-    paidAt: '2026-11-06T14:15:00Z',
-    qrVerificationHash: 'b2c3d4e5f6a17890123456789abcdef0123456789abcdef0123456789abcdef0',
-    issuer: 'Bursary Department, Bethsaida College',
+    userId: 'usr-stu-01',
+    userName: 'Ibrahim Musa',
+    userRole: 'Student (CHEW 200L)',
+    userEmail: 'ibrahim.musa@student.bethsaida.edu.ng',
+    userPhone: '+234 803 441 9823',
+    department: 'Community Health (CHEW)',
+    category: 'TUITION_FEES',
+    priority: 'HIGH',
+    status: 'RESOLVED',
+    subject: 'Fee Payment Reconciliation for CHEW 200L Part Payment',
+    message: 'I paid fifty thousand Naira (NGN 50,000) via Paystack Card transfer on Monday but my balance still reflects eighty thousand arrears. Kindly reconcile with bursary ledger.',
+    replies: [
+      {
+        id: 'rep-001',
+        authorId: 'usr-bursar-01',
+        authorName: 'Mr. Babatunde Lawal',
+        authorRole: 'College Bursar',
+        message: 'Payment verified with switch reference PSTK_91823719. Your student ledger balance has been credited and official receipt generated.',
+        createdAt: '2026-11-13T10:15:00Z',
+      },
+    ],
+    resolutionNotes: 'Bursary ledger credited with 50,000 NGN. Official receipt RCP-2026-BCHT-0891 issued.',
+    resolvedAt: '2026-11-13T10:20:00Z',
+    resolvedBy: 'Mr. Babatunde Lawal (Bursar)',
+    createdAt: '2026-11-12T16:30:00Z',
+    updatedAt: '2026-11-13T10:20:00Z',
+  },
+  {
+    id: 'tic-002',
+    ticketNumber: 'TIC-2026-0082',
+    collegeId: 'bethsaida',
+    userId: 'usr-stu-02',
+    userName: 'Amina Bello',
+    userRole: 'Student (MLT 300L)',
+    userEmail: 'amina.bello@student.bethsaida.edu.ng',
+    userPhone: '+234 814 552 1190',
+    department: 'Medical Laboratory Technician (MLT)',
+    category: 'COURSE_REG',
+    priority: 'NORMAL',
+    status: 'OPEN',
+    subject: 'Course Registration Credit Unit Limit Override for MLT 305',
+    message: 'I need to register for MLT 305 (Clinical Chemistry Practicum) which takes my total semester credits to 26 units. The portal is capping at 24 units. Requesting HOD and Academic Board waiver.',
+    replies: [],
+    createdAt: '2026-11-14T08:10:00Z',
+    updatedAt: '2026-11-14T08:10:00Z',
+  },
+  {
+    id: 'tic-003',
+    ticketNumber: 'TIC-2026-0095',
+    collegeId: 'bethsaida',
+    userId: 'usr-stu-03',
+    userName: 'Chidinma Eze',
+    userRole: 'Student (Pharmacy Tech 100L)',
+    userEmail: 'chidinma.eze@student.bethsaida.edu.ng',
+    userPhone: '+234 705 918 2304',
+    department: 'Pharmacy Technician',
+    category: 'HOSTEL',
+    priority: 'NORMAL',
+    status: 'IN_PROGRESS',
+    subject: 'Hostel Room 12B Electrical Ceiling Fan Repair',
+    message: 'The ceiling fan in Female Hostel Block B, Room 12B has stopped rotating since yesterday. Kindly dispatch campus maintenance technicians.',
+    replies: [
+      {
+        id: 'rep-002',
+        authorId: 'usr-warden-01',
+        authorName: 'Mrs. Folake Adeyemi',
+        authorRole: 'Hall Warden',
+        message: 'Maintenance work order #MNT-041 dispatched to college works department.',
+        createdAt: '2026-11-14T11:00:00Z',
+      },
+    ],
+    createdAt: '2026-11-14T09:45:00Z',
+    updatedAt: '2026-11-14T11:00:00Z',
   },
 ];
 
 const AppContext = createContext<AppContextType | null>(null);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [activeRole, setActiveRole] = useState<RoleCode>('PROVOST');
+  // ─── AUTHENTICATION & SESSION MANAGEMENT (RBAC Controlled) ───
+  const [authenticatedRole, setAuthenticatedRole] = useState<RoleCode | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+
+  const [impersonatedRole, setImpersonatedRole] = useState<RoleCode | null>(() => {
+    try {
+      const saved = sessionStorage.getItem('campusone_impersonated_role');
+      if (saved) return saved as RoleCode;
+    } catch (e) {}
+    return null;
+  });
+
+  const [impersonatedUserMeta, setImpersonatedUserMeta] = useState<{
+    id: string;
+    name: string;
+    email: string;
+    matricNumber?: string;
+  } | null>(() => {
+    try {
+      const saved = sessionStorage.getItem('campusone_impersonated_user');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return null;
+  });
+
+  const activeRole: RoleCode = impersonatedRole || authenticatedRole || 'STU';
+  const isAuthenticated = authenticatedRole !== null;
+  const isSuperAdmin = authenticatedRole === 'SADMIN';
+  const isImpersonating = isSuperAdmin && impersonatedRole !== null;
+
   const [isDense, setIsDense] = useState(false);
   const [ledgerEntries, setLedgerEntries] = useState<StudentLedgerEntry[]>(INITIAL_LEDGER_ENTRIES);
   const [receipts, setReceipts] = useState<OfficialReceipt[]>(INITIAL_RECEIPTS);
   const [auditLogs, setAuditLogs] = useState<AuditEventRecord[]>(INITIAL_AUDIT_LOGS);
-  const [customProfiles, setCustomProfiles] = useState<Record<string, Partial<PersonaProfile>>>({});
+  const auditLogsRef = useRef<AuditEventRecord[]>(INITIAL_AUDIT_LOGS);
+  const [customProfiles, setCustomProfiles] = useState<Record<string, Partial<PersonaProfile>>>(() => {
+    try {
+      const saved = localStorage.getItem('campusone_custom_profiles');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return {};
+  });
+
+  const [supportTickets, setSupportTickets] = useState<SupportTicketItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('campusone_support_tickets');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return INITIAL_SUPPORT_TICKETS;
+  });
+
+  const [notifications, setNotifications] = useState<RealNotificationItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('campusone_notifications');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return [];
+  });
+
+  // ─── DYNAMIC SCHOOL PROFILE & FRAMEWORK ───
+  const [schoolProfile, setSchoolProfileState] = useState<SchoolProfile>(() => {
+    try {
+      const saved = localStorage.getItem('campusone_school_profile');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const isOldAddress = !parsed.campusAddress || parsed.campusAddress.includes('Moniya') || parsed.campusAddress.includes('Ibadan');
+        const isOldEmail = !parsed.officialEmail || parsed.officialEmail.includes('bethsaida.edu.ng');
+        const isOldPhone = !parsed.officialPhone || parsed.officialPhone.includes('803 124 5590');
+        const isOldWebsite = !parsed.websiteUrl || parsed.websiteUrl.includes('bethsaida.edu.ng');
+
+        return {
+          ...DEFAULT_SCHOOL_PROFILE,
+          ...parsed,
+          logoUrl: parsed.logoUrl || '/BeonTech-Logo.png',
+          campusAddress: isOldAddress ? DEFAULT_SCHOOL_PROFILE.campusAddress : parsed.campusAddress,
+          officialEmail: isOldEmail ? DEFAULT_SCHOOL_PROFILE.officialEmail : parsed.officialEmail,
+          officialPhone: isOldPhone ? DEFAULT_SCHOOL_PROFILE.officialPhone : parsed.officialPhone,
+          websiteUrl: isOldWebsite ? DEFAULT_SCHOOL_PROFILE.websiteUrl : parsed.websiteUrl,
+        };
+      }
+    } catch (e) {
+      // fallback
+    }
+    return DEFAULT_SCHOOL_PROFILE;
+  });
+
+  const [departments, setDepartmentsState] = useState<DepartmentItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('campusone_departments_v3');
+      if (saved) return JSON.parse(saved);
+
+      const legacy = localStorage.getItem('campusone_departments');
+      if (legacy) {
+        const parsed = JSON.parse(legacy);
+        if (parsed.length >= 7 && parsed.some((d: any) => d.code === 'DHD')) {
+          return parsed;
+        }
+      }
+    } catch (e) {}
+
+    try {
+      localStorage.setItem('campusone_departments_v3', JSON.stringify(DEFAULT_DEPARTMENTS));
+      localStorage.setItem('campusone_departments', JSON.stringify(DEFAULT_DEPARTMENTS));
+    } catch (e) {}
+    return DEFAULT_DEPARTMENTS;
+  });
+
+  const [courses, setCoursesState] = useState<CurriculumCourseItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('campusone_courses');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return DEFAULT_COURSES;
+  });
+
+  const [candidates, setCandidatesState] = useState<AdmissionCandidateItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('campusone_candidates');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return DEFAULT_CANDIDATES;
+  });
+
+  // Keep local storage synchronized
+  const setSchoolProfile = (updater: (prev: SchoolProfile) => SchoolProfile) => {
+    setSchoolProfileState((prev) => {
+      const next = updater(prev);
+      try {
+        localStorage.setItem('campusone_school_profile', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+  };
+
+  const setDepartments = (updater: (prev: DepartmentItem[]) => DepartmentItem[]) => {
+    setDepartmentsState((prev) => {
+      const next = updater(prev);
+      try {
+        localStorage.setItem('campusone_departments_v3', JSON.stringify(next));
+        localStorage.setItem('campusone_departments', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+  };
+
+  const setCourses = (updater: (prev: CurriculumCourseItem[]) => CurriculumCourseItem[]) => {
+    setCoursesState((prev) => {
+      const next = updater(prev);
+      try {
+        localStorage.setItem('campusone_courses', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+  };
+
+  const setCandidates = (updater: (prev: AdmissionCandidateItem[]) => AdmissionCandidateItem[]) => {
+    setCandidatesState((prev) => {
+      const next = updater(prev);
+      try {
+        localStorage.setItem('campusone_candidates', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+  };
 
   const basePersona = PERSONA_PROFILES[activeRole] || PERSONA_PROFILES.PROVOST;
   const personaOverrides = customProfiles[activeRole] || {};
@@ -199,6 +961,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ...basePersona,
     ...personaOverrides,
     permissions: personaOverrides.permissions || basePersona.permissions,
+    ...(impersonatedUserMeta
+      ? {
+          fullName: impersonatedUserMeta.name,
+          email: impersonatedUserMeta.email,
+          ...(impersonatedUserMeta.matricNumber
+            ? { matricNumber: impersonatedUserMeta.matricNumber }
+            : {}),
+        }
+      : {}),
   };
 
   const session: UserSession = {
@@ -227,12 +998,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     async function loadSupabaseData() {
       try {
-        const [ledgersRes, receiptsRes, auditsRes, profilesRes] = await Promise.all([
+        const [ledgersRes, receiptsRes, auditsRes, profilesRes, tenantRes, notifsRes, ticketsRes] = await Promise.all([
           supabase.from('student_ledgers').select('*').order('created_at', { ascending: false }),
           supabase.from('official_receipts').select('*').order('paid_at', { ascending: false }),
           supabase.from('audit_logs').select('*').order('timestamp', { ascending: false }),
           supabase.from('profiles').select('*'),
+          supabase.from('tenant_settings').select('*').limit(1).maybeSingle(),
+          supabase.from('notifications').select('*').order('created_at', { ascending: false }),
+          supabase.from('support_tickets').select('*').order('created_at', { ascending: false }),
         ]);
+
+        if (tenantRes.data) {
+          const t = tenantRes.data;
+          setSchoolProfile((prev) => ({
+            ...prev,
+            institutionName: t.institution_name || prev.institutionName,
+            institutionAcronym: t.institution_acronym || prev.institutionAcronym,
+            institutionCode: t.institution_code || prev.institutionCode,
+            campusAddress: t.campus_address || prev.campusAddress,
+            officialEmail: t.official_email || prev.officialEmail,
+            officialPhone: t.official_phone || prev.officialPhone,
+            websiteUrl: t.website_url || prev.websiteUrl,
+            accreditationRegNo: t.accreditation_reg_no || prev.accreditationRegNo,
+            regulatoryCouncils: t.regulatory_councils && t.regulatory_councils.length > 0 ? t.regulatory_councils : prev.regulatoryCouncils,
+            academicLevels: t.academic_levels && t.academic_levels.length > 0 ? t.academic_levels : prev.academicLevels,
+            academicSemesters: t.academic_semesters && t.academic_semesters.length > 0 ? t.academic_semesters : prev.academicSemesters,
+            academicSessions: t.academic_sessions && t.academic_sessions.length > 0 ? t.academic_sessions : prev.academicSessions,
+            activeSession: t.active_session || prev.activeSession,
+            activeSemester: t.active_semester || prev.activeSemester,
+            attendanceCutoffPct: t.attendance_cutoff_pct ?? prev.attendanceCutoffPct,
+            caWeightPct: t.ca_weight_pct ?? prev.caWeightPct,
+            examWeightPct: t.exam_weight_pct ?? prev.examWeightPct,
+            twoFactorEnforced: t.two_factor_enforced ?? prev.twoFactorEnforced,
+            sessionTimeoutMins: t.session_timeout_mins ?? prev.sessionTimeoutMins,
+            admissionsOpen: t.admissions_open ?? prev.admissionsOpen,
+            admissionBatch: t.admission_batch || prev.admissionBatch,
+            applicationFeeKobo: Number(t.application_fee_kobo || prev.applicationFeeKobo),
+            acceptanceFeeKobo: Number(t.acceptance_fee_kobo || prev.acceptanceFeeKobo),
+            minimumCutoffScore: t.minimum_cutoff_score ?? prev.minimumCutoffScore,
+          }));
+        }
 
         if (profilesRes.data && profilesRes.data.length > 0) {
           const loadedOverrides: Record<string, Partial<PersonaProfile>> = {};
@@ -249,7 +1054,96 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               };
             }
           });
-          setCustomProfiles((prev) => ({ ...prev, ...loadedOverrides }));
+          setCustomProfiles((prev) => {
+            const merged = { ...prev, ...loadedOverrides };
+            try {
+              localStorage.setItem('campusone_custom_profiles', JSON.stringify(merged));
+            } catch (e) {}
+            return merged;
+          });
+        }
+
+        if (notifsRes.data && notifsRes.data.length > 0) {
+          const loadedNotifs: RealNotificationItem[] = notifsRes.data.map((row: any) => ({
+            id: row.id,
+            collegeId: row.college_id || 'bethsaida',
+            userId: row.user_id,
+            role: row.role,
+            title: row.title,
+            desc: row.message,
+            time: formatRelativeTime(row.created_at),
+            isRead: Boolean(row.is_read),
+            type: (row.type as any) || 'info',
+            link: row.link || '/',
+            createdAt: row.created_at,
+          }));
+          setNotifications(loadedNotifs);
+          try {
+            localStorage.setItem('campusone_notifications', JSON.stringify(loadedNotifs));
+          } catch (e) {}
+        } else {
+          const seedNotifs: RealNotificationItem[] = [
+            {
+              id: 'notif-01',
+              collegeId: 'bethsaida',
+              title: 'Official Tuition Receipt Confirmed',
+              desc: 'Blessing Adeyemi tuition payment of ₦120,000 for Community Health (CHEW) verified.',
+              time: '15 mins ago',
+              isRead: false,
+              type: 'success',
+              link: '/bursary?tab=receipts',
+              createdAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+            },
+            {
+              id: 'notif-02',
+              collegeId: 'bethsaida',
+              title: 'Harmattan Broadsheets Published',
+              desc: 'Approved academic broadsheets and semester exam scores published for college ratification.',
+              time: '1 hour ago',
+              isRead: false,
+              type: 'info',
+              link: '/academics?tab=broadsheet',
+              createdAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+            },
+            {
+              id: 'notif-03',
+              collegeId: 'bethsaida',
+              title: '2026/2027 Admission Screening Active',
+              desc: 'Admissions committee screening portal is live for Community Health and Lab Tech candidates.',
+              time: '2 hours ago',
+              isRead: false,
+              type: 'info',
+              link: '/admissions',
+              createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+            },
+            {
+              id: 'notif-04',
+              collegeId: 'bethsaida',
+              title: 'Clinical Rotation Postings Released',
+              desc: 'Trainee posting schedules verified for UCH Ibadan and General Hospital Oyo.',
+              time: 'Yesterday',
+              isRead: true,
+              type: 'info',
+              link: '/postings',
+              createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+            },
+          ];
+          setNotifications(seedNotifs);
+          try {
+            localStorage.setItem('campusone_notifications', JSON.stringify(seedNotifs));
+            supabase.from('notifications').insert(
+              seedNotifs.map((n) => ({
+                id: n.id,
+                college_id: n.collegeId,
+                title: n.title,
+                message: n.desc,
+                type: n.type,
+                link: n.link,
+                is_read: n.isRead,
+                created_at: n.createdAt,
+              }))
+            ).then(() => {});
+          } catch (e) {}
         }
 
         if (ledgersRes.data && ledgersRes.data.length > 0) {
@@ -294,8 +1188,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         if (auditsRes.data && auditsRes.data.length > 0) {
-          setAuditLogs(
-            auditsRes.data.map((row: any) => ({
+          const loadedAudits = auditsRes.data.map((row: any) => ({
               id: row.id,
               collegeId: row.college_id,
               actorId: row.actor_id,
@@ -310,8 +1203,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               timestamp: row.timestamp,
               chainHash: row.chain_hash,
               prevHash: row.prev_hash,
-            }))
-          );
+            }));
+          auditLogsRef.current = loadedAudits;
+          setAuditLogs(loadedAudits);
+        }
+
+        if (ticketsRes.data && ticketsRes.data.length > 0) {
+          const loadedTickets: SupportTicketItem[] = ticketsRes.data.map((row: any) => ({
+            id: row.id,
+            ticketNumber: row.ticket_number,
+            collegeId: row.college_id || 'bethsaida',
+            userId: row.user_id || `usr-${row.user_role?.toLowerCase() || 'stu'}-01`,
+            userName: row.user_name,
+            userRole: row.user_role,
+            userEmail: row.user_email,
+            userPhone: row.user_phone,
+            department: row.department,
+            category: row.category,
+            priority: row.priority || 'NORMAL',
+            status: row.status || 'OPEN',
+            subject: row.subject,
+            message: row.message,
+            replies: Array.isArray(row.replies) ? row.replies : [],
+            resolutionNotes: row.resolution_notes,
+            resolvedAt: row.resolved_at,
+            resolvedBy: row.resolved_by,
+            createdAt: row.created_at,
+            updatedAt: row.updated_at,
+          }));
+          setSupportTickets(loadedTickets);
+          try {
+            localStorage.setItem('campusone_support_tickets', JSON.stringify(loadedTickets));
+          } catch (e) {}
         }
       } catch (err) {
         console.warn('[CampusOne] Supabase live hydration fallback active:', err);
@@ -321,32 +1244,81 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     loadSupabaseData();
   }, []);
 
-  const recordAudit = (action: string, entityType: string, entityId: string, details?: any) => {
-    const prev = auditLogs[auditLogs.length - 1];
-    const prevHash = prev ? prev.chainHash : '0000000000000000000000000000000000000000000000000000000000000000';
-    // Deterministic pseudo-hash for demonstrability
-    const chainHash = Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
+  useEffect(() => {
+    let active = true;
+    supabase.auth.getSession().then(async ({ data }) => {
+      const email = data.session?.user?.email;
+      if (!email) {
+        if (active) {
+          setAuthenticatedRole(null);
+          setAuthReady(true);
+        }
+        return;
+      }
+      const { data: profile } = await supabase.from('profiles').select('role').eq('email', email).maybeSingle();
+      if (!active) return;
+      if (profile?.role) {
+        setAuthenticatedRole(profile.role as RoleCode);
+      } else {
+        await supabase.auth.signOut();
+        setAuthenticatedRole(null);
+      }
+      setAuthReady(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const recordAudit = (
+    action: string,
+    entityType: string,
+    entityId: string,
+    details?: any,
+    actor?: { userId: string; actorRole: string }
+  ) => {
+    const prevList = auditLogsRef.current;
+    const prevHash = prevList[0]
+      ? prevList[0].chainHash
+      : '0000000000000000000000000000000000000000000000000000000000000000';
+    const timestamp = new Date().toISOString();
+    const afterSnapshot = details || null;
+    const actorId = actor?.userId || session.userId;
+    const actorRole = actor?.actorRole || session.activeRole;
+    const chainHash = sha256Hex(
+      JSON.stringify({
+        prevHash,
+        actorId,
+        actorRole,
+        action,
+        entityType,
+        entityId,
+        afterSnapshot,
+        timestamp,
+      })
+    );
 
     const newLog: AuditEventRecord = {
-      id: `aud-${Date.now().toString().slice(-4)}`,
+      id: `aud-${Date.now()}-${chainHash.slice(0, 8)}`,
       collegeId: 'bethsaida',
-      actorId: session.userId,
-      actorRole: session.activeRole,
+      actorId,
+      actorRole,
       action,
       entityType,
       entityId,
       beforeSnapshot: null,
-      afterSnapshot: details || null,
-      ipAddress: '102.89.44.12',
+      afterSnapshot,
+      ipAddress: 'client-unresolved',
       userAgent: navigator.userAgent,
-      timestamp: new Date().toISOString(),
+      timestamp,
       chainHash,
       prevHash,
     };
 
-    setAuditLogs((prevList) => [newLog, ...prevList]);
+    const nextLogs = [newLog, ...prevList];
+    auditLogsRef.current = nextLogs;
+    setAuditLogs(nextLogs);
 
-    // Live Supabase Sync
     supabase.from('audit_logs').insert({
       id: newLog.id,
       college_id: newLog.collegeId,
@@ -367,6 +1339,165 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
+  const updateSchoolProfile = async (updates: Partial<SchoolProfile>) => {
+    setSchoolProfile((prev) => ({ ...prev, ...updates }));
+
+    recordAudit('SCHOOL_SETTINGS_UPDATED', 'TENANT_SETTINGS', 'bethsaida', updates);
+
+    try {
+      const payload: any = { updated_at: new Date().toISOString() };
+      if (updates.institutionName !== undefined) payload.institution_name = updates.institutionName;
+      if (updates.institutionAcronym !== undefined) payload.institution_acronym = updates.institutionAcronym;
+      if (updates.institutionCode !== undefined) payload.institution_code = updates.institutionCode;
+      if (updates.campusAddress !== undefined) payload.campus_address = updates.campusAddress;
+      if (updates.officialEmail !== undefined) payload.official_email = updates.officialEmail;
+      if (updates.officialPhone !== undefined) payload.official_phone = updates.officialPhone;
+      if (updates.websiteUrl !== undefined) payload.website_url = updates.websiteUrl;
+      if (updates.accreditationRegNo !== undefined) payload.accreditation_reg_no = updates.accreditationRegNo;
+      if (updates.regulatoryCouncils !== undefined) payload.regulatory_councils = updates.regulatoryCouncils;
+      if (updates.academicLevels !== undefined) payload.academic_levels = updates.academicLevels;
+      if (updates.academicSemesters !== undefined) payload.academic_semesters = updates.academicSemesters;
+      if (updates.academicSessions !== undefined) payload.academic_sessions = updates.academicSessions;
+      if (updates.activeSession !== undefined) payload.active_session = updates.activeSession;
+      if (updates.activeSemester !== undefined) payload.active_semester = updates.activeSemester;
+      if (updates.attendanceCutoffPct !== undefined) payload.attendance_cutoff_pct = updates.attendanceCutoffPct;
+      if (updates.caWeightPct !== undefined) payload.ca_weight_pct = updates.caWeightPct;
+      if (updates.examWeightPct !== undefined) payload.exam_weight_pct = updates.examWeightPct;
+      if (updates.twoFactorEnforced !== undefined) payload.two_factor_enforced = updates.twoFactorEnforced;
+      if (updates.sessionTimeoutMins !== undefined) payload.session_timeout_mins = updates.sessionTimeoutMins;
+      if (updates.admissionsOpen !== undefined) payload.admissions_open = updates.admissionsOpen;
+      if (updates.admissionBatch !== undefined) payload.admission_batch = updates.admissionBatch;
+      if (updates.applicationFeeKobo !== undefined) payload.application_fee_kobo = updates.applicationFeeKobo;
+      if (updates.acceptanceFeeKobo !== undefined) payload.acceptance_fee_kobo = updates.acceptanceFeeKobo;
+      if (updates.minimumCutoffScore !== undefined) payload.minimum_cutoff_score = updates.minimumCutoffScore;
+
+      await supabase.from('tenant_settings').update(payload).eq('college_id', 'bethsaida');
+    } catch (e) {
+      console.warn('[CampusOne] Supabase profile sync warning:', e);
+    }
+  };
+
+  const addAcademicLevel = (levelName: string) => {
+    if (!levelName || schoolProfile.academicLevels.includes(levelName)) return;
+    const nextLevels = [...schoolProfile.academicLevels, levelName];
+    updateSchoolProfile({ academicLevels: nextLevels });
+  };
+
+  const removeAcademicLevel = (levelName: string) => {
+    const nextLevels = schoolProfile.academicLevels.filter((l) => l !== levelName);
+    updateSchoolProfile({ academicLevels: nextLevels });
+  };
+
+  const addRegulatoryCouncil = (councilName: string) => {
+    if (!councilName || schoolProfile.regulatoryCouncils.includes(councilName)) return;
+    const nextCouncils = [...schoolProfile.regulatoryCouncils, councilName];
+    updateSchoolProfile({ regulatoryCouncils: nextCouncils });
+  };
+
+  const removeRegulatoryCouncil = (councilName: string) => {
+    const nextCouncils = schoolProfile.regulatoryCouncils.filter((c) => c !== councilName);
+    updateSchoolProfile({ regulatoryCouncils: nextCouncils });
+  };
+
+  const addAcademicSemester = (semesterName: string) => {
+    if (!semesterName || schoolProfile.academicSemesters.includes(semesterName)) return;
+    const next = [...schoolProfile.academicSemesters, semesterName];
+    updateSchoolProfile({ academicSemesters: next });
+  };
+
+  const addAcademicSession = (sessionName: string) => {
+    if (!sessionName || schoolProfile.academicSessions.includes(sessionName)) return;
+    const next = [...schoolProfile.academicSessions, sessionName];
+    updateSchoolProfile({ academicSessions: next });
+  };
+
+  // ─── DEPARTMENTS CRUD ───
+  const addDepartment = (dept: DepartmentItem) => {
+    setDepartments((prev) => [dept, ...prev]);
+    recordAudit('DEPARTMENT_CREATED', 'COLLEGE_DEPARTMENT', dept.code, dept);
+  };
+
+  const updateDepartment = (id: string, updates: Partial<DepartmentItem>) => {
+    setDepartments((prev) => prev.map((d) => (d.id === id ? { ...d, ...updates } : d)));
+    recordAudit('DEPARTMENT_UPDATED', 'COLLEGE_DEPARTMENT', id, updates);
+  };
+
+  const deleteDepartment = (id: string) => {
+    setDepartments((prev) => prev.filter((d) => d.id !== id));
+    recordAudit('DEPARTMENT_DELETED', 'COLLEGE_DEPARTMENT', id);
+  };
+
+  // ─── COURSES CRUD ───
+  const addCourse = (course: CurriculumCourseItem) => {
+    setCourses((prev) => [course, ...prev]);
+    recordAudit('COURSE_CREATED', 'CURRICULUM_COURSE', course.code, course);
+  };
+
+  const updateCourse = (code: string, updates: Partial<CurriculumCourseItem>) => {
+    setCourses((prev) => prev.map((c) => (c.code === code ? { ...c, ...updates } : c)));
+    recordAudit('COURSE_UPDATED', 'CURRICULUM_COURSE', code, updates);
+  };
+
+  const deleteCourse = (code: string) => {
+    setCourses((prev) => prev.filter((c) => c.code !== code));
+    recordAudit('COURSE_DELETED', 'CURRICULUM_COURSE', code);
+  };
+
+  // ─── ADMISSION CANDIDATES CRUD ───
+  const addCandidate = (candidate: AdmissionCandidateItem): AdmissionCandidateItem => {
+    setCandidates((prev) => [candidate, ...prev]);
+    recordAudit('ADMISSION_APPLICATION_SUBMITTED', 'ADMISSION_CANDIDATE', candidate.applicationNumber, candidate);
+    return candidate;
+  };
+
+  const updateCandidate = (id: string, updates: Partial<AdmissionCandidateItem>) => {
+    setCandidates((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
+    recordAudit('ADMISSION_CANDIDATE_UPDATED', 'ADMISSION_CANDIDATE', id, updates);
+  };
+
+  const deleteCandidate = (id: string) => {
+    setCandidates((prev) => prev.filter((c) => c.id !== id));
+    recordAudit('ADMISSION_CANDIDATE_DELETED', 'ADMISSION_CANDIDATE', id);
+  };
+
+  const admitCandidate = (id: string, matricNumber?: string, batch?: string) => {
+    const chosenBatch = batch || schoolProfile.admissionBatch;
+    setCandidates((prev) =>
+      prev.map((c) =>
+        c.id === id
+          ? {
+              ...c,
+              status: 'ADMITTED',
+              matricNumber: matricNumber || c.matricNumber,
+              admissionListBatch: chosenBatch,
+              admittedAt: new Date().toISOString().split('T')[0],
+            }
+          : c
+      )
+    );
+    recordAudit('CANDIDATE_OFFERED_ADMISSION', 'ADMISSION_CANDIDATE', id, { matricNumber, batch: chosenBatch });
+  };
+
+  const enrollCandidate = (id: string, matricNo?: string) => {
+    setCandidates((prev) =>
+      prev.map((c) => {
+        if (c.id !== id) return c;
+        const generatedMatric =
+          matricNo ||
+          `${c.programmeCode}/${schoolProfile.activeSession.substring(0, 4)}/${String(
+            Math.floor(1000 + Math.random() * 9000)
+          )}`;
+        return {
+          ...c,
+          status: 'ENROLLED',
+          acceptanceFeePaid: true,
+          matricNumber: generatedMatric,
+        };
+      })
+    );
+    recordAudit('CANDIDATE_MATRICULATED', 'ADMISSION_CANDIDATE', id, { matricNo });
+  };
+
   const addLedgerPayment = (entry: {
     studentId: string;
     matricNumber: string;
@@ -375,17 +1506,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     category: any;
     description: string;
     paymentMethod: any;
+    referenceId?: string;
+    gatewayReference?: string;
+    programme?: string;
+    level?: string;
   }): OfficialReceipt => {
+    // 1. Strict Validation: Reject zero or negative payments
+    if (!entry.amountKobo || entry.amountKobo <= 0) {
+      throw new Error('Invalid payment amount. Amount must be greater than zero.');
+    }
+
+    // 2. Anti-Double Counting & Replay Protection: Check if reference was already posted
+    if (entry.gatewayReference || entry.referenceId) {
+      const existing = receipts.find(
+        (r) =>
+          (entry.gatewayReference && r.gatewayReference === entry.gatewayReference) ||
+          (entry.referenceId && r.transactionReference === entry.referenceId)
+      );
+      if (existing) {
+        console.warn(
+          '[CampusOne Finance] Idempotent duplicate blocked for reference:',
+          entry.gatewayReference || entry.referenceId
+        );
+        return existing;
+      }
+    }
+
     const studentEntries = ledgerEntries.filter((l) => l.studentId === entry.studentId);
     let currentBalanceKobo = 0;
     for (const e of studentEntries) {
       if (e.entryType === 'debit') currentBalanceKobo += e.amountKobo;
       else currentBalanceKobo -= e.amountKobo;
     }
-    const balanceAfterKobo = Math.max(0, currentBalanceKobo - entry.amountKobo);
+    const balanceAfterKobo = currentBalanceKobo - entry.amountKobo;
     const receiptNum = `RCP-2026-${String(receipts.length + 101).padStart(5, '0')}`;
-    const txRef = `BTH-TX-2026-${Math.floor(1000 + Math.random() * 9000)}`;
-    const gatewayRef = `PSTK_${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+    const txRef = entry.referenceId || `BTH-TX-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+    const gatewayRef = entry.gatewayReference || txRef;
+    const paidAt = new Date().toISOString();
 
     const newLedgerEntry: StudentLedgerEntry = {
       id: `led-${Date.now()}`,
@@ -407,23 +1564,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       studentId: entry.studentId,
       studentName: entry.studentName,
       matricNumber: entry.matricNumber,
-      programme: 'Community Health Extension Worker (CHEW)',
-      level: '200 Level',
+      programme: entry.programme || 'Institutional programme',
+      level: entry.level || 'Unspecified level',
       category: entry.category,
       amountKobo: entry.amountKobo,
       formattedAmount: formatNaira(entry.amountKobo),
       paymentMethod: entry.paymentMethod,
       transactionReference: txRef,
       gatewayReference: gatewayRef,
-      paidAt: new Date().toISOString(),
-      qrVerificationHash: Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2),
-      issuer: 'Bursary Department, Bethsaida College',
+      paidAt,
+      qrVerificationHash: sha256Hex(
+        JSON.stringify({
+          receiptNumber: receiptNum,
+          studentId: entry.studentId,
+          matricNumber: entry.matricNumber,
+          amountKobo: entry.amountKobo,
+          transactionReference: txRef,
+          paidAt,
+        })
+      ),
+      issuer: `Bursary Department, ${schoolProfile.institutionName}`,
     };
 
     setLedgerEntries((prev) => [newLedgerEntry, ...prev]);
     setReceipts((prev) => [newReceipt, ...prev]);
 
-    // Live Supabase Sync
     supabase.from('student_ledgers').insert({
       id: newLedgerEntry.id,
       college_id: newLedgerEntry.collegeId,
@@ -466,6 +1631,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       receiptNumber: receiptNum,
     });
 
+    addNotification({
+      collegeId: 'bethsaida',
+      title: 'Official Tuition Receipt Generated',
+      desc: `${entry.studentName} (${entry.matricNumber}) verified payment of ₦${(entry.amountKobo / 100).toLocaleString()} for ${entry.description}.`,
+      type: 'success',
+      link: '/bursary?tab=receipts',
+    });
+
     return newReceipt;
   };
 
@@ -477,41 +1650,379 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     emergencyContact?: string;
     avatarUrl?: string;
   }) => {
-    // 1. Update local reactive state
-    setCustomProfiles((prev) => ({
-      ...prev,
-      [activeRole]: {
-        ...prev[activeRole],
-        ...updates,
-      },
-    }));
+    setCustomProfiles((prev) => {
+      const next = {
+        ...prev,
+        [activeRole]: {
+          ...prev[activeRole],
+          ...updates,
+        },
+      };
+      try {
+        localStorage.setItem('campusone_custom_profiles', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
 
-    // 2. Persist directly to Supabase profiles table (Single Source of Truth)
-    const profilePayload: any = { updated_at: new Date().toISOString() };
-    if (updates.fullName !== undefined) profilePayload.full_name = updates.fullName;
-    if (updates.phone !== undefined) profilePayload.phone = updates.phone;
-    if (updates.address !== undefined) profilePayload.address = updates.address;
-    if (updates.bio !== undefined) profilePayload.bio = updates.bio;
-    if (updates.emergencyContact !== undefined) profilePayload.emergency_contact = updates.emergencyContact;
-    if (updates.avatarUrl !== undefined) profilePayload.avatar_url = updates.avatarUrl;
+    const profilePayload: any = {
+      id: session.userId,
+      college_id: 'bethsaida',
+      role: activeRole,
+      email: persona.email,
+      full_name: updates.fullName !== undefined ? updates.fullName : (persona.fullName || 'User Profile'),
+      phone: updates.phone !== undefined ? updates.phone : (persona.phone || null),
+      address: updates.address !== undefined ? updates.address : (persona.address || null),
+      bio: updates.bio !== undefined ? updates.bio : (persona.bio || null),
+      emergency_contact: updates.emergencyContact !== undefined ? updates.emergencyContact : (persona.emergencyContact || null),
+      avatar_url: updates.avatarUrl !== undefined ? updates.avatarUrl : (persona.avatarUrl || null),
+      updated_at: new Date().toISOString(),
+    };
 
     try {
       const { error } = await supabase
         .from('profiles')
-        .update(profilePayload)
-        .eq('email', persona.email);
-
+        .upsert(profilePayload, { onConflict: 'id' });
       if (error) {
-        console.warn('[CampusOne] Supabase profile update error:', error.message);
+        console.warn('[CampusOne] Supabase profile sync warning:', error.message);
       }
     } catch (err) {
-      console.warn('[CampusOne] Supabase profile update failed:', err);
+      console.warn('[CampusOne] Supabase network error:', err);
     }
+  };
 
-    recordAudit('PROFILE_UPDATED', 'USER_PROFILE', persona.email, {
-      role: activeRole,
-      updatedFields: Object.keys(updates),
+  const addNotification = async (item: Omit<RealNotificationItem, 'id' | 'createdAt' | 'isRead' | 'time'>) => {
+    const newNotif: RealNotificationItem = {
+      id: `notif-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      collegeId: 'bethsaida',
+      title: item.title,
+      desc: item.desc,
+      time: 'Just now',
+      isRead: false,
+      type: item.type || 'info',
+      link: item.link || '/',
+      role: item.role,
+      userId: item.userId,
+      createdAt: new Date().toISOString(),
+    };
+
+    setNotifications((prev) => {
+      const updated = [newNotif, ...prev];
+      try {
+        localStorage.setItem('campusone_notifications', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
     });
+
+    try {
+      await supabase.from('notifications').insert({
+        id: newNotif.id,
+        college_id: 'bethsaida',
+        user_id: newNotif.userId,
+        role: newNotif.role,
+        title: newNotif.title,
+        message: newNotif.desc,
+        type: newNotif.type,
+        link: newNotif.link,
+        is_read: false,
+        created_at: newNotif.createdAt,
+      });
+    } catch (err) {
+      console.warn('[CampusOne] Notification insert note:', err);
+    }
+  };
+
+  const markNotificationAsRead = async (id: string) => {
+    setNotifications((prev) => {
+      const updated = prev.map((n) => (n.id === id ? { ...n, isRead: true } : n));
+      try {
+        localStorage.setItem('campusone_notifications', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    try {
+      await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('id', id);
+    } catch (err) {
+      console.warn('[CampusOne] Notification mark read sync note:', err);
+    }
+  };
+
+  const markAllNotificationsAsRead = async () => {
+    setNotifications((prev) => {
+      const updated = prev.map((n) => ({ ...n, isRead: true }));
+      try {
+        localStorage.setItem('campusone_notifications', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    try {
+      await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('college_id', 'bethsaida');
+    } catch (err) {
+      console.warn('[CampusOne] Notification mark all read sync note:', err);
+    }
+  };
+
+  const unreadNotificationsCount = notifications.filter((n) => !n.isRead).length;
+
+  /* ─── RBAC & SESSION IMPERSONATION LOGIC ─── */
+  const impersonateUser = (
+    role: RoleCode,
+    targetUser?: { id: string; name: string; email: string; matricNumber?: string }
+  ) => {
+    if (!isSuperAdmin) {
+      console.warn('[CampusOne RBAC] Impersonation forbidden: only Super Admin has privilege to impersonate.');
+      return;
+    }
+    if (role === 'SADMIN') {
+      stopImpersonating();
+      return;
+    }
+    setImpersonatedRole(role);
+    if (targetUser) {
+      setImpersonatedUserMeta(targetUser);
+      try {
+        sessionStorage.setItem('campusone_impersonated_user', JSON.stringify(targetUser));
+      } catch (e) {}
+    } else {
+      setImpersonatedUserMeta(null);
+      try {
+        sessionStorage.removeItem('campusone_impersonated_user');
+      } catch (e) {}
+    }
+    try {
+      sessionStorage.setItem('campusone_impersonated_role', role);
+    } catch (e) {}
+    recordAudit('IMPERSONATION_STARTED', 'USER_SESSION', role, {
+      realUser: 'Super Administrator',
+      targetRole: role,
+      targetUser: targetUser?.name || role,
+    });
+  };
+
+  const stopImpersonating = () => {
+    setImpersonatedRole(null);
+    setImpersonatedUserMeta(null);
+    try {
+      sessionStorage.removeItem('campusone_impersonated_role');
+      sessionStorage.removeItem('campusone_impersonated_user');
+    } catch (e) {}
+    recordAudit('IMPERSONATION_ENDED', 'USER_SESSION', 'SADMIN', {
+      restoredRole: 'SADMIN',
+    });
+  };
+
+  const switchRole = (role: RoleCode) => {
+    if (!isSuperAdmin) {
+      console.warn('[CampusOne RBAC] Role switch rejected: only Super Admin can switch roles.');
+      return;
+    }
+    if (role === 'SADMIN') {
+      stopImpersonating();
+    } else {
+      impersonateUser(role);
+    }
+  };
+
+  const loginAs = (role: RoleCode) => {
+    setAuthenticatedRole(role);
+    setImpersonatedRole(null);
+    try {
+      sessionStorage.removeItem('campusone_impersonated_role');
+      localStorage.removeItem('campusone_auth_role');
+    } catch (e) {}
+    recordAudit('USER_LOGIN', 'USER_SESSION', role, { role }, {
+      userId: `usr-${role.toLowerCase()}-01`,
+      actorRole: role,
+    });
+  };
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    setAuthenticatedRole(null);
+    setImpersonatedRole(null);
+    setImpersonatedUserMeta(null);
+    try {
+      localStorage.removeItem('campusone_auth_role');
+      sessionStorage.removeItem('campusone_impersonated_role');
+      sessionStorage.removeItem('campusone_impersonated_user');
+    } catch (e) {}
+  };
+
+  /* ─── HELP DESK & SUPPORT TICKETS LOGIC ─── */
+  const createSupportTicket = async (ticket: {
+    subject: string;
+    category: SupportTicketItem['category'];
+    priority: SupportTicketItem['priority'];
+    message: string;
+    department?: string;
+  }) => {
+    const ticketId = `tic-${Date.now()}`;
+    const ticketNumber = `TIC-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+    const now = new Date().toISOString();
+
+    const newTicket: SupportTicketItem = {
+      id: ticketId,
+      ticketNumber,
+      collegeId: 'bethsaida',
+      userId: session.userId,
+      userName: persona.fullName,
+      userRole: persona.scopeBadge || session.activeRole,
+      userEmail: persona.email,
+      userPhone: persona.phone,
+      department: ticket.department || persona.department,
+      category: ticket.category,
+      priority: ticket.priority,
+      status: 'OPEN',
+      subject: ticket.subject,
+      message: ticket.message,
+      replies: [],
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    setSupportTickets((prev) => {
+      const updated = [newTicket, ...prev];
+      try {
+        localStorage.setItem('campusone_support_tickets', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    recordAudit('SUPPORT_TICKET_CREATED', 'SUPPORT_TICKET', ticketNumber, {
+      subject: ticket.subject,
+      category: ticket.category,
+    });
+
+    try {
+      await supabase.from('support_tickets').insert({
+        id: newTicket.id,
+        ticket_number: newTicket.ticketNumber,
+        college_id: newTicket.collegeId,
+        user_id: newTicket.userId,
+        user_name: newTicket.userName,
+        user_role: newTicket.userRole,
+        user_email: newTicket.userEmail,
+        department: newTicket.department,
+        category: newTicket.category,
+        subject: newTicket.subject,
+        message: newTicket.message,
+        priority: newTicket.priority,
+        status: newTicket.status,
+        replies: [],
+        created_at: now,
+        updated_at: now,
+      });
+    } catch (err) {
+      console.warn('[CampusOne] Support ticket Supabase insert note:', err);
+    }
+  };
+
+  const replyToSupportTicket = async (ticketId: string, message: string) => {
+    const newReply: SupportTicketReply = {
+      id: `rep-${Date.now()}`,
+      authorId: session.userId,
+      authorName: persona.fullName,
+      authorRole: persona.scopeBadge || session.activeRole,
+      message,
+      createdAt: new Date().toISOString(),
+    };
+
+    let targetTicket: SupportTicketItem | undefined;
+
+    setSupportTickets((prev) => {
+      const updated = prev.map((t) => {
+        if (t.id === ticketId) {
+          const updatedTicket = {
+            ...t,
+            replies: [...(t.replies || []), newReply],
+            status: t.status === 'RESOLVED' ? t.status : ('IN_PROGRESS' as const),
+            updatedAt: new Date().toISOString(),
+          };
+          targetTicket = updatedTicket;
+          return updatedTicket;
+        }
+        return t;
+      });
+      try {
+        localStorage.setItem('campusone_support_tickets', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    if (targetTicket) {
+      recordAudit('SUPPORT_TICKET_REPLIED', 'SUPPORT_TICKET', (targetTicket as SupportTicketItem).ticketNumber, {
+        authorRole: session.activeRole,
+      });
+
+      try {
+        await supabase
+          .from('support_tickets')
+          .update({
+            replies: (targetTicket as SupportTicketItem).replies,
+            status: (targetTicket as SupportTicketItem).status,
+            updated_at: (targetTicket as SupportTicketItem).updatedAt,
+          })
+          .eq('id', ticketId);
+      } catch (err) {
+        console.warn('[CampusOne] Support ticket reply Supabase sync note:', err);
+      }
+    }
+  };
+
+  const resolveSupportTicket = async (ticketId: string, resolutionNotes: string) => {
+    const now = new Date().toISOString();
+    let targetTicket: SupportTicketItem | undefined;
+
+    setSupportTickets((prev) => {
+      const updated = prev.map((t) => {
+        if (t.id === ticketId) {
+          const updatedTicket = {
+            ...t,
+            status: 'RESOLVED' as const,
+            resolutionNotes,
+            resolvedAt: now,
+            resolvedBy: `${persona.fullName} (${persona.scopeBadge || session.activeRole})`,
+            updatedAt: now,
+          };
+          targetTicket = updatedTicket;
+          return updatedTicket;
+        }
+        return t;
+      });
+      try {
+        localStorage.setItem('campusone_support_tickets', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    if (targetTicket) {
+      recordAudit('SUPPORT_TICKET_RESOLVED', 'SUPPORT_TICKET', (targetTicket as SupportTicketItem).ticketNumber, {
+        resolvedBy: persona.fullName,
+        resolutionNotes,
+      });
+
+      try {
+        await supabase
+          .from('support_tickets')
+          .update({
+            status: 'RESOLVED',
+            resolution_notes: resolutionNotes,
+            resolved_at: now,
+            resolved_by: `${persona.fullName} (${persona.scopeBadge || session.activeRole})`,
+            updated_at: now,
+          })
+          .eq('id', ticketId);
+      } catch (err) {
+        console.warn('[CampusOne] Support ticket resolve Supabase sync note:', err);
+      }
+    }
   };
 
   return (
@@ -519,10 +2030,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       value={{
         session,
         persona,
-        switchRole: (role) => {
-          setActiveRole(role);
-          recordAudit('ROLE_SWITCHED', 'USER_SESSION', role);
-        },
+        switchRole,
+        authenticatedRole,
+        impersonatedRole,
+        isSuperAdmin,
+        isImpersonating,
+        impersonatedUserMeta,
+        impersonateUser,
+        stopImpersonating,
+        loginAs,
+        signOut,
+        authReady,
+        isAuthenticated,
+        supportTickets,
+        createSupportTicket,
+        replyToSupportTicket,
+        resolveSupportTicket,
         updateProfile,
         isDense,
         toggleDense: () => setIsDense(!isDense),
@@ -531,6 +2054,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         receipts,
         auditLogs,
         recordAudit,
+        schoolProfile,
+        updateSchoolProfile,
+        addAcademicLevel,
+        removeAcademicLevel,
+        addRegulatoryCouncil,
+        removeRegulatoryCouncil,
+        addAcademicSemester,
+        addAcademicSession,
+        departments,
+        addDepartment,
+        updateDepartment,
+        deleteDepartment,
+        courses,
+        addCourse,
+        updateCourse,
+        deleteCourse,
+        candidates,
+        addCandidate,
+        updateCandidate,
+        deleteCandidate,
+        admitCandidate,
+        enrollCandidate,
+        notifications,
+        unreadNotificationsCount,
+        addNotification,
+        markNotificationAsRead,
+        markAllNotificationsAsRead,
       }}
     >
       {children}

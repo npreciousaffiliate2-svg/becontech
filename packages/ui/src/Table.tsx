@@ -32,6 +32,7 @@ export interface TableProps<T> {
   onSearchChange?: (value: string) => void;
   searchPlaceholder?: string;
   toolbarFilters?: React.ReactNode;
+  toolbarActions?: React.ReactNode;
 }
 
 export function Table<T>({
@@ -53,6 +54,7 @@ export function Table<T>({
   onSearchChange,
   searchPlaceholder,
   toolbarFilters,
+  toolbarActions,
 }: TableProps<T>) {
   if (isLoading) {
     return <TableSkeleton rows={isDense ? 8 : 5} columns={columns.length} />;
@@ -62,24 +64,27 @@ export function Table<T>({
 
   return (
     <div className="w-full border border-slate-200/90 rounded-[4px] bg-white overflow-hidden shadow-sm flex flex-col">
-      {/* ─── Standardized Table Header Toolbar (Search & Filters) ─── */}
-      {(onSearchChange || toolbarFilters) && (
+      {/* ─── Standardized Table Header Toolbar (Search, Filters & Actions) ─── */}
+      {(onSearchChange || toolbarFilters || toolbarActions) && (
         <div className="p-3 border-b border-slate-200/80 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           <div className="flex flex-wrap items-center gap-2">
             {toolbarFilters}
           </div>
-          {onSearchChange && (
-            <div className="relative w-full sm:w-64">
-              <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={searchValue || ''}
-                onChange={(e) => onSearchChange(e.target.value)}
-                placeholder={searchPlaceholder || 'Search records...'}
-                className="w-full h-8 pl-8 pr-3 text-xs bg-slate-50/70 hover:bg-slate-50 focus:bg-white border border-slate-200 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640] transition-colors"
-              />
-            </div>
-          )}
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            {onSearchChange && (
+              <div className="relative w-full sm:w-64">
+                <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={searchValue || ''}
+                  onChange={(e) => onSearchChange(e.target.value)}
+                  placeholder={searchPlaceholder || 'Search records...'}
+                  className="w-full h-8 pl-8 pr-3 text-xs bg-slate-50/70 hover:bg-slate-50 focus:bg-white border border-slate-200 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640] transition-colors"
+                />
+              </div>
+            )}
+            {toolbarActions}
+          </div>
         </div>
       )}
 
@@ -116,9 +121,9 @@ export function Table<T>({
                           <span className="text-slate-400">
                             {isSorted ? (
                               sortDirection === 'asc' ? (
-                                <ChevronUp className="w-3.5 h-3.5 text-[#0A77FE]" />
+                                <ChevronUp className="w-3.5 h-3.5 text-[#0F7640]" />
                               ) : (
-                                <ChevronDown className="w-3.5 h-3.5 text-[#0A77FE]" />
+                                <ChevronDown className="w-3.5 h-3.5 text-[#0F7640]" />
                               )
                             ) : (
                               <ChevronsUpDown className="w-3.5 h-3.5" />

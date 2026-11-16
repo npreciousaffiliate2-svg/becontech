@@ -11,6 +11,7 @@ import {
   Tabs,
   Modal,
   Select,
+  Input,
 } from '@campusone/ui';
 import {
   Building2,
@@ -32,6 +33,8 @@ import {
   Mail,
   Home,
   Check,
+  Edit2,
+  Trash2,
 } from 'lucide-react';
 import { formatNaira } from '@campusone/contracts';
 
@@ -122,7 +125,7 @@ export interface MaintenanceTicket {
 export const HostelsView: React.FC = () => {
   const { tab } = useParams<{ tab?: string }>();
   const navigate = useNavigate();
-  const { isDense, recordAudit, session } = useApp();
+  const { isDense, recordAudit, session, schoolProfile } = useApp();
   const { showToast } = useToast();
 
   const currentPersona = PERSONA_PROFILES[session?.activeRole || 'PROVOST'] || PERSONA_PROFILES.STU;
@@ -559,6 +562,89 @@ export const HostelsView: React.FC = () => {
   const [newMntDesc, setNewMntDesc] = useState('');
   const [newMntArtisan, setNewMntArtisan] = useState('Works Dept - Plumber Alao');
 
+  /* ─── ROOM MANAGEMENT CRUD STATES ─── */
+  const [isAddRoomOpen, setIsAddRoomOpen] = useState(false);
+  const [isEditRoomOpen, setIsEditRoomOpen] = useState(false);
+  const [editingRoom, setEditingRoom] = useState<HostelRoom | null>(null);
+  const [isDeleteRoomOpen, setIsDeleteRoomOpen] = useState(false);
+  const [deleteRoomTarget, setDeleteRoomTarget] = useState<HostelRoom | null>(null);
+
+  const [newRoomForm, setNewRoomForm] = useState({
+    roomCode: '',
+    blockCode: 'FNH' as 'FNH' | 'MSH' | 'SAF' | 'AKH',
+    floor: 'Ground Floor',
+    roomType: 'QUAD_4BED' as RoomType,
+    capacity: 4,
+    amenities: '24/7 Solar Inverter, Ensuite Bathroom, Study Carrel',
+  });
+
+  const handleAddRoom = (e: React.FormEvent) => {
+    e.preventDefault();
+    const hallMap = {
+      FNH: { name: 'Florence Nightingale Hall', gender: 'FEMALE' as const },
+      MSH: { name: 'Mary Seacole Hall', gender: 'FEMALE' as const },
+      SAF: { name: 'Sir Alexander Fleming Hall', gender: 'MALE' as const },
+      AKH: { name: 'Aminu Kano Hall', gender: 'MALE' as const },
+    };
+    const hallInfo = hallMap[newRoomForm.blockCode] || hallMap.FNH;
+    const newRoom: HostelRoom = {
+      id: `rm-${Date.now()}`,
+      roomCode: newRoomForm.roomCode,
+      blockCode: newRoomForm.blockCode,
+      blockName: hallInfo.name,
+      gender: hallInfo.gender,
+      floor: newRoomForm.floor,
+      roomType: newRoomForm.roomType,
+      capacity: Number(newRoomForm.capacity) || 4,
+      occupied: 0,
+      status: 'AVAILABLE',
+      amenities: newRoomForm.amenities.split(',').map((s) => s.trim()).filter(Boolean),
+      occupants: [],
+    };
+    setRooms((prev) => [newRoom, ...prev]);
+    setIsAddRoomOpen(false);
+    setNewRoomForm({
+      roomCode: '',
+      blockCode: 'FNH',
+      floor: 'Ground Floor',
+      roomType: 'QUAD_4BED',
+      capacity: 4,
+      amenities: '24/7 Solar Inverter, Ensuite Bathroom, Study Carrel',
+    });
+    showToast({
+      type: 'success',
+      title: 'Room Created',
+      message: `Room ${newRoom.roomCode} in ${newRoom.blockName} has been added.`,
+    });
+  };
+
+  const handleUpdateRoom = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingRoom) return;
+    setRooms((prev) =>
+      prev.map((r) => (r.id === editingRoom.id ? editingRoom : r))
+    );
+    setIsEditRoomOpen(false);
+    setEditingRoom(null);
+    showToast({
+      type: 'success',
+      title: 'Room Updated',
+      message: `Room ${editingRoom.roomCode} settings have been saved.`,
+    });
+  };
+
+  const handleDeleteRoom = () => {
+    if (!deleteRoomTarget) return;
+    setRooms((prev) => prev.filter((r) => r.id !== deleteRoomTarget.id));
+    setIsDeleteRoomOpen(false);
+    setDeleteRoomTarget(null);
+    showToast({
+      type: 'success',
+      title: 'Room Removed',
+      message: `Room ${deleteRoomTarget.roomCode} has been deleted.`,
+    });
+  };
+
   /* ─── FILTERED DATA LOGIC (Scoped by Student Identity) ─── */
   const filteredRooms = rooms.filter((r) => {
     if (isStudent && !r.occupants.some((o) => o.matricNo === studentMatric)) return false;
@@ -857,19 +943,49 @@ export const HostelsView: React.FC = () => {
     },
     {
       key: 'action',
-      header: 'Room Dossier',
+      header: 'Actions',
       align: 'right' as const,
       nowrap: true,
       render: (r: HostelRoom) => (
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={() => setSelectedRoomForDossier(r)}
-          leftIcon={<Eye className="w-3.5 h-3.5" />}
-          className="whitespace-nowrap"
-        >
-          View Occupants
-        </Button>
+        <div className="flex items-center justify-end gap-1.5">
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setSelectedRoomForDossier(r)}
+            leftIcon={<Eye className="w-3.5 h-3.5" />}
+            className="whitespace-nowrap"
+          >
+            Occupants
+          </Button>
+          {!isStudent && (
+            <>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setEditingRoom({ ...r });
+                  setIsEditRoomOpen(true);
+                }}
+                leftIcon={<Edit2 className="w-3.5 h-3.5 text-slate-500" />}
+                className="hover:text-slate-900"
+              >
+                Edit
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setDeleteRoomTarget(r);
+                  setIsDeleteRoomOpen(true);
+                }}
+                leftIcon={<Trash2 className="w-3.5 h-3.5 text-red-500" />}
+                className="hover:text-red-700 hover:bg-red-50"
+              >
+                Delete
+              </Button>
+            </>
+          )}
+        </div>
       ),
     },
   ];
@@ -1133,7 +1249,7 @@ export const HostelsView: React.FC = () => {
         <div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight">Hostel & Accommodation (HST)</h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Institutional Halls of Residence • Bed Space Allocation Engine • Check-In Registers • Facility Maintenance
+            College Halls of Residence • Bed Space Allocation Engine • Check-In Registers • Facility Maintenance
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -1183,7 +1299,7 @@ export const HostelsView: React.FC = () => {
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Occupancy Rate
             </span>
-            <div className="w-8 h-8 rounded-[4px] bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center shrink-0">
               <Bed className="w-4 h-4" />
             </div>
           </div>
@@ -1296,6 +1412,19 @@ export const HostelsView: React.FC = () => {
                 </div>
               </>
             }
+            toolbarActions={
+              !isStudent ? (
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={() => setIsAddRoomOpen(true)}
+                  leftIcon={<Plus className="w-3.5 h-3.5" />}
+                  className="bg-[#0F7640] hover:bg-[#093322]"
+                >
+                  Add Room
+                </Button>
+              ) : undefined
+            }
           />
         </Card>
       )}
@@ -1339,6 +1468,19 @@ export const HostelsView: React.FC = () => {
                   />
                 </div>
               </>
+            }
+            toolbarActions={
+              !isStudent ? (
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={() => setIsAddRoomOpen(true)}
+                  leftIcon={<Plus className="w-3.5 h-3.5" />}
+                  className="bg-[#0F7640] hover:bg-[#093322]"
+                >
+                  Add Room
+                </Button>
+              ) : undefined
             }
           />
         </Card>
@@ -1500,17 +1642,22 @@ export const HostelsView: React.FC = () => {
             <div className="border border-slate-200 p-6 rounded-[4px] bg-white relative">
               {/* Header Letterhead */}
               <div className="text-center pb-4 border-b border-slate-200">
-                <div className="w-12 h-12 mx-auto mb-2 rounded-[4px] bg-[#0F7640] text-white flex items-center justify-center font-bold text-sm shadow-sm">
-                  BCHT
-                </div>
+                <img
+                  src={schoolProfile?.logoUrl || '/BeonTech-Logo.png'}
+                  alt="College Crest"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/BeonTech-Logo.png';
+                  }}
+                  className="w-14 h-14 mx-auto mb-2 rounded-[4px] object-contain shadow-xs"
+                />
                 <h2 className="text-base font-bold text-slate-900 tracking-wide uppercase">
-                  Bethsaida College of Health Technology
+                  {schoolProfile?.institutionName || 'Bethsaida College of Health Technology'}
                 </h2>
                 <p className="text-[11px] text-slate-500">
-                  Division of Student Affairs & Directorate of Halls of Residence • Moniya, Ibadan
+                  Division of Student Affairs & Directorate of Halls of Residence • {schoolProfile?.campusAddress || "Ogbomoso, Oyo State"}
                 </p>
                 <div className="mt-2 inline-block px-3 py-1 bg-emerald-50 rounded-[4px] text-xs font-bold text-[#0F7640] border border-emerald-200 uppercase">
-                  OFFICIAL HOSTEL RESIDENT PASS • 2026/2027 ACADEMIC SESSION
+                  OFFICIAL HOSTEL RESIDENT PASS • {schoolProfile?.activeSession || "2026/2027"} ACADEMIC SESSION
                 </div>
               </div>
 
@@ -1581,7 +1728,7 @@ export const HostelsView: React.FC = () => {
                 <div className="text-right">
                   <div className="w-28 border-b border-slate-700 ml-auto mb-1"></div>
                   <span className="font-bold text-slate-900 text-xs block">Dean of Student Affairs</span>
-                  <span className="text-[10px] text-slate-400">Bethsaida College of Health Tech</span>
+                  <span className="text-[10px] text-slate-400">{schoolProfile?.institutionName || "College of Health Technology"}</span>
                 </div>
               </div>
             </div>
@@ -1808,6 +1955,195 @@ export const HostelsView: React.FC = () => {
             </Button>
             <Button onClick={handleCreateMaintenanceTicket} className="bg-[#0F7640] hover:bg-[#093322]">
               Dispatch Maintenance Ticket
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ─── MODAL: ADD HOSTEL ROOM ─── */}
+      <Modal
+        isOpen={isAddRoomOpen}
+        onClose={() => setIsAddRoomOpen(false)}
+        title="Add Residence Room"
+        description="Add a new room to the college hostel inventory."
+        size="md"
+      >
+        <form onSubmit={handleAddRoom} className="space-y-4 text-xs font-sans">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="Room Code"
+              placeholder="e.g. FNH-105 or SAF-204"
+              value={newRoomForm.roomCode}
+              onChange={(e) => setNewRoomForm({ ...newRoomForm, roomCode: e.target.value })}
+              required
+            />
+            <Select
+              label="Hall of Residence"
+              options={[
+                { value: 'FNH', label: 'Florence Nightingale Hall (Female)' },
+                { value: 'MSH', label: 'Mary Seacole Hall (Female)' },
+                { value: 'SAF', label: 'Sir Alexander Fleming Hall (Male)' },
+                { value: 'AKH', label: 'Aminu Kano Hall (Male)' },
+              ]}
+              value={newRoomForm.blockCode}
+              onChange={(val) => setNewRoomForm({ ...newRoomForm, blockCode: val as any })}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <Select
+              label="Floor Level"
+              options={[
+                { value: 'Ground Floor', label: 'Ground Floor' },
+                { value: '1st Floor', label: '1st Floor' },
+                { value: '2nd Floor', label: '2nd Floor' },
+              ]}
+              value={newRoomForm.floor}
+              onChange={(val) => setNewRoomForm({ ...newRoomForm, floor: val })}
+            />
+            <Select
+              label="Room Type"
+              options={[
+                { value: 'QUAD_4BED', label: 'Standard 4-Bed Quad' },
+                { value: 'DOUBLE_2BED', label: 'Double Room (2-Bed)' },
+                { value: 'SINGLE_EXEC', label: 'Executive Single' },
+              ]}
+              value={newRoomForm.roomType}
+              onChange={(val) => {
+                const cap = val === 'QUAD_4BED' ? 4 : val === 'DOUBLE_2BED' ? 2 : 1;
+                setNewRoomForm({ ...newRoomForm, roomType: val as any, capacity: cap });
+              }}
+            />
+            <Input
+              label="Bed Capacity"
+              type="number"
+              value={String(newRoomForm.capacity)}
+              onChange={(e) => setNewRoomForm({ ...newRoomForm, capacity: Number(e.target.value) || 1 })}
+              required
+            />
+          </div>
+
+          <div>
+            <Input
+              label="Key Amenities (Comma-separated)"
+              placeholder="e.g. 24/7 Solar Inverter, Ensuite Bathroom, Study Carrel"
+              value={newRoomForm.amenities}
+              onChange={(e) => setNewRoomForm({ ...newRoomForm, amenities: e.target.value })}
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-200">
+            <Button variant="secondary" onClick={() => setIsAddRoomOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" className="bg-[#0F7640] hover:bg-[#093322]">
+              Create Room
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* ─── MODAL: EDIT HOSTEL ROOM ─── */}
+      <Modal
+        isOpen={isEditRoomOpen && !!editingRoom}
+        onClose={() => {
+          setIsEditRoomOpen(false);
+          setEditingRoom(null);
+        }}
+        title={`Edit Room: ${editingRoom?.roomCode || ''}`}
+        description="Update room capacity, floor level, standard, or repair status."
+        size="md"
+      >
+        {editingRoom && (
+          <form onSubmit={handleUpdateRoom} className="space-y-4 text-xs font-sans">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                label="Room Code"
+                value={editingRoom.roomCode}
+                onChange={(e) => setEditingRoom({ ...editingRoom, roomCode: e.target.value })}
+                required
+              />
+              <Select
+                label="Floor Level"
+                options={[
+                  { value: 'Ground Floor', label: 'Ground Floor' },
+                  { value: '1st Floor', label: '1st Floor' },
+                  { value: '2nd Floor', label: '2nd Floor' },
+                ]}
+                value={editingRoom.floor}
+                onChange={(val) => setEditingRoom({ ...editingRoom, floor: val })}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Select
+                label="Operational Status"
+                options={[
+                  { value: 'AVAILABLE', label: 'Available for Allocation' },
+                  { value: 'FULL', label: 'Full (At Capacity)' },
+                  { value: 'UNDER_MAINTENANCE', label: 'Under Repair / Maintenance' },
+                ]}
+                value={editingRoom.status}
+                onChange={(val) => setEditingRoom({ ...editingRoom, status: val as any })}
+              />
+              <Input
+                label="Total Capacity"
+                type="number"
+                value={String(editingRoom.capacity)}
+                onChange={(e) => setEditingRoom({ ...editingRoom, capacity: Number(e.target.value) || 1 })}
+                required
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-200">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setIsEditRoomOpen(false);
+                  setEditingRoom(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" className="bg-[#0F7640] hover:bg-[#093322]">
+                Save Changes
+              </Button>
+            </div>
+          </form>
+        )}
+      </Modal>
+
+      {/* ─── MODAL: DELETE ROOM CONFIRMATION ─── */}
+      <Modal
+        isOpen={isDeleteRoomOpen && !!deleteRoomTarget}
+        onClose={() => {
+          setIsDeleteRoomOpen(false);
+          setDeleteRoomTarget(null);
+        }}
+        title="Remove Hostel Room"
+        description="Are you sure you want to remove this room from the hostel directory?"
+        size="sm"
+      >
+        <div className="space-y-4 text-xs font-sans">
+          <p className="text-slate-600">
+            Deleting room <span className="font-bold text-slate-900">{deleteRoomTarget?.roomCode}</span> in{' '}
+            <span className="font-semibold text-slate-800">{deleteRoomTarget?.blockName}</span> will permanently remove it from the college hostel inventory.
+          </p>
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setIsDeleteRoomOpen(false);
+                setDeleteRoomTarget(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeleteRoom}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Confirm Delete
             </Button>
           </div>
         </div>

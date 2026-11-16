@@ -61,7 +61,7 @@ export const Modal: React.FC<ModalProps> = ({
   // Render via portal directly to document.body so the modal & blur cover the entire screen 100%
   const modalContent = (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-slate-900/40 backdrop-blur-[3px] overflow-y-auto transition-all duration-200"
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-md overflow-y-auto transition-all duration-200"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
@@ -71,7 +71,7 @@ export const Modal: React.FC<ModalProps> = ({
     >
       <div
         ref={modalRef}
-        className={`relative w-full ${sizeClasses} rounded-[4px] bg-white shadow-2xl border border-slate-200/90 flex flex-col max-h-[92vh] my-auto animate-in fade-in zoom-in-95 duration-150`}
+        className={`relative w-full ${sizeClasses} rounded-[4px] bg-white shadow-sm border border-slate-200/90 flex flex-col max-h-[92vh] my-auto animate-in fade-in zoom-in-95 duration-150`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}

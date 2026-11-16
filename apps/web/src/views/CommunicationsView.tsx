@@ -10,6 +10,7 @@ import {
   Tabs,
   Modal,
   Select,
+  Input,
 } from '@campusone/ui';
 import {
   MessageSquare,
@@ -108,8 +109,9 @@ export interface NotificationTrigger {
 export const CommunicationsView: React.FC = () => {
   const { tab } = useParams<{ tab?: string }>();
   const navigate = useNavigate();
-  const { session, isDense, recordAudit } = useApp();
+  const { session, isDense, recordAudit, schoolProfile, addNotification } = useApp();
   const isStaff = session.activeRole !== 'STU' && session.activeRole !== 'SPON';
+  const isStudent = !isStaff;
   const { showToast } = useToast();
 
   /* ─── TAB ROUTING STATE ─── */
@@ -140,7 +142,7 @@ export const CommunicationsView: React.FC = () => {
     {
       id: 'bat-02',
       batchRef: 'BCST-2026-0088',
-      title: 'Harmattan Semester Exam Docket Collection',
+      title: 'Semester Exam Docket Collection',
       channel: 'SMS_AND_INAPP',
       audience: 'CHEW_200L',
       recipientCount: 124,
@@ -182,7 +184,7 @@ export const CommunicationsView: React.FC = () => {
     {
       id: 'not-01',
       memoRef: 'BCHT/CIR/2026/044',
-      title: 'Harmattan Semester Clinical Hospital Posting Protocols & Fee Clearance Gate',
+      title: 'Clinical Hospital Posting Protocols & Fee Clearance Gate',
       priority: 'STATUTORY_DIRECTIVE',
       category: 'Clinical Posting',
       targetAudience: 'All 200L & 300L Clinical Trainees (CHEW, MLT, Pharmacy Tech)',
@@ -221,7 +223,7 @@ export const CommunicationsView: React.FC = () => {
     {
       id: 'not-04',
       memoRef: 'BCHT/CIR/2026/041',
-      title: 'Harmattan Semester Fee Installment Window Deadlines',
+      title: 'Semester Fee Installment Window Deadlines',
       priority: 'GENERAL_MEMO',
       category: 'Bursary',
       targetAudience: 'All Students & Registered Sponsors',
@@ -316,7 +318,7 @@ export const CommunicationsView: React.FC = () => {
       description: 'Automatically triggers instant official receipt notification to student and registered sponsor when online or bank settlement clears.',
       channels: ['SMS', 'Email', 'In-App Portal'],
       active: true,
-      templatePreview: 'Bethsaida CHT: Payment of ₦{amount} received for {matricNo}. Receipt: {receiptNo}. View at portal.bethsaida.edu.ng.',
+      templatePreview: 'Bethsaida CHT: Payment of ₦{amount} received for {matricNo}. Receipt: {receiptNo}. View at portal.becohtech.edu.ng.',
       lastTriggered: '10 mins ago',
       lifetimeCount: 1420,
     },
@@ -327,7 +329,7 @@ export const CommunicationsView: React.FC = () => {
       description: 'Notifies trainee when attendance threshold (≥75%) and bursary fee requirements are confirmed, unlocking the printable examination docket.',
       channels: ['SMS', 'In-App Portal'],
       active: true,
-      templatePreview: 'Bethsaida CHT: Congratulations {name}! Your examination docket for Harmattan 2026/2027 is cleared. Print your docket now.',
+      templatePreview: 'Official College Alert: Congratulations {name}! Your examination docket is cleared. Print your docket now from your student portal.',
       lastTriggered: '2 hours ago',
       lifetimeCount: 890,
     },
@@ -367,11 +369,11 @@ export const CommunicationsView: React.FC = () => {
   ]);
 
   /* ─── COMPOSER FORM STATES ─── */
-  const [broadcastTitle, setBroadcastTitle] = useState('Harmattan Semester Academic Notice');
+  const [broadcastTitle, setBroadcastTitle] = useState('Official College Academic Notice');
   const [targetAudience, setTargetAudience] = useState<AudienceType>('ALL_STUDENTS');
   const [deliveryChannel, setDeliveryChannel] = useState<ChannelType>('SMS_AND_INAPP');
   const [messageText, setMessageText] = useState(
-    'Bethsaida CHT: Notice to all students. Harmattan semester clinical posting allocations and examination clearance schedules are now published on the portal. Registrar.'
+    'College Notice: All students are advised that clinical posting allocations and examination clearance schedules are now published on the student portal. Office of the Registrar.'
   );
 
   /* ─── SEARCH & FILTER STATES ─── */
@@ -383,6 +385,10 @@ export const CommunicationsView: React.FC = () => {
   /* ─── MODAL STATES ─── */
   const [isNewNoticeModalOpen, setIsNewNoticeModalOpen] = useState(false);
   const [selectedNoticeForView, setSelectedNoticeForView] = useState<OfficialNotice | null>(null);
+  const [editingNotice, setEditingNotice] = useState<OfficialNotice | null>(null);
+  const [isEditNoticeOpen, setIsEditNoticeOpen] = useState(false);
+  const [deletingNotice, setDeletingNotice] = useState<OfficialNotice | null>(null);
+  const [isDeleteNoticeOpen, setIsDeleteNoticeOpen] = useState(false);
 
   /* ─── FORM STATES: NEW NOTICE ─── */
   const [newNoticeTitle, setNewNoticeTitle] = useState('');
@@ -512,6 +518,15 @@ export const CommunicationsView: React.FC = () => {
 
     setNotices((prev) => [newNotice, ...prev]);
     recordAudit('OFFICIAL_NOTICE_PUBLISHED', 'ACADEMIC_CIRCULAR', newNotice.memoRef);
+    if (addNotification) {
+      addNotification({
+        collegeId: 'bethsaida',
+        title: `Circular: ${newNotice.title}`,
+        desc: newNotice.bodyContent,
+        type: 'info',
+        link: '/communications?tab=notices',
+      });
+    }
     showToast({
       type: 'success',
       title: 'Notice Published to Portal',
@@ -520,6 +535,45 @@ export const CommunicationsView: React.FC = () => {
     setIsNewNoticeModalOpen(false);
     setNewNoticeTitle('');
     setNewNoticeBody('');
+  };
+
+  const handleSaveEditNotice = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingNotice) return;
+    setNotices((prev) =>
+      prev.map((n) => (n.id === editingNotice.id ? { ...editingNotice } : n))
+    );
+    if (selectedNoticeForView?.id === editingNotice.id) {
+      setSelectedNoticeForView({ ...editingNotice });
+    }
+    recordAudit('CIRCULAR_NOTICE_UPDATED', 'COMMUNICATION_DISPATCH', editingNotice.memoRef, {
+      title: editingNotice.title,
+    });
+    setIsEditNoticeOpen(false);
+    setEditingNotice(null);
+    showToast({
+      type: 'success',
+      title: 'Circular Updated',
+      message: `Notice "${editingNotice.title}" has been updated.`,
+    });
+  };
+
+  const handleConfirmDeleteNotice = () => {
+    if (!deletingNotice) return;
+    setNotices((prev) => prev.filter((n) => n.id !== deletingNotice.id));
+    if (selectedNoticeForView?.id === deletingNotice.id) {
+      setSelectedNoticeForView(null);
+    }
+    recordAudit('CIRCULAR_NOTICE_ARCHIVED', 'COMMUNICATION_DISPATCH', deletingNotice.memoRef, {
+      title: deletingNotice.title,
+    });
+    setIsDeleteNoticeOpen(false);
+    setDeletingNotice(null);
+    showToast({
+      type: 'info',
+      title: 'Circular Archived',
+      message: `Notice "${deletingNotice.title}" has been archived.`,
+    });
   };
 
   const handleToggleTrigger = (triggerId: string) => {
@@ -653,19 +707,44 @@ export const CommunicationsView: React.FC = () => {
     },
     {
       key: 'action',
-      header: 'Read Notice',
+      header: 'Actions',
       align: 'right' as const,
       nowrap: true,
       render: (n: OfficialNotice) => (
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={() => setSelectedNoticeForView(n)}
-          leftIcon={<Eye className="w-3.5 h-3.5" />}
-          className="whitespace-nowrap"
-        >
-          View Circular
-        </Button>
+        <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setSelectedNoticeForView(n)}
+            leftIcon={<Eye className="w-3.5 h-3.5" />}
+          >
+            View
+          </Button>
+          {!isStudent && (
+            <>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  setEditingNotice({ ...n });
+                  setIsEditNoticeOpen(true);
+                }}
+              >
+                Edit
+              </Button>
+              <Button
+                size="sm"
+                variant="danger"
+                onClick={() => {
+                  setDeletingNotice(n);
+                  setIsDeleteNoticeOpen(true);
+                }}
+              >
+                Archive
+              </Button>
+            </>
+          )}
+        </div>
       ),
     },
   ];
@@ -791,7 +870,7 @@ export const CommunicationsView: React.FC = () => {
           <p className="text-xs text-slate-500 mt-0.5">
             {isStaff
               ? 'Bulk SMS (Termii SPI) • Transactional Email • Official Digital Noticeboard • Automated Event Triggers'
-              : 'Official Institutional Circulars, Memoranda & Academic Directives'}
+              : 'Official College Circulars, Memoranda & Academic Directives'}
           </p>
         </div>
         {isStaff && (
@@ -849,7 +928,7 @@ export const CommunicationsView: React.FC = () => {
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
               {isStaff ? 'SMS Delivery Rate' : 'Pinned Directives'}
             </span>
-            <div className="w-8 h-8 rounded-[4px] bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center shrink-0">
               <CheckCircle2 className="w-4 h-4" />
             </div>
           </div>
@@ -881,7 +960,7 @@ export const CommunicationsView: React.FC = () => {
             <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
               <span className="text-[#13A348] font-semibold">{isStaff ? '35,625 Units' : 'Official seal'}</span>
               <span className="text-slate-300">•</span>
-              <span className="text-[11px] text-slate-400">{isStaff ? 'BETHSAIDA Sender ID' : 'Cryptographic log'}</span>
+              <span className="text-[11px] text-slate-400">{isStaff ? 'BETHSAIDA Sender ID' : 'Verified circular'}</span>
             </div>
           </div>
         </div>
@@ -925,7 +1004,7 @@ export const CommunicationsView: React.FC = () => {
       />
 
       {/* ─── TAB 1: BROADCAST DISPATCH ─── */}
-      {activeTab === 'broadcasts' && (
+      {isStaff && activeTab === 'broadcasts' && (
         <div className="space-y-6">
           {/* Top Form: Compose & Dispatch */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -933,7 +1012,7 @@ export const CommunicationsView: React.FC = () => {
               <Card
                 header={
                   <span className="text-xs font-semibold text-slate-900 uppercase tracking-wider">
-                    Compose Targeted Institutional Broadcast
+                    Compose Targeted College Broadcast
                   </span>
                 }
               >
@@ -985,7 +1064,7 @@ export const CommunicationsView: React.FC = () => {
 
                   <div className="space-y-1.5">
                     <label className="font-bold text-slate-900 block">
-                      Message Content (Plain Institutional Text • No Emojis):
+                      Message Content (Official Text • No Emojis):
                     </label>
                     <textarea
                       rows={4}
@@ -1116,7 +1195,7 @@ export const CommunicationsView: React.FC = () => {
       )}
 
       {/* ─── TAB 3: DELIVERY LOGS ─── */}
-      {activeTab === 'logs' && (
+      {isStaff && activeTab === 'logs' && (
         <Card>
           <Table
             columns={logColumns}
@@ -1145,7 +1224,7 @@ export const CommunicationsView: React.FC = () => {
       )}
 
       {/* ─── TAB 4: AUTOMATED EVENT TRIGGERS ─── */}
-      {activeTab === 'triggers' && (
+      {isStaff && activeTab === 'triggers' && (
         <Card>
           <Table
             columns={triggerColumns}
@@ -1179,7 +1258,7 @@ export const CommunicationsView: React.FC = () => {
               type="text"
               value={newNoticeTitle}
               onChange={(e) => setNewNoticeTitle(e.target.value)}
-              placeholder="e.g. Schedule of Harmattan Semester Mock Council Examinations"
+              placeholder="e.g. Schedule of Upcoming Statutory Council Examinations"
               className="w-full h-9 px-3 text-xs bg-white border border-slate-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
             />
           </div>
@@ -1259,14 +1338,19 @@ export const CommunicationsView: React.FC = () => {
             <div className="border border-slate-200 p-6 rounded-[4px] bg-white relative">
               {/* Header Letterhead */}
               <div className="text-center pb-4 border-b border-slate-200">
-                <div className="w-12 h-12 mx-auto mb-2 rounded-[4px] bg-[#0F7640] text-white flex items-center justify-center font-bold text-sm shadow-sm">
-                  BCHT
-                </div>
+                <img
+                  src={schoolProfile?.logoUrl || '/BeonTech-Logo.png'}
+                  alt="College Crest"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/BeonTech-Logo.png';
+                  }}
+                  className="w-12 h-12 mx-auto mb-2 object-contain"
+                />
                 <h2 className="text-base font-bold text-slate-900 tracking-wide uppercase">
-                  Bethsaida College of Health Technology
+                  {schoolProfile?.institutionName || 'Bethsaida College of Health Technology'}
                 </h2>
                 <p className="text-[11px] text-slate-500">
-                  Office of the Registrar & Academic Secretary • Moniya, Ibadan, Oyo State, Nigeria
+                  Office of the Registrar & Academic Secretary • {schoolProfile?.campusAddress || 'Ogbomoso, Oyo State, Nigeria'}
                 </p>
                 <div className="mt-2 inline-block px-3 py-1 bg-emerald-50 rounded-[4px] text-xs font-bold text-[#0F7640] border border-emerald-200 uppercase">
                   OFFICIAL ADMINISTRATIVE CIRCULAR
@@ -1322,6 +1406,28 @@ export const CommunicationsView: React.FC = () => {
               <Button variant="secondary" onClick={() => setSelectedNoticeForView(null)}>
                 Close
               </Button>
+              {!isStudent && (
+                <>
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setEditingNotice({ ...selectedNoticeForView });
+                      setIsEditNoticeOpen(true);
+                    }}
+                  >
+                    Edit Memo
+                  </Button>
+                  <Button
+                    variant="danger"
+                    onClick={() => {
+                      setDeletingNotice(selectedNoticeForView);
+                      setIsDeleteNoticeOpen(true);
+                    }}
+                  >
+                    Archive
+                  </Button>
+                </>
+              )}
               <Button
                 onClick={() => window.print()}
                 leftIcon={<Printer className="w-3.5 h-3.5" />}
@@ -1333,6 +1439,140 @@ export const CommunicationsView: React.FC = () => {
           </div>
         )}
       </Modal>
+
+      {/* ─── MODAL 3: EDIT ADMINISTRATIVE CIRCULAR ─── */}
+      {editingNotice && (
+        <Modal
+          isOpen={isEditNoticeOpen}
+          onClose={() => {
+            setIsEditNoticeOpen(false);
+            setEditingNotice(null);
+          }}
+          title="Edit Administrative Circular"
+          description={`Update notice details for reference ${editingNotice.memoRef}.`}
+          size="lg"
+        >
+          <form onSubmit={handleSaveEditNotice} className="space-y-4 text-xs font-sans">
+            <Input
+              label="Circular Subject / Directive"
+              value={editingNotice.title}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setEditingNotice({ ...editingNotice, title: e.target.value })
+              }
+              required
+            />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Select
+                label="Priority Classification"
+                options={[
+                  { value: 'URGENT', label: 'Urgent Directive' },
+                  { value: 'IMPORTANT', label: 'Important Notice' },
+                  { value: 'GENERAL_MEMO', label: 'General Announcement' },
+                  { value: 'EMERGENCY_CLOSURE', label: 'Emergency Bulletin' },
+                ]}
+                value={editingNotice.priority}
+                onChange={(val) =>
+                  setEditingNotice({ ...editingNotice, priority: val as NoticePriority })
+                }
+              />
+
+              <Select
+                label="Notice Category"
+                options={[
+                  { value: 'Academic', label: 'Academic Affairs' },
+                  { value: 'Clinical Posting', label: 'Clinical Postings' },
+                  { value: 'Bursary', label: 'Bursary & Fees' },
+                  { value: 'Holidays & Resumption', label: 'Holidays & Resumption' },
+                  { value: 'General', label: 'General Administration' },
+                ]}
+                value={editingNotice.category}
+                onChange={(val) =>
+                  setEditingNotice({ ...editingNotice, category: val as any })
+                }
+              />
+            </div>
+
+            <Input
+              label="Target Audience Scope"
+              value={editingNotice.targetAudience}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setEditingNotice({ ...editingNotice, targetAudience: e.target.value })
+              }
+              required
+            />
+
+            <div className="space-y-1">
+              <label className="font-semibold text-slate-800 block text-xs">
+                Official Circular Body Text:
+              </label>
+              <textarea
+                rows={5}
+                value={editingNotice.bodyContent}
+                onChange={(e) =>
+                  setEditingNotice({ ...editingNotice, bodyContent: e.target.value })
+                }
+                className="w-full p-3 text-xs bg-white border border-slate-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640] font-sans resize-y"
+                required
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+              <Button
+                variant="secondary"
+                type="button"
+                onClick={() => {
+                  setIsEditNoticeOpen(false);
+                  setEditingNotice(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" className="bg-[#0F7640] hover:bg-[#093322]">
+                Save Changes
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* ─── MODAL 4: ARCHIVE CIRCULAR CONFIRMATION ─── */}
+      {deletingNotice && (
+        <Modal
+          isOpen={isDeleteNoticeOpen}
+          onClose={() => {
+            setIsDeleteNoticeOpen(false);
+            setDeletingNotice(null);
+          }}
+          title="Archive Circular Notice"
+          description={`Are you sure you want to archive circular memo ${deletingNotice.memoRef}?`}
+          size="sm"
+        >
+          <div className="space-y-3 text-xs text-slate-700 font-sans">
+            <p className="font-bold text-slate-900">{deletingNotice.title}</p>
+            <p>
+              This circular notice will be retracted from bulletin boards and student/faculty view.
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setIsDeleteNoticeOpen(false);
+                  setDeletingNotice(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                onClick={handleConfirmDeleteNotice}
+              >
+                Confirm Archive
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };

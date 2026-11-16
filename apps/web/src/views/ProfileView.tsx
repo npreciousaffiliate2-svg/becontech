@@ -6,6 +6,7 @@ import {
   Input,
   Tabs,
   Badge,
+  Checkbox,
   useToast,
 } from '@campusone/ui';
 import {
@@ -25,6 +26,7 @@ import {
   Check,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase.ts';
+import { optimizeImage } from '../utils/imageOptimizer.ts';
 
 export const ProfileView: React.FC = () => {
   const { session, persona, updateProfile, recordAudit } = useApp();
@@ -36,7 +38,7 @@ export const ProfileView: React.FC = () => {
   const [fullName, setFullName] = useState(persona.fullName || session.fullName || '');
   const [phone, setPhone] = useState(persona.phone || '+234 803 123 4567');
   const [address, setAddress] = useState(
-    persona.address || 'Bethsaida Campus Residential Quarters, Moniya, Ibadan'
+    persona.address || 'Bethsaida Campus Residential Quarters, Ogbomoso, Oyo State'
   );
   const [emergencyContact, setEmergencyContact] = useState(
     persona.emergencyContact || 'Mrs. Funke Balogun (Spouse) — +234 802 334 5566'
@@ -67,7 +69,7 @@ export const ProfileView: React.FC = () => {
   useEffect(() => {
     setFullName(persona.fullName || session.fullName || '');
     setPhone(persona.phone || '+234 803 123 4567');
-    setAddress(persona.address || 'Bethsaida Campus Residential Quarters, Moniya, Ibadan');
+    setAddress(persona.address || 'Bethsaida Campus Residential Quarters, Ogbomoso, Oyo State');
     setEmergencyContact(
       persona.emergencyContact || 'Mrs. Funke Balogun (Spouse) — +234 802 334 5566'
     );
@@ -75,7 +77,7 @@ export const ProfileView: React.FC = () => {
     setAvatarPreview(persona.avatarUrl || null);
   }, [persona, session]);
 
-  /* ─── PHOTO UPLOAD HANDLER ─── */
+  /* ─── PHOTO UPLOAD HANDLER (Client-side Compression & Optimization) ─── */
   const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -89,60 +91,52 @@ export const ProfileView: React.FC = () => {
       return;
     }
 
-    if (file.size > 2 * 1024 * 1024) {
-      showToast({
-        type: 'danger',
-        title: 'File Too Large',
-        message: 'Photo size must be 2MB or less.',
-      });
-      return;
-    }
-
     setIsUploading(true);
 
     try {
-      // 1. Convert to data URL for instant reactive display
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const dataUrl = event.target?.result as string;
-        setAvatarPreview(dataUrl);
+      // 1. Optimize image client-side (downscale to max 512x512, encode to WebP, 0.82 quality)
+      const optimized = await optimizeImage(file, { maxWidth: 512, maxHeight: 512, quality: 0.82 });
+      setAvatarPreview(optimized.dataUrl);
 
-        // 2. Upload to Supabase Storage bucket 'avatars' if available
-        const fileExt = file.name.split('.').pop();
-        const filePath = `${session.userId}-${Date.now()}.${fileExt}`;
-        
-        let finalUrl = dataUrl;
-        const { data: uploadData, error: uploadErr } = await supabase.storage
-          .from('avatars')
-          .upload(filePath, file, { upsert: true });
+      // 2. Upload optimized WebP file to Supabase Storage bucket 'avatars'
+      const filePath = `${session.userId}-${Date.now()}.webp`;
+      let finalUrl = optimized.dataUrl;
 
-        if (!uploadErr && uploadData) {
-          const { data: publicUrlData } = supabase.storage
-            .from('avatars')
-            .getPublicUrl(filePath);
-          if (publicUrlData?.publicUrl) {
-            finalUrl = publicUrlData.publicUrl;
-          }
-        }
-
-        // 3. Persist to database profiles table
-        await updateProfile({ avatarUrl: finalUrl });
-        recordAudit('USER_AVATAR_UPDATED', 'USER_PROFILE', session.userId);
-
-        showToast({
-          type: 'success',
-          title: 'Photo Updated',
-          message: 'Your profile picture has been saved.',
+      const { data: uploadData, error: uploadErr } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, optimized.file, {
+          contentType: 'image/webp',
+          upsert: true,
         });
-        setIsUploading(false);
-      };
-      reader.readAsDataURL(file);
+
+      if (!uploadErr && uploadData) {
+        const { data: publicUrlData } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(filePath);
+        if (publicUrlData?.publicUrl) {
+          finalUrl = publicUrlData.publicUrl;
+        }
+      }
+
+      // 3. Persist to profiles table (remote Supabase + local cache)
+      await updateProfile({ avatarUrl: finalUrl });
+      recordAudit('USER_AVATAR_UPDATED', 'USER_PROFILE', session.userId, {
+        compressionRatio: optimized.compressionRatio,
+        optimizedSize: `${Math.round(optimized.optimizedSizeBytes / 1024)} KB`,
+      });
+
+      showToast({
+        type: 'success',
+        title: 'Photo Optimized & Saved',
+        message: `Your profile picture was optimized (${optimized.compressionRatio}) and saved.`,
+      });
+      setIsUploading(false);
     } catch (err: any) {
       setIsUploading(false);
       showToast({
         type: 'danger',
         title: 'Upload Failed',
-        message: err.message || 'Could not upload photo. Please try again.',
+        message: err?.message || 'Could not optimize and upload photo.',
       });
     }
   };
@@ -175,7 +169,7 @@ export const ProfileView: React.FC = () => {
       showToast({
         type: 'success',
         title: 'Profile Saved',
-        message: 'Your contact details have been successfully updated in the school database.',
+        message: 'Your contact details have been successfully updated in school records.',
       });
     } catch (err: any) {
       showToast({
@@ -223,7 +217,7 @@ export const ProfileView: React.FC = () => {
       showToast({
         type: 'success',
         title: 'Password Changed',
-        message: 'Your institutional account password was changed successfully.',
+        message: 'Your account password was changed successfully.',
       });
 
       setCurrentPassword('');
@@ -317,7 +311,7 @@ export const ProfileView: React.FC = () => {
                 <span className="font-bold text-slate-900">{fullName}</span>
               </div>
               <div>
-                <span className="text-slate-400 block text-[10px] uppercase font-semibold">Institutional Role</span>
+                <span className="text-slate-400 block text-[10px] uppercase font-semibold">Assigned Role</span>
                 <Badge variant="success" size="sm" className="mt-0.5">
                   {persona.scopeBadge || session.activeRole}
                 </Badge>
@@ -399,7 +393,7 @@ export const ProfileView: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-slate-700 font-semibold mb-1">
-                      Official Institutional Email
+                      College Email
                     </label>
                     <Input
                       value={session.email}
@@ -569,11 +563,9 @@ export const ProfileView: React.FC = () => {
                     <p className="font-bold text-slate-900">Email Notifications</p>
                     <p className="text-slate-500 text-[11px]">Receive admission notices, circulars, and course schedules.</p>
                   </div>
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={emailNotifications}
-                    onChange={(e) => setEmailNotifications(e.target.checked)}
-                    className="w-4 h-4 text-[#0F7640] rounded border-slate-300 focus:ring-[#0F7640]"
+                    onChange={(checked) => setEmailNotifications(checked)}
                   />
                 </div>
 
@@ -582,11 +574,9 @@ export const ProfileView: React.FC = () => {
                     <p className="font-bold text-slate-900">SMS Fee Payment Alerts</p>
                     <p className="text-slate-500 text-[11px]">Immediate SMS confirmation whenever a tuition payment is verified.</p>
                   </div>
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={smsNotifications}
-                    onChange={(e) => setSmsNotifications(e.target.checked)}
-                    className="w-4 h-4 text-[#0F7640] rounded border-slate-300 focus:ring-[#0F7640]"
+                    onChange={(checked) => setSmsNotifications(checked)}
                   />
                 </div>
 
@@ -595,11 +585,9 @@ export const ProfileView: React.FC = () => {
                     <p className="font-bold text-slate-900">Examination & Result Releases</p>
                     <p className="text-slate-500 text-[11px]">Alerts when semester broadsheets and exam results are published.</p>
                   </div>
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={examAlerts}
-                    onChange={(e) => setExamAlerts(e.target.checked)}
-                    className="w-4 h-4 text-[#0F7640] rounded border-slate-300 focus:ring-[#0F7640]"
+                    onChange={(checked) => setExamAlerts(checked)}
                   />
                 </div>
 

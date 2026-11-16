@@ -45,20 +45,20 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             success: <CheckCircle2 className="w-4 h-4 text-[#13A348] shrink-0" />,
             danger: <XCircle className="w-4 h-4 text-[#F83A20] shrink-0" />,
             warning: <AlertCircle className="w-4 h-4 text-[#FEC10A] shrink-0" />,
-            info: <Info className="w-4 h-4 text-[#0A77FE] shrink-0" />,
+            info: <Info className="w-4 h-4 text-[#0F7640] shrink-0" />,
           }[toast.type];
 
           const borderColors = {
             success: 'border-l-[#13A348]',
             danger: 'border-l-[#F83A20]',
             warning: 'border-l-[#FEC10A]',
-            info: 'border-l-[#0A77FE]',
+            info: 'border-l-[#0F7640]',
           }[toast.type];
 
           return (
             <div
               key={toast.id}
-              className={`pointer-events-auto rounded-[4px] border border-slate-200 border-l-4 ${borderColors} bg-white p-3 shadow-lg flex items-start gap-2.5 transition-all duration-200 animate-slide-up`}
+              className={`pointer-events-auto rounded-[4px] border border-slate-200 border-l-4 ${borderColors} bg-white p-3 shadow-sm flex items-start gap-2.5 transition-all duration-200 animate-slide-up`}
               role="alert"
             >
               {icon}

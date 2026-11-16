@@ -24,12 +24,13 @@ import { DepartmentsView } from './views/DepartmentsView.tsx';
 import { AnalyticsView } from './views/AnalyticsView.tsx';
 import { AdminView } from './views/AdminView.tsx';
 import { ProfileView } from './views/ProfileView.tsx';
+import { SupportView } from './views/SupportView.tsx';
 
 export const App: React.FC = () => {
   return (
     <ToastProvider>
       <AppProvider>
-        <BrowserRouter>
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Routes>
             {/* Public Auth Routes */}
             <Route path="/login" element={<LoginView />} />
@@ -299,6 +300,22 @@ export const App: React.FC = () => {
                 element={
                   <ProtectedRoute path="/profile" moduleName="My Profile & Account">
                     <ProfileView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/support"
+                element={
+                  <ProtectedRoute path="/support" moduleName="Help Desk & Support">
+                    <SupportView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/support/:tab"
+                element={
+                  <ProtectedRoute path="/support" moduleName="Help Desk & Support">
+                    <SupportView />
                   </ProtectedRoute>
                 }
               />

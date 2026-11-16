@@ -33,7 +33,7 @@ export const Tabs: React.FC<TabsProps> = ({ tabs, activeTab, onChange, className
             {tab.badge !== undefined && (
               <span
                 className={`px-1.5 py-0.2 rounded-[4px] text-[10px] ${
-                  isActive ? 'bg-blue-50 text-[#0A77FE]' : 'bg-slate-300/60 text-slate-700'
+                  isActive ? 'bg-emerald-50 text-[#0F7640]' : 'bg-slate-300/60 text-slate-700'
                 }`}
               >
                 {tab.badge}

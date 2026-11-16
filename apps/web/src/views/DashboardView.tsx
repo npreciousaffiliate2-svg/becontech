@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext.tsx';
 import { PERSONA_PROFILES } from '../context/personas.ts';
 import {
@@ -28,10 +28,12 @@ import { Button, Badge, Card } from '@campusone/ui';
 import { useNavigate } from 'react-router-dom';
 
 export const DashboardView: React.FC = () => {
-  const { session, receipts } = useApp();
+  const { session, receipts, schoolProfile, departments } = useApp();
   const navigate = useNavigate();
 
   const [timeframe, setTimeframe] = useState<'30D' | '90D' | 'Session'>('30D');
+  const [hoveredBarIndex, setHoveredBarIndex] = useState<number | null>(null);
+  const [hoveredDeptIndex, setHoveredDeptIndex] = useState<number | null>(null);
 
   const activeRole = session?.activeRole || 'PROVOST';
   const currentPersona = PERSONA_PROFILES[activeRole] || PERSONA_PROFILES.PROVOST;
@@ -45,7 +47,7 @@ export const DashboardView: React.FC = () => {
       matricNumber: currentPersona.matricNumber || 'CHE/2026/0014',
       department: currentPersona.department || 'Community Health Extension (CHEW)',
       level: '200 Level',
-      session: '2026/2027 Harmattan Semester',
+      session: `${schoolProfile?.activeSession || '2026/2027'} ${schoolProfile?.activeSemester || 'Harmattan Semester'}`,
       status: 'Active Trainee (In Good Standing)',
       cgpa: 3.82,
       maxGpa: 4.00,
@@ -174,7 +176,7 @@ export const DashboardView: React.FC = () => {
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                 Tuition & Fees
               </span>
-              <div className="w-8 h-8 rounded bg-blue-50 text-blue-600 flex items-center justify-center">
+              <div className="w-8 h-8 rounded bg-emerald-50 text-[#0F7640] flex items-center justify-center">
                 <CreditCard className="w-4 h-4" />
               </div>
             </div>
@@ -317,7 +319,7 @@ export const DashboardView: React.FC = () => {
                   <h2 className="text-base font-bold text-slate-900">
                     My Registered Courses & Assessment Scores
                   </h2>
-                  <p className="text-xs text-slate-500">Harmattan 2026/2027 continuous assessment score tracking</p>
+                  <p className="text-xs text-slate-500">{schoolProfile?.activeSemester || "Harmattan"} continuous assessment score tracking</p>
                 </div>
                 <Button
                   variant="secondary"
@@ -616,60 +618,163 @@ export const DashboardView: React.FC = () => {
   }
 
   /* ──────────────────────────────────────────────────────────────────────────
-   * 3. INSTITUTIONAL EXECUTIVE DASHBOARD (PROVOST, BURSAR, REG, EXAM, HOD, SADMIN)
+   * 3. EXECUTIVE DASHBOARD (PROVOST, BURSAR, REG, EXAM, HOD, SADMIN)
    * ────────────────────────────────────────────────────────────────────────── */
-  const kpis = [
-    {
-      title: 'Active Students Enrolled',
-      value: '1,248',
-      trend: '+8.4% this year',
-      subtext: 'Across 5 health departments',
-      isPositive: true,
-      icon: <Users className="w-5 h-5 text-slate-400" />,
-    },
-    {
-      title: 'School Fees Collected',
-      value: '₦84.2M',
-      trend: '74% of target',
-      subtext: 'Target: ₦114M for session',
-      isPositive: true,
-      icon: <CreditCard className="w-5 h-5 text-slate-400" />,
-    },
-    {
-      title: 'Examination Pass Rate',
-      value: '88.4%',
-      trend: '+2.1% improvement',
-      subtext: 'Harmattan semester results',
-      isPositive: true,
-      icon: <GraduationCap className="w-5 h-5 text-slate-400" />,
-    },
-    {
-      title: 'Outstanding Fees',
-      value: '₦18.4M',
-      trend: '142 students',
-      subtext: 'Overdue installment payments',
-      isPositive: false,
-      icon: <AlertCircle className="w-5 h-5 text-slate-400" />,
-    },
-  ];
+  const kpis = useMemo(() => {
+    if (timeframe === '30D') {
+      return [
+        {
+          title: 'Active Students Enrolled',
+          value: '1,248',
+          trend: '98.2% attendance this month',
+          subtext: 'Across 5 health departments',
+          isPositive: true,
+          icon: <Users className="w-5 h-5 text-slate-400" />,
+        },
+        {
+          title: 'School Fees Collected',
+          value: '₦14.2M',
+          trend: '88 verified payments (30D)',
+          subtext: '+12.4% vs previous 30 days',
+          isPositive: true,
+          icon: <CreditCard className="w-5 h-5 text-slate-400" />,
+        },
+        {
+          title: 'Assessment Pass Rate',
+          value: '89.2%',
+          trend: '+2.4% CA test improvement',
+          subtext: 'Continuous Assessment Tests',
+          isPositive: true,
+          icon: <GraduationCap className="w-5 h-5 text-slate-400" />,
+        },
+        {
+          title: 'Outstanding Fees',
+          value: '₦18.4M',
+          trend: '142 students pending',
+          subtext: 'Current installment balances',
+          isPositive: false,
+          icon: <AlertCircle className="w-5 h-5 text-slate-400" />,
+        },
+      ];
+    }
+    if (timeframe === '90D') {
+      return [
+        {
+          title: 'Active Students Enrolled',
+          value: '1,248',
+          trend: '+8.4% quarterly growth',
+          subtext: 'Full-time trainees in session',
+          isPositive: true,
+          icon: <Users className="w-5 h-5 text-slate-400" />,
+        },
+        {
+          title: 'School Fees Collected',
+          value: '₦48.6M',
+          trend: '312 verified payments (90D)',
+          subtext: 'Quarterly bursary target reached',
+          isPositive: true,
+          icon: <CreditCard className="w-5 h-5 text-slate-400" />,
+        },
+        {
+          title: 'Examination Pass Rate',
+          value: '88.8%',
+          trend: 'Academic Senate verified',
+          subtext: 'Mid-semester performance average',
+          isPositive: true,
+          icon: <GraduationCap className="w-5 h-5 text-slate-400" />,
+        },
+        {
+          title: 'Outstanding Fees',
+          value: '₦18.4M',
+          trend: '142 students with balances',
+          subtext: 'Pre-exam docket clearance',
+          isPositive: false,
+          icon: <AlertCircle className="w-5 h-5 text-slate-400" />,
+        },
+      ];
+    }
+    // Session (Full Academic Session)
+    return [
+      {
+        title: 'Active Students Enrolled',
+        value: '1,248',
+        trend: '+8.4% this session',
+        subtext: 'Capacity: 1,400 across 5 depts',
+        isPositive: true,
+        icon: <Users className="w-5 h-5 text-slate-400" />,
+      },
+      {
+        title: 'School Fees Collected',
+        value: '₦84.2M',
+        trend: '74% of session target',
+        subtext: 'Target: ₦114M for session',
+        isPositive: true,
+        icon: <CreditCard className="w-5 h-5 text-slate-400" />,
+      },
+      {
+        title: 'Examination Pass Rate',
+        value: '88.4%',
+        trend: '+2.1% improvement',
+        subtext: `${schoolProfile?.activeSemester || 'Semester'} Senate results`,
+        isPositive: true,
+        icon: <GraduationCap className="w-5 h-5 text-slate-400" />,
+      },
+      {
+        title: 'Outstanding Fees',
+        value: '₦18.4M',
+        trend: '142 students in arrears',
+        subtext: 'Session uncollected receivables',
+        isPositive: false,
+        icon: <AlertCircle className="w-5 h-5 text-slate-400" />,
+      },
+    ];
+  }, [timeframe, schoolProfile]);
 
   const monthlyRevenue = [
-    { month: 'Jun', amount: 8.5, label: '₦8.5M' },
-    { month: 'Jul', amount: 14.2, label: '₦14.2M' },
-    { month: 'Aug', amount: 11.0, label: '₦11.0M' },
-    { month: 'Sep', amount: 22.4, label: '₦22.4M' },
-    { month: 'Oct', amount: 18.1, label: '₦18.1M' },
-    { month: 'Nov', amount: 10.0, label: '₦10.0M' },
+    { month: 'Jan', amount: 6.2, label: '₦6.2M', color: '#0F7640', fullName: 'January 2026', focus: 'Harmattan Tuition Installment' },
+    { month: 'Feb', amount: 7.8, label: '₦7.8M', color: '#13A348', fullName: 'February 2026', focus: 'Acceptance & Matriculation Dockets' },
+    { month: 'Mar', amount: 9.1, label: '₦9.1M', color: '#10B981', fullName: 'March 2026', focus: 'Course Registration & Lab Levy' },
+    { month: 'Apr', amount: 5.4, label: '₦5.4M', color: '#0D9488', fullName: 'April 2026', focus: 'Mid-Session Continuous Assessment' },
+    { month: 'May', amount: 8.0, label: '₦8.0M', color: '#0F7640', fullName: 'May 2026', focus: 'Clinical Hospital Posting Fees' },
+    { month: 'Jun', amount: 8.5, label: '₦8.5M', color: '#093322', fullName: 'June 2026', focus: 'Hospital Logbook Clearance' },
+    { month: 'Jul', amount: 14.2, label: '₦14.2M', color: '#0F7640', fullName: 'July 2026', focus: 'Rain Semester Examination Fees' },
+    { month: 'Aug', amount: 11.0, label: '₦11.0M', color: '#13A348', fullName: 'August 2026', focus: 'Regulatory Council Board Clearance' },
+    { month: 'Sep', amount: 22.4, label: '₦22.4M', color: '#FEC10A', fullName: 'September 2026', focus: 'Freshman Admissions & Influx' },
+    { month: 'Oct', amount: 18.1, label: '₦18.1M', color: '#F59E0B', fullName: 'October 2026', focus: 'Hostels & Clinical Practical Kits' },
+    { month: 'Nov', amount: 10.0, label: '₦10.0M', color: '#13A348', fullName: 'November 2026', focus: 'Returning Students Fee Clearance' },
+    { month: 'Dec', amount: 7.5, label: '₦7.5M', color: '#093322', fullName: 'December 2026', focus: 'Final Installment & Clearances' },
   ];
   const maxRevenue = 25;
 
-  const departmentEnrollment = [
-    { name: 'Community Health (CHEW)', count: 480, percentage: 38, color: 'bg-[#107C41]' },
-    { name: 'Medical Laboratory (MLT)', count: 320, percentage: 26, color: 'bg-[#13A348]' },
-    { name: 'Pharmacy Technician', count: 260, percentage: 21, color: 'bg-amber-500' },
-    { name: 'Health Information (HIM)', count: 120, percentage: 10, color: 'bg-teal-600' },
-    { name: 'Environmental Health', count: 68, percentage: 5, color: 'bg-slate-400' },
-  ];
+  const departmentEnrollment = useMemo(() => {
+    if (departments && departments.length > 0) {
+      const totalStudents = departments.reduce((acc, d) => acc + (d.studentsCount || 0), 0) || 1248;
+      const palette = [
+        'bg-[#0F7640]',
+        'bg-[#13A348]',
+        'bg-teal-600',
+        'bg-[#093322]',
+        'bg-amber-500',
+        'bg-emerald-700',
+        'bg-slate-600',
+      ];
+      return departments.map((d, idx) => ({
+        name: d.name.replace('Department of ', '').replace(' Department', ''),
+        count: d.studentsCount || 0,
+        percentage: Math.round(((d.studentsCount || 0) / totalStudents) * 100),
+        color: palette[idx % palette.length],
+      }));
+    }
+    return [
+      { name: 'Community Health', count: 380, percentage: 30, color: 'bg-[#0F7640]' },
+      { name: 'Pharmacy Technician', count: 230, percentage: 18, color: 'bg-[#13A348]' },
+      { name: 'Environmental Health', count: 198, percentage: 16, color: 'bg-teal-600' },
+      { name: 'Dental Health', count: 185, percentage: 15, color: 'bg-[#093322]' },
+      { name: 'Health Information (HIM)', count: 172, percentage: 14, color: 'bg-amber-500' },
+      { name: 'Health Technician', count: 145, percentage: 12, color: 'bg-emerald-700' },
+      { name: 'Health Assistant', count: 135, percentage: 11, color: 'bg-slate-600' },
+    ];
+  }, [departments]);
 
   const recentPayments = [
     {
@@ -720,10 +825,14 @@ export const DashboardView: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-            Institutional Overview
+            College Overview
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            2026/2027 Academic Session • Bethsaida College of Health Tech
+            {timeframe === '30D'
+              ? `Last 30 Days Activity • ${schoolProfile?.activeSession || '2026/2027'}`
+              : timeframe === '90D'
+              ? `Last 90 Days (Quarterly Assessment) • ${schoolProfile?.activeSession || '2026/2027'}`
+              : `${schoolProfile?.activeSession || '2026/2027'} Full Academic Session • Bethsaida College of Health Tech`}
           </p>
         </div>
 
@@ -789,7 +898,7 @@ export const DashboardView: React.FC = () => {
       {/* Primary Analytics Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left (2/3): Revenue & Fee Collections Bar Chart */}
-        <div className="lg:col-span-2 bg-white rounded-[4px] border border-slate-200 p-6 shadow-sm flex flex-col justify-between">
+        <div className="lg:col-span-2 bg-white rounded-[4px] border border-slate-200 p-6 shadow-sm flex flex-col justify-between hover:border-slate-300 transition-colors">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
             <div>
               <h2 className="text-base font-bold text-slate-900">
@@ -800,38 +909,78 @@ export const DashboardView: React.FC = () => {
               </p>
             </div>
             <div className="text-right">
-              <span className="text-lg font-extrabold text-[#13A348]">₦84,250,000</span>
-              <span className="text-xs text-slate-400 block">Total Collected to Date</span>
+              <span className="text-lg font-extrabold text-[#13A348] font-sans">
+                {timeframe === '30D' ? '₦14,250,000' : timeframe === '90D' ? '₦50,500,000' : '₦128,500,000'}
+              </span>
+              <span className="text-xs text-slate-400 block font-sans">
+                {timeframe === '30D' ? 'Collected in Last 30 Days' : timeframe === '90D' ? 'Collected in Last 90 Days' : 'Session Total to Date'}
+              </span>
             </div>
           </div>
 
-          <div className="pt-6">
-            <div className="h-56 w-full flex items-end gap-3 sm:gap-6 border-b border-slate-200 pb-2">
+          <div className="h-10 mt-4 flex items-center justify-between gap-3 rounded-[4px] border border-slate-200 bg-slate-50 px-3 text-xs">
+            {hoveredBarIndex !== null ? (
+              <>
+                <div className="flex items-center gap-2 min-w-0">
+                  <span
+                    className="w-2.5 h-2.5 rounded-[2px] shrink-0"
+                    style={{ backgroundColor: monthlyRevenue[hoveredBarIndex].color }}
+                  />
+                  <span className="font-semibold text-slate-900 truncate">
+                    {monthlyRevenue[hoveredBarIndex].fullName}
+                  </span>
+                  <span className="text-slate-500 truncate hidden sm:inline">
+                    {monthlyRevenue[hoveredBarIndex].focus}
+                  </span>
+                </div>
+                <span className="font-bold text-[#0F7640] shrink-0">
+                  {monthlyRevenue[hoveredBarIndex].label}
+                </span>
+              </>
+            ) : (
+              <span className="text-slate-500">Point at a month to read that collection.</span>
+            )}
+          </div>
+
+          <div className="pt-4">
+            <div className="h-52 w-full flex items-end gap-1.5 sm:gap-2 border-b border-slate-200">
               {monthlyRevenue.map((bar, i) => {
                 const heightPercent = Math.round((bar.amount / maxRevenue) * 100);
+                const isHovered = hoveredBarIndex === i;
+                const isBarActive =
+                  timeframe === 'Session' ||
+                  (timeframe === '30D' && bar.month === 'Nov') ||
+                  (timeframe === '90D' && ['Sep', 'Oct', 'Nov'].includes(bar.month));
+
                 return (
-                  <div key={i} className="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
-                    <span className="text-xs font-bold text-slate-700 opacity-90 group-hover:text-[#107C41] transition-colors">
-                      {bar.label}
+                  <div
+                    key={bar.month}
+                    className="flex-1 min-w-0 h-full flex flex-col justify-end cursor-pointer"
+                    onMouseEnter={() => setHoveredBarIndex(i)}
+                    onMouseLeave={() => setHoveredBarIndex(null)}
+                  >
+                    <div className="flex-1 flex items-end">
+                      <div
+                        style={{
+                          height: `${heightPercent}%`,
+                          backgroundColor: bar.color,
+                          opacity: isHovered || isBarActive ? 1 : 0.45,
+                        }}
+                        className="w-full rounded-t-[4px]"
+                      />
+                    </div>
+                    <span className={`block text-center text-[10px] sm:text-[11px] pt-1.5 truncate ${isHovered ? 'font-bold text-slate-900' : 'font-medium text-slate-500'}`}>
+                      {bar.month}
                     </span>
-                    <div
-                      style={{ height: `${heightPercent}%` }}
-                      className="w-full bg-[#107C41] hover:bg-[#093322] rounded-[4px] transition-all duration-200 shadow-sm"
-                    />
-                    <span className="text-xs font-semibold text-slate-600">{bar.month}</span>
                   </div>
                 );
               })}
-            </div>
-            <div className="flex justify-between items-center text-xs text-slate-400 pt-2">
-              <span>June 2026</span>
-              <span>November 2026 (Harmattan Peak)</span>
             </div>
           </div>
         </div>
 
         {/* Right (1/3): Student Enrollment by Department */}
-        <div className="bg-white rounded-[4px] border border-slate-200 p-6 shadow-sm flex flex-col justify-between">
+        <div className="bg-white rounded-[4px] border border-slate-200 p-6 shadow-sm flex flex-col justify-between hover:border-slate-300 transition-colors">
           <div>
             <div className="border-b border-slate-100 pb-4">
               <h2 className="text-base font-bold text-slate-900">
@@ -842,21 +991,29 @@ export const DashboardView: React.FC = () => {
               </p>
             </div>
 
-            <div className="space-y-4 pt-4">
-              {departmentEnrollment.map((dept, i) => (
-                <div key={i} className="space-y-1.5">
-                  <div className="flex justify-between text-xs">
-                    <span className="font-semibold text-slate-800">{dept.name}</span>
-                    <span className="font-bold text-slate-900">{dept.count} students</span>
+            <div className="space-y-3 pt-4">
+              {departmentEnrollment.map((dept, i) => {
+                const isDeptHovered = hoveredDeptIndex === i;
+                return (
+                  <div
+                    key={dept.name}
+                    className={`rounded-[4px] px-2 py-1.5 -mx-2 ${isDeptHovered ? 'bg-slate-50' : ''}`}
+                    onMouseEnter={() => setHoveredDeptIndex(i)}
+                    onMouseLeave={() => setHoveredDeptIndex(null)}
+                  >
+                    <div className="flex items-baseline justify-between gap-3 text-xs mb-1.5">
+                      <span className="font-semibold text-slate-800 truncate">{dept.name}</span>
+                      <span className="font-semibold text-slate-900 shrink-0">{dept.count} · {dept.percentage}%</span>
+                    </div>
+                    <div className="w-full h-2 bg-slate-100 rounded-[4px] overflow-hidden">
+                      <div
+                        style={{ width: `${Math.min(dept.percentage, 100)}%` }}
+                        className={`h-full ${dept.color}`}
+                      />
+                    </div>
                   </div>
-                  <div className="w-full h-2.5 bg-slate-100 rounded-[4px] overflow-hidden">
-                    <div
-                      style={{ width: `${dept.percentage}%` }}
-                      className={`h-full ${dept.color} rounded-[4px]`}
-                    />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -943,7 +1100,7 @@ export const DashboardView: React.FC = () => {
               <div className="p-3 bg-slate-50 rounded-[4px] border border-slate-200 space-y-2">
                 <div className="flex items-start justify-between gap-2">
                   <span className="font-bold text-slate-900 text-xs">
-                    Harmattan Exam Results Broadsheet
+                    Official Exam Results Broadsheet
                   </span>
                   <Badge variant="warning" size="sm">Review</Badge>
                 </div>

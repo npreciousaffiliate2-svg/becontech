@@ -32,8 +32,10 @@ import {
   RefreshCw,
   Send,
   Eye,
+  Edit2,
+  Trash2,
 } from 'lucide-react';
-import { formatNaira, FeeCategory, PaymentMethod } from '@campusone/contracts';
+import { formatNaira, nairaToKobo, FeeCategory, PaymentMethod } from '@campusone/contracts';
 
 /* ─── TYPES ─── */
 type BursaryTab = 'ledger' | 'receipts' | 'structure' | 'debtors' | 'reconciliation';
@@ -79,7 +81,7 @@ interface FeeStructureItem {
 }
 
 export const BursaryView: React.FC = () => {
-  const { session, persona, ledgerEntries, receipts, addLedgerPayment, isDense, recordAudit } = useApp();
+  const { session, persona, ledgerEntries, receipts, addLedgerPayment, isDense, recordAudit, schoolProfile, departments } = useApp();
   const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -91,8 +93,11 @@ export const BursaryView: React.FC = () => {
 
   // Tab synchronization
   const resolveTab = (tabStr?: string | null): BursaryTab => {
-    if (!tabStr) return 'ledger';
-    if (['ledger', 'receipts', 'structure', 'debtors', 'reconciliation'].includes(tabStr)) {
+    if (isStudent) {
+      if (tabStr === 'receipts') return 'receipts';
+      return 'ledger';
+    }
+    if (tabStr && ['ledger', 'receipts', 'structure', 'debtors', 'reconciliation'].includes(tabStr)) {
       return tabStr as BursaryTab;
     }
     return 'ledger';
@@ -123,6 +128,11 @@ export const BursaryView: React.FC = () => {
 
   /* ─── MODAL STATES ─── */
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isOnlinePayModalOpen, setIsOnlinePayModalOpen] = useState(false);
+  const [onlinePaymentAmount, setOnlinePaymentAmount] = useState('25000');
+  const [onlinePaymentCategory, setOnlinePaymentCategory] = useState<FeeCategory>('tuition');
+  const [onlinePaymentGateway, setOnlinePaymentGateway] = useState<'paystack' | 'remita'>('paystack');
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
   const [isStructureModalOpen, setIsStructureModalOpen] = useState(false);
   const [selectedStructure, setSelectedStructure] = useState<FeeStructureItem | null>(null);
@@ -219,8 +229,8 @@ export const BursaryView: React.FC = () => {
     },
   ]);
 
-  /* ─── DATA: FEE STRUCTURES ─── */
-  const feeStructures: FeeStructureItem[] = [
+  /* ─── DATA: FEE STRUCTURES (Managed State) ─── */
+  const initialFeeStructures: FeeStructureItem[] = [
     {
       id: 'fs-01',
       programmeName: 'Community Health Extension Worker (CHEW)',
@@ -283,6 +293,107 @@ export const BursaryView: React.FC = () => {
     },
   ];
 
+  const [feeStructures, setFeeStructuresState] = useState<FeeStructureItem[]>(() => {
+    try {
+      const s = localStorage.getItem('campusone_fee_structures');
+      if (s) return JSON.parse(s);
+    } catch (e) {}
+    return initialFeeStructures;
+  });
+
+  const setFeeStructures = (updater: (prev: FeeStructureItem[]) => FeeStructureItem[]) => {
+    setFeeStructuresState((prev) => {
+      const next = updater(prev);
+      try {
+        localStorage.setItem('campusone_fee_structures', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+  };
+
+  const [isAddFeeOpen, setIsAddFeeOpen] = useState(false);
+  const [isEditFeeOpen, setIsEditFeeOpen] = useState(false);
+  const [editingFee, setEditingFee] = useState<FeeStructureItem | null>(null);
+  const [isDeleteFeeOpen, setIsDeleteFeeOpen] = useState(false);
+  const [deleteFeeTarget, setDeleteFeeTarget] = useState<FeeStructureItem | null>(null);
+
+  const [newFeeForm, setNewFeeForm] = useState({
+    programmeName: '',
+    departmentCode: 'CHE',
+    tuitionNaira: '120000',
+    clinicalLevyNaira: '35000',
+    labBenchNaira: '20000',
+    boardExamLevyNaira: '45000',
+  });
+
+  const handleAddFeeSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newFeeForm.programmeName) {
+      showToast({
+        type: 'danger',
+        title: 'Missing Programme Name',
+        message: 'Please provide programme name.',
+      });
+      return;
+    }
+
+    const tKobo = (parseInt(newFeeForm.tuitionNaira, 10) || 0) * 100;
+    const cKobo = (parseInt(newFeeForm.clinicalLevyNaira, 10) || 0) * 100;
+    const lKobo = (parseInt(newFeeForm.labBenchNaira, 10) || 0) * 100;
+    const bKobo = (parseInt(newFeeForm.boardExamLevyNaira, 10) || 0) * 100;
+    const newFs: FeeStructureItem = {
+      id: `fs-${Date.now().toString().slice(-4)}`,
+      programmeName: newFeeForm.programmeName,
+      departmentCode: newFeeForm.departmentCode,
+      sessionSchedule: `${schoolProfile?.activeSession || '2026/2027'} Approved Schedule`,
+      tuitionKobo: tKobo,
+      clinicalLevyKobo: cKobo,
+      labBenchKobo: lKobo,
+      boardExamLevyKobo: bKobo,
+      developmentKobo: 0,
+      totalKobo: tKobo + cKobo + lKobo + bKobo,
+    };
+
+    setFeeStructures((prev) => [newFs, ...prev]);
+    setIsAddFeeOpen(false);
+    showToast({
+      type: 'success',
+      title: 'Fee Schedule Added',
+      message: `${newFs.programmeName} fee schedule registered.`,
+    });
+  };
+
+  const handleUpdateFeeSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingFee) return;
+    const total =
+      editingFee.tuitionKobo +
+      editingFee.clinicalLevyKobo +
+      editingFee.labBenchKobo +
+      editingFee.boardExamLevyKobo +
+      (editingFee.developmentKobo || 0);
+    const updated = { ...editingFee, totalKobo: total };
+    setFeeStructures((prev) => prev.map((f) => (f.id === updated.id ? updated : f)));
+    setIsEditFeeOpen(false);
+    showToast({
+      type: 'success',
+      title: 'Fee Schedule Updated',
+      message: `${updated.programmeName} schedule saved.`,
+    });
+  };
+
+  const handleDeleteFeeSubmit = () => {
+    if (!deleteFeeTarget) return;
+    setFeeStructures((prev) => prev.filter((f) => f.id !== deleteFeeTarget.id));
+    setIsDeleteFeeOpen(false);
+    showToast({
+      type: 'success',
+      title: 'Schedule Removed',
+      message: `${deleteFeeTarget.programmeName} schedule deleted.`,
+    });
+    setDeleteFeeTarget(null);
+  };
+
   /* ─── DATA: RECONCILIATION AUDIT ─── */
   const reconciliations: ReconciliationRecord[] = [
     {
@@ -330,12 +441,13 @@ export const BursaryView: React.FC = () => {
   /* ─── PAYMENT ACTION ─── */
   const handlePostPayment = (e: React.FormEvent) => {
     e.preventDefault();
-    const amountKobo = Math.round(parseFloat(amountNaira) * 100);
+    const amountKobo = nairaToKobo(Number(String(amountNaira).replace(/,/g, '')));
     if (!amountKobo || amountKobo <= 0) {
       showToast({ type: 'danger', title: 'Invalid Amount', message: 'Amount must be greater than zero.' });
       return;
     }
 
+    const selectedStudent = registeredStudents.find((item) => item.id === studentId);
     const receipt = addLedgerPayment({
       studentId,
       matricNumber,
@@ -344,6 +456,8 @@ export const BursaryView: React.FC = () => {
       category,
       description: `${paymentMethod.toUpperCase()} Direct Settlement — ${category.replace('_', ' ').toUpperCase()}`,
       paymentMethod,
+      programme: selectedStudent ? `${selectedStudent.dept} programme` : persona?.department,
+      level: persona?.title,
     });
 
     // Update debtor records if applicable
@@ -368,9 +482,166 @@ export const BursaryView: React.FC = () => {
     showToast({
       type: 'success',
       title: 'Payment Confirmed & Posted',
-      message: `Official Receipt #${receipt.receiptNumber} generated with immutable ledger audit.`,
+      message: `Official Receipt #${receipt.receiptNumber} generated and credited to student account.`,
     });
     setSelectedReceipt(receipt);
+  };
+
+  const loadPaystackScript = (): Promise<boolean> => {
+    return new Promise((resolve) => {
+      if ((window as any).PaystackPop) {
+        resolve(true);
+        return;
+      }
+      const existing = document.querySelector('script[src*="paystack"]');
+      if (existing) {
+        resolve(true);
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = 'https://js.paystack.co/v1/inline.js';
+      script.async = true;
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
+  const handleOnlinePaymentSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const amountKobo = nairaToKobo(Number(String(onlinePaymentAmount || '0').replace(/,/g, '')));
+    if (!amountKobo || amountKobo <= 0) {
+      showToast({
+        type: 'danger',
+        title: 'Invalid Amount',
+        message: 'Please enter a valid amount in Naira.',
+      });
+      return;
+    }
+
+    const payer = registeredStudents.find((item) => item.matric === userMatric);
+    const payerId = payer?.id || `stu-${userMatric.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`;
+    const payerName = persona?.fullName || payer?.name || 'Student';
+
+    if (onlinePaymentGateway !== 'paystack') {
+      showToast({
+        type: 'danger',
+        title: 'Gateway Not Connected',
+        message: 'Remita checkout is not configured. A receipt is issued only after the bank confirms the payment.',
+      });
+      return;
+    }
+
+    const paystackKey = localStorage.getItem('campusone_paystack_public_key') || '';
+    if (!paystackKey) {
+      showToast({
+        type: 'danger',
+        title: 'Paystack Key Missing',
+        message: 'Save the Paystack public key in Administration before students can pay online.',
+      });
+      return;
+    }
+
+    setIsProcessingPayment(true);
+    loadPaystackScript().then((loaded) => {
+      if (!loaded || !(window as any).PaystackPop) {
+        setIsProcessingPayment(false);
+        showToast({
+          type: 'danger',
+          title: 'Checkout Unavailable',
+          message: 'Paystack could not be loaded. No amount was charged and no receipt was issued.',
+        });
+        return;
+      }
+
+      try {
+        const handler = (window as any).PaystackPop.setup({
+          key: paystackKey,
+          email: persona?.email || 'info@becohtech.edu.ng',
+          amount: amountKobo,
+          currency: 'NGN',
+          ref: `BCHT_PAY_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+          metadata: {
+            custom_fields: [
+              {
+                display_name: 'Student Name',
+                variable_name: 'student_name',
+                value: payerName,
+              },
+              {
+                display_name: 'Matriculation No',
+                variable_name: 'matric_no',
+                value: userMatric,
+              },
+              {
+                display_name: 'Fee Category',
+                variable_name: 'category',
+                value: onlinePaymentCategory,
+              },
+            ],
+          },
+          callback: (response: any) => {
+            const ref = response.reference || response.trxref;
+            if (!ref) {
+              setIsProcessingPayment(false);
+              showToast({
+                type: 'danger',
+                title: 'Payment Unconfirmed',
+                message: 'Paystack returned no transaction reference. The ledger was not credited.',
+              });
+              return;
+            }
+            const receipt = addLedgerPayment({
+              studentId: payerId,
+              matricNumber: userMatric,
+              studentName: payerName,
+              amountKobo,
+              category: onlinePaymentCategory,
+              description: `Paystack Verified Payment (${onlinePaymentCategory.toUpperCase()}) — Ref: ${ref}`,
+              paymentMethod: 'paystack',
+              referenceId: ref,
+              gatewayReference: ref,
+              programme: persona?.department || (payer ? `${payer.dept} programme` : undefined),
+              level: persona?.title,
+            });
+
+            recordAudit('ONLINE_PAYMENT_SUCCESS', 'BURSARY_PAYSTACK', userMatric, {
+              gateway: 'paystack',
+              amountKobo,
+              reference: ref,
+              receiptNo: receipt.receiptNumber,
+            });
+
+            setIsProcessingPayment(false);
+            setIsOnlinePayModalOpen(false);
+            showToast({
+              type: 'success',
+              title: 'Paystack Payment Confirmed',
+              message: `Official Receipt #${receipt.receiptNumber} generated. Reference: ${ref}`,
+            });
+            setSelectedReceipt(receipt);
+          },
+          onClose: () => {
+            setIsProcessingPayment(false);
+            showToast({
+              type: 'info',
+              title: 'Payment Cancelled',
+              message: 'Paystack transaction was closed before completion. No receipt was issued.',
+            });
+          },
+        });
+
+        handler.openIframe();
+      } catch (err) {
+        console.warn('[CampusOne] Paystack inline checkout initiation note:', err);
+        setIsProcessingPayment(false);
+        showToast({
+          type: 'danger',
+          title: 'Checkout Failed',
+          message: 'Paystack could not open. No amount was charged and no receipt was issued.',
+        });
+      }
+    });
   };
 
   const handleOpenPaymentForDebtor = (debtor: DebtorRecord) => {
@@ -391,7 +662,7 @@ export const BursaryView: React.FC = () => {
     showToast({
       type: 'success',
       title: 'Overdue Notice Dispatched',
-      message: `Automated SMS & email installment reminder sent to ${debtor.studentName} (${debtor.matricNumber}).`,
+      message: `Overdue notice recorded for ${debtor.studentName} (${debtor.matricNumber}). Send it through the college SMS gateway when that channel is connected.`,
     });
   };
 
@@ -738,27 +1009,43 @@ export const BursaryView: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* ─── Page Header ─── */}
+      {/* ─── Page Header (Role-Scoped) ─── */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">School Fees & Bursary</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Student fee accounts, double-entry financial ledger, official receipts, fee schedules, and debtor management.
+          <h1 className="text-xl font-bold text-slate-900 font-sans">
+            {isStudent ? 'My Tuition & Fee Account' : 'School Fees & Bursary'}
+          </h1>
+          <p className="text-xs text-slate-500 mt-0.5 font-sans">
+            {isStudent
+              ? 'Personal tuition account balance, payment history, official digital receipts, and online settlement.'
+              : 'Student fee accounts, double-entry financial ledger, official receipts, fee schedules, and debtor management.'}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            onClick={() => setIsPaymentModalOpen(true)}
-            leftIcon={<Plus className="w-3.5 h-3.5" />}
-            className="whitespace-nowrap bg-[#0F7640] hover:bg-[#093322]"
-          >
-            Record Student Payment
-          </Button>
+          {!isStudent && (
+            <Button
+              size="sm"
+              onClick={() => setIsPaymentModalOpen(true)}
+              leftIcon={<Plus className="w-3.5 h-3.5" />}
+              className="whitespace-nowrap bg-[#0F7640] hover:bg-[#093322]"
+            >
+              Record Student Payment
+            </Button>
+          )}
+          {isStudent && (
+            <Button
+              size="sm"
+              onClick={() => setIsOnlinePayModalOpen(true)}
+              leftIcon={<CreditCard className="w-3.5 h-3.5" />}
+              className="whitespace-nowrap bg-[#0F7640] hover:bg-[#093322]"
+            >
+              Pay Fees Online
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* ─── Institutional Stat Cards (Spacious, No Squeezing) ─── */}
+      {/* ─── Bursary Stat Cards (Spacious, No Squeezing) ─── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <div className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] flex flex-col justify-between h-full min-w-0">
           <div className="flex items-center justify-between">
@@ -809,7 +1096,7 @@ export const BursaryView: React.FC = () => {
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
               {isStudent ? 'Total Remitted' : 'Settlements Reconciled'}
             </span>
-            <div className="w-8 h-8 rounded-[4px] bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center shrink-0">
               <CheckCircle2 className="w-4 h-4" />
             </div>
           </div>
@@ -852,8 +1139,8 @@ export const BursaryView: React.FC = () => {
         tabs={
           isStudent
             ? [
-                { id: 'ledger', label: 'My Tuition Ledger' },
-                { id: 'receipts', label: 'My Official Receipts' },
+                { id: 'ledger', label: 'My Tuition Account' },
+                { id: 'receipts', label: 'My Payment Receipts' },
               ]
             : [
                 { id: 'ledger', label: 'Student Master Ledger' },
@@ -867,17 +1154,17 @@ export const BursaryView: React.FC = () => {
         onChange={(id: any) => handleTabChange(id)}
       />
 
-      {/* ─── TAB 1: STUDENT MASTER LEDGER ─── */}
+      {/* ─── TAB 1: STUDENT MASTER LEDGER / PERSONAL TUITION ACCOUNT ─── */}
       {activeTab === 'ledger' && (
         <Card>
           <Table
-            columns={ledgerColumns}
+            columns={isStudent ? ledgerColumns.filter((c) => c.key !== 'matricNumber') : ledgerColumns}
             data={filteredLedgerEntries}
             keyExtractor={(l) => l.id}
             isDense={isDense}
             searchValue={searchQuery}
             onSearchChange={setSearchQuery}
-            searchPlaceholder="Search matriculation or description..."
+            searchPlaceholder={isStudent ? "Search transaction description..." : "Search matriculation or description..."}
             toolbarFilters={
               <>
                 <div className="w-44">
@@ -917,13 +1204,13 @@ export const BursaryView: React.FC = () => {
       {activeTab === 'receipts' && (
         <Card>
           <Table
-            columns={receiptColumns}
+            columns={isStudent ? receiptColumns.filter((c) => c.key !== 'studentName') : receiptColumns}
             data={filteredReceipts}
             keyExtractor={(r) => r.receiptNumber}
             isDense={isDense}
             searchValue={receiptSearchQuery}
             onSearchChange={setReceiptSearchQuery}
-            searchPlaceholder="Search receipt number, student, or matric..."
+            searchPlaceholder={isStudent ? "Search receipt number or date..." : "Search receipt number, student, or matric..."}
             toolbarFilters={
               <div className="w-48">
                 <Select
@@ -944,47 +1231,93 @@ export const BursaryView: React.FC = () => {
       )}
 
       {/* ─── TAB 3: FEE SCHEDULES & LEVIES ─── */}
-      {activeTab === 'structure' && (
+      {!isStudent && activeTab === 'structure' && (
         <div className="space-y-4">
-          <div className="p-3 bg-slate-50 border border-slate-200 rounded-[4px] flex items-center justify-between text-xs text-slate-600">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 bg-slate-50 border border-slate-200 rounded-[4px] text-xs text-slate-700">
             <span>
-              <strong>Governing Fee Policy:</strong> Statutory approved session charges for the 2026/2027 Academic Session across all accredited health training disciplines.
+              <strong>Academic Session Fees:</strong> Official approved fees and levies for {schoolProfile?.activeSession || '2026/2027'}.
             </span>
+            <Button
+              size="sm"
+              leftIcon={<Plus className="w-3.5 h-3.5" />}
+              onClick={() => {
+                setNewFeeForm({
+                  programmeName: '',
+                  departmentCode: 'CHE',
+                  tuitionNaira: '120000',
+                  clinicalLevyNaira: '35000',
+                  labBenchNaira: '20000',
+                  boardExamLevyNaira: '45000',
+                });
+                setIsAddFeeOpen(true);
+              }}
+              className="bg-[#0F7640] hover:bg-[#093322]"
+            >
+              Add Fee Schedule
+            </Button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {feeStructures.map((fs) => (
-              <Card key={fs.id} className="p-4 bg-white border border-slate-200 rounded-[4px] space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-extrabold text-[#0F7640] text-xs uppercase">{fs.departmentCode}</span>
-                  <Badge variant="success" size="sm">Active Schedule</Badge>
+              <Card key={fs.id} className="p-4 bg-white border border-slate-200 rounded-[4px] space-y-3 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-[#0F7640] text-xs uppercase">{fs.departmentCode}</span>
+                    <Badge variant="success" size="sm">Active Schedule</Badge>
+                  </div>
+
+                  <h3 className="font-bold text-slate-900 text-sm leading-snug mt-2">
+                    {fs.programmeName}
+                  </h3>
+
+                  <div className="divide-y divide-slate-100 text-xs pt-1">
+                    <div className="py-2 flex justify-between">
+                      <span className="text-slate-600">Session Tuition</span>
+                      <span className="font-semibold text-slate-800 font-sans">{formatNaira(fs.tuitionKobo)}</span>
+                    </div>
+                    <div className="py-2 flex justify-between">
+                      <span className="text-slate-600">Clinical Hospital Posting</span>
+                      <span className="font-semibold text-slate-800 font-sans">{formatNaira(fs.clinicalLevyKobo)}</span>
+                    </div>
+                    <div className="py-2 flex justify-between">
+                      <span className="text-slate-600">Laboratory Consumables</span>
+                      <span className="font-semibold text-slate-800 font-sans">{formatNaira(fs.labBenchKobo)}</span>
+                    </div>
+                    <div className="py-2 flex justify-between">
+                      <span className="text-slate-600">Board Examination Levy</span>
+                      <span className="font-semibold text-slate-800 font-sans">{formatNaira(fs.boardExamLevyKobo)}</span>
+                    </div>
+                    <div className="py-2.5 flex justify-between font-bold text-slate-900 bg-slate-50 px-2 rounded-[4px] mt-1">
+                      <span>Total Session Fee</span>
+                      <span className="text-[#0F7640] font-sans">{formatNaira(fs.totalKobo)}</span>
+                    </div>
+                  </div>
                 </div>
 
-                <h3 className="font-bold text-slate-900 text-sm leading-snug">
-                  {fs.programmeName}
-                </h3>
-
-                <div className="divide-y divide-slate-100 text-xs pt-1">
-                  <div className="py-2 flex justify-between">
-                    <span className="text-slate-600">Session Tuition</span>
-                    <span className="font-semibold text-slate-800 font-sans">{formatNaira(fs.tuitionKobo)}</span>
-                  </div>
-                  <div className="py-2 flex justify-between">
-                    <span className="text-slate-600">Clinical Hospital Posting</span>
-                    <span className="font-semibold text-slate-800 font-sans">{formatNaira(fs.clinicalLevyKobo)}</span>
-                  </div>
-                  <div className="py-2 flex justify-between">
-                    <span className="text-slate-600">Laboratory Consumables</span>
-                    <span className="font-semibold text-slate-800 font-sans">{formatNaira(fs.labBenchKobo)}</span>
-                  </div>
-                  <div className="py-2 flex justify-between">
-                    <span className="text-slate-600">National Board Exam Levy</span>
-                    <span className="font-semibold text-slate-800 font-sans">{formatNaira(fs.boardExamLevyKobo)}</span>
-                  </div>
-                  <div className="py-2.5 flex justify-between font-bold text-slate-900 bg-slate-50 px-2 rounded-[4px] mt-1">
-                    <span>Total Session Levy</span>
-                    <span className="text-[#0F7640] font-sans">{formatNaira(fs.totalKobo)}</span>
-                  </div>
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    leftIcon={<Edit2 className="w-3 h-3" />}
+                    onClick={() => {
+                      setEditingFee({ ...fs });
+                      setIsEditFeeOpen(true);
+                    }}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-red-600 hover:bg-red-50"
+                    onClick={() => {
+                      setDeleteFeeTarget(fs);
+                      setIsDeleteFeeOpen(true);
+                    }}
+                    title="Delete Fee Schedule"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
                 </div>
               </Card>
             ))}
@@ -993,7 +1326,7 @@ export const BursaryView: React.FC = () => {
       )}
 
       {/* ─── TAB 4: DEBTORS & INSTALLMENTS ─── */}
-      {activeTab === 'debtors' && (
+      {!isStudent && activeTab === 'debtors' && (
         <Card>
           <Table
             columns={debtorColumns}
@@ -1025,7 +1358,7 @@ export const BursaryView: React.FC = () => {
       )}
 
       {/* ─── TAB 5: BANK RECONCILIATION ─── */}
-      {activeTab === 'reconciliation' && (
+      {!isStudent && activeTab === 'reconciliation' && (
         <Card>
           <Table
             columns={reconciliationColumns}
@@ -1056,102 +1389,104 @@ export const BursaryView: React.FC = () => {
         </Card>
       )}
 
-      {/* ─── MODAL 1: RECORD STUDENT PAYMENT ─── */}
-      <Modal
-        isOpen={isPaymentModalOpen}
-        onClose={() => setIsPaymentModalOpen(false)}
-        title="Record Verified Student Payment"
-        size="md"
-      >
-        <form onSubmit={handlePostPayment} className="space-y-4 text-xs text-slate-800">
-          <div className="space-y-1.5">
-            <label className="font-bold text-slate-900 block">Select Student Candidate:</label>
-            <Select
-              value={matricNumber}
-              onChange={(val) => handleSelectStudentForPayment(val)}
-              options={registeredStudents.map((s) => ({
-                value: s.matric,
-                label: `${s.name} (${s.matric}) — ${s.dept}`,
-              }))}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
+      {/* ─── MODAL 1: RECORD STUDENT PAYMENT (Accounts / Staff Only) ─── */}
+      {!isStudent && (
+        <Modal
+          isOpen={isPaymentModalOpen}
+          onClose={() => setIsPaymentModalOpen(false)}
+          title="Record Verified Student Payment"
+          size="md"
+        >
+          <form onSubmit={handlePostPayment} className="space-y-4 text-xs text-slate-800">
             <div className="space-y-1.5">
-              <label className="font-bold text-slate-900 block">Matriculation No.:</label>
-              <input
-                type="text"
+              <label className="font-bold text-slate-900 block">Select Student Candidate:</label>
+              <Select
                 value={matricNumber}
-                onChange={(e) => setMatricNumber(e.target.value)}
-                className="w-full h-9 px-3 text-xs bg-slate-50 border border-slate-300 rounded-[4px] font-bold text-slate-900"
-                readOnly
+                onChange={(val) => handleSelectStudentForPayment(val)}
+                options={registeredStudents.map((s) => ({
+                  value: s.matric,
+                  label: `${s.name} (${s.matric}) — ${s.dept}`,
+                }))}
               />
             </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="font-bold text-slate-900 block">Matriculation No.:</label>
+                <input
+                  type="text"
+                  value={matricNumber}
+                  onChange={(e) => setMatricNumber(e.target.value)}
+                  className="w-full h-9 px-3 text-xs bg-slate-50 border border-slate-300 rounded-[4px] font-bold text-slate-900"
+                  readOnly
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="font-bold text-slate-900 block">Student Name:</label>
+                <input
+                  type="text"
+                  value={studentName}
+                  onChange={(e) => setStudentName(e.target.value)}
+                  className="w-full h-9 px-3 text-xs bg-slate-50 border border-slate-300 rounded-[4px] font-semibold text-slate-900"
+                  readOnly
+                />
+              </div>
+            </div>
+
             <div className="space-y-1.5">
-              <label className="font-bold text-slate-900 block">Student Name:</label>
+              <label className="font-bold text-slate-900 block">Amount Paid (NGN ₦):</label>
               <input
-                type="text"
-                value={studentName}
-                onChange={(e) => setStudentName(e.target.value)}
-                className="w-full h-9 px-3 text-xs bg-slate-50 border border-slate-300 rounded-[4px] font-semibold text-slate-900"
-                readOnly
+                type="number"
+                value={amountNaira}
+                onChange={(e) => setAmountNaira(e.target.value)}
+                className="w-full h-9 px-3 text-sm bg-white border border-slate-300 rounded-[4px] font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
+                placeholder="e.g. 55000"
+                required
               />
             </div>
-          </div>
 
-          <div className="space-y-1.5">
-            <label className="font-bold text-slate-900 block">Amount Paid (NGN ₦):</label>
-            <input
-              type="number"
-              value={amountNaira}
-              onChange={(e) => setAmountNaira(e.target.value)}
-              className="w-full h-9 px-3 text-sm bg-white border border-slate-300 rounded-[4px] font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
-              placeholder="e.g. 55000"
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="font-bold text-slate-900 block">Fee Category:</label>
-              <Select
-                value={category}
-                onChange={(v) => setCategory(v as FeeCategory)}
-                options={[
-                  { value: 'tuition', label: 'Tuition Fee' },
-                  { value: 'clinical_posting', label: 'Clinical Posting Levy' },
-                  { value: 'acceptance', label: 'Acceptance Fee' },
-                  { value: 'exam', label: 'Board Examination Levy' },
-                  { value: 'hostel', label: 'Hostel Accommodation' },
-                  { value: 'uniform_kit', label: 'Uniform & Clinical Kit' },
-                ]}
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="font-bold text-slate-900 block">Fee Category:</label>
+                <Select
+                  value={category}
+                  onChange={(v) => setCategory(v as FeeCategory)}
+                  options={[
+                    { value: 'tuition', label: 'Tuition Fee' },
+                    { value: 'clinical_posting', label: 'Clinical Posting Levy' },
+                    { value: 'acceptance', label: 'Acceptance Fee' },
+                    { value: 'exam', label: 'Board Examination Levy' },
+                    { value: 'hostel', label: 'Hostel Accommodation' },
+                    { value: 'uniform_kit', label: 'Uniform & Clinical Kit' },
+                  ]}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="font-bold text-slate-900 block">Payment Gateway Channel:</label>
+                <Select
+                  value={paymentMethod}
+                  onChange={(v) => setPaymentMethod(v as PaymentMethod)}
+                  options={[
+                    { value: 'paystack', label: 'Paystack (Card / USSD)' },
+                    { value: 'remita', label: 'Remita (RRR Transfer)' },
+                    { value: 'flutterwave', label: 'Flutterwave' },
+                    { value: 'bank_transfer_direct', label: 'Direct Bank Settlement' },
+                  ]}
+                />
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <label className="font-bold text-slate-900 block">Payment Gateway Channel:</label>
-              <Select
-                value={paymentMethod}
-                onChange={(v) => setPaymentMethod(v as PaymentMethod)}
-                options={[
-                  { value: 'paystack', label: 'Paystack (Card / USSD)' },
-                  { value: 'remita', label: 'Remita (RRR Transfer)' },
-                  { value: 'flutterwave', label: 'Flutterwave' },
-                  { value: 'bank_transfer_direct', label: 'Direct Bank Settlement' },
-                ]}
-              />
-            </div>
-          </div>
 
-          <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-200">
-            <Button type="button" variant="secondary" onClick={() => setIsPaymentModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" className="bg-[#0F7640] hover:bg-[#093322]">
-              Confirm & Post to Ledger
-            </Button>
-          </div>
-        </form>
-      </Modal>
+            <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-200">
+              <Button type="button" variant="secondary" onClick={() => setIsPaymentModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" className="bg-[#0F7640] hover:bg-[#093322]">
+                Confirm & Post to Ledger
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
 
       {/* ─── MODAL 2: OFFICIAL COLLEGE RECEIPT VIEWER ─── */}
       {selectedReceipt && (
@@ -1165,14 +1500,19 @@ export const BursaryView: React.FC = () => {
             <div className="border border-slate-200 p-6 rounded-[4px] bg-white relative">
               {/* College Header */}
               <div className="text-center pb-4 border-b border-slate-200">
-                <div className="w-12 h-12 mx-auto mb-2 rounded-[4px] bg-[#0F7640] text-white flex items-center justify-center font-bold text-sm shadow-sm">
-                  BCHT
-                </div>
+                <img
+                  src={schoolProfile?.logoUrl || '/BeonTech-Logo.png'}
+                  alt="College Crest"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/BeonTech-Logo.png';
+                  }}
+                  className="w-14 h-14 mx-auto mb-2 rounded-[4px] object-contain shadow-xs"
+                />
                 <h2 className="text-base font-bold text-slate-900 tracking-wide uppercase">
-                  Bethsaida College of Health Technology
+                  {schoolProfile?.institutionName || 'Bethsaida College of Health Technology'}
                 </h2>
                 <p className="text-[11px] text-slate-500">
-                  Approved by Federal Ministry of Health • Moniya, Ibadan, Oyo State, Nigeria
+                  Accredited by {schoolProfile?.regulatoryCouncils?.join(' • ') || 'NBTE • CHPRBN • EHORECON • DTRBN • PCN • HRORBN'} • {schoolProfile?.campusAddress || 'Ikolaba Aladan layout, off Ayegun Yemetu Road, along CAC grammar school, Ogbomoso, Oyo State'}
                 </p>
                 <div className="mt-2 inline-block px-3 py-1 bg-emerald-50 rounded-[4px] text-xs font-bold text-[#0F7640] border border-emerald-200 uppercase">
                   OFFICIAL RECEIPT NO: {selectedReceipt.receiptNumber}
@@ -1210,7 +1550,7 @@ export const BursaryView: React.FC = () => {
                   <tbody className="divide-y divide-slate-100">
                     <tr>
                       <td className="py-2.5 px-2 font-medium text-slate-800">
-                        {selectedReceipt.description || 'Harmattan 2026/2027 Academic Session Fee Settlement'}
+                        {selectedReceipt.description || `${schoolProfile?.activeSemester || 'Harmattan'} ${schoolProfile?.activeSession || '2026/2027'} Fee Settlement`}
                       </td>
                       <td className="py-2.5 px-2 capitalize text-slate-600">
                         {selectedReceipt.category ? selectedReceipt.category.replace('_', ' ') : 'Tuition'}
@@ -1229,10 +1569,10 @@ export const BursaryView: React.FC = () => {
                   <QrCode className="w-10 h-10 text-slate-800 p-1 border border-slate-300 rounded-[4px] bg-white shrink-0" />
                   <div>
                     <p className="font-semibold text-slate-900 text-[11px] flex items-center gap-1">
-                      <ShieldCheck className="w-3.5 h-3.5 text-[#13A348]" /> Cryptographically Verified
+                      <ShieldCheck className="w-3.5 h-3.5 text-[#13A348]" /> Officially Verified Receipt
                     </p>
                     <p className="text-[10px] text-slate-500 font-sans">
-                      Ref: {selectedReceipt.gatewayReference || 'PSTK-BCHT-8890214'}
+                      Ref: {selectedReceipt.gatewayReference || `PSTK-${schoolProfile?.institutionAcronym || 'BCHT'}-8890214`}
                     </p>
                   </div>
                 </div>
@@ -1254,6 +1594,295 @@ export const BursaryView: React.FC = () => {
                 className="whitespace-nowrap bg-[#0F7640] hover:bg-[#093322]"
               >
                 Print Official Receipt
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+      {/* ─── MODAL 3: STUDENT ONLINE FEE PAYMENT CHECKOUT ─── */}
+      {isStudent && (
+        <Modal
+          isOpen={isOnlinePayModalOpen}
+          onClose={() => setIsOnlinePayModalOpen(false)}
+          title="Online Fee Payment Checkout"
+          description="Settle your college tuition and statutory levies securely via Paystack or Remita."
+          size="md"
+        >
+          <form onSubmit={handleOnlinePaymentSubmit} className="space-y-4 text-xs text-slate-800">
+            {/* Trainee Identification Box */}
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-[4px] space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-slate-500 font-medium">Trainee Name:</span>
+                <span className="font-bold text-slate-900">{persona?.fullName || 'Blessing Adeyemi'}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-slate-500 font-medium">Matriculation No.:</span>
+                <span className="font-bold text-[#0F7640] font-sans">{userMatric}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-slate-500 font-medium">Department:</span>
+                <span className="text-slate-700">{persona?.department || 'Community Health Extension (CHEW)'}</span>
+              </div>
+            </div>
+
+            {/* Fee Category */}
+            <div className="space-y-1.5">
+              <label className="font-bold text-slate-900 block">Payment Category:</label>
+              <Select
+                value={onlinePaymentCategory}
+                onChange={(v) => setOnlinePaymentCategory(v as FeeCategory)}
+                options={[
+                  { value: 'tuition', label: 'Semester Tuition Fee' },
+                  { value: 'clinical_posting', label: 'Clinical Posting Levy' },
+                  { value: 'acceptance', label: 'Acceptance Fee' },
+                  { value: 'exam', label: 'Board Examination Levy' },
+                  { value: 'hostel', label: 'Hostel Accommodation' },
+                  { value: 'uniform_kit', label: 'Clinical Uniform & Practical Kit' },
+                ]}
+              />
+            </div>
+
+            {/* Payment Amount */}
+            <div className="space-y-1.5">
+              <label className="font-bold text-slate-900 block">Amount to Remit (NGN ₦):</label>
+              <input
+                type="number"
+                value={onlinePaymentAmount}
+                onChange={(e) => setOnlinePaymentAmount(e.target.value)}
+                className="w-full h-9 px-3 text-sm bg-white border border-slate-300 rounded-[4px] font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
+                placeholder="e.g. 25000"
+                required
+              />
+            </div>
+
+            {/* Gateway Segmented Toggle (Zero Native Radios) */}
+            <div className="space-y-1.5">
+              <label className="font-bold text-slate-900 block">Select Payment Channel:</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setOnlinePaymentGateway('paystack')}
+                  className={`p-3 rounded-[4px] border text-left transition-colors ${
+                    onlinePaymentGateway === 'paystack'
+                      ? 'bg-emerald-50/70 border-[#0F7640] text-slate-900 shadow-sm'
+                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-bold text-xs">Paystack Gateway</span>
+                    <Badge variant={onlinePaymentGateway === 'paystack' ? 'success' : 'neutral'} size="sm">
+                      INSTANT
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Debit Card (Mastercard / Visa / Verve), USSD, or Bank Transfer
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setOnlinePaymentGateway('remita')}
+                  className={`p-3 rounded-[4px] border text-left transition-colors ${
+                    onlinePaymentGateway === 'remita'
+                      ? 'bg-emerald-50/70 border-[#0F7640] text-slate-900 shadow-sm'
+                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-bold text-xs">Remita Central RRR</span>
+                    <Badge variant={onlinePaymentGateway === 'remita' ? 'success' : 'neutral'} size="sm">
+                      TSA BILLING
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Generate RRR code for commercial bank branch deposit or Internet banking
+                  </p>
+                </button>
+              </div>
+            </div>
+
+            {/* Confirmation Banner */}
+            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-[4px] text-xs space-y-1">
+              <div className="font-bold text-[#0F7640] flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Instant Automated Clearance
+              </div>
+              <p className="text-slate-600">
+                Payment is credited to your ledger immediately. An official numbered receipt is
+                generated with an encrypted QR code for examination docket clearance.
+              </p>
+              <div className="mt-2 pt-2 border-t border-emerald-200/60 flex items-center justify-between text-[11px] font-semibold text-slate-700">
+                <span>Total Payment:</span>
+                <span className="text-sm font-extrabold text-[#0F7640] font-sans">
+                  {formatNaira(nairaToKobo(Number(String(onlinePaymentAmount || '0').replace(/,/g, '')) || 0))}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-200">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setIsOnlinePayModalOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                isLoading={isProcessingPayment}
+                className="bg-[#0F7640] hover:bg-[#093322]"
+              >
+                Pay {formatNaira(nairaToKobo(Number(String(onlinePaymentAmount || '0').replace(/,/g, '')) || 0))} Now
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+      {/* ─── MODAL 4: ADD FEE SCHEDULE ─── */}
+      {!isStudent && (
+        <Modal
+          isOpen={isAddFeeOpen}
+          onClose={() => setIsAddFeeOpen(false)}
+          title="Add Fee Schedule"
+          description="Establish standard session fee structure for a programme."
+          size="md"
+        >
+          <form onSubmit={handleAddFeeSubmit} className="space-y-3.5 text-xs">
+            <Input
+              label="Programme Name"
+              placeholder="e.g. Dental Health Technology"
+              value={newFeeForm.programmeName}
+              onChange={(e) => setNewFeeForm({ ...newFeeForm, programmeName: e.target.value })}
+              required
+            />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Select
+                label="Department"
+                options={departments.map((d) => ({ value: d.code, label: d.name }))}
+                value={newFeeForm.departmentCode}
+                onChange={(val) => setNewFeeForm({ ...newFeeForm, departmentCode: val })}
+              />
+              <Input
+                label="Tuition Fee (₦)"
+                type="number"
+                value={newFeeForm.tuitionNaira}
+                onChange={(e) => setNewFeeForm({ ...newFeeForm, tuitionNaira: e.target.value })}
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <Input
+                label="Clinical Levy (₦)"
+                type="number"
+                value={newFeeForm.clinicalLevyNaira}
+                onChange={(e) => setNewFeeForm({ ...newFeeForm, clinicalLevyNaira: e.target.value })}
+              />
+              <Input
+                label="Lab Bench Levy (₦)"
+                type="number"
+                value={newFeeForm.labBenchNaira}
+                onChange={(e) => setNewFeeForm({ ...newFeeForm, labBenchNaira: e.target.value })}
+              />
+              <Input
+                label="Board Exam Levy (₦)"
+                type="number"
+                value={newFeeForm.boardExamLevyNaira}
+                onChange={(e) => setNewFeeForm({ ...newFeeForm, boardExamLevyNaira: e.target.value })}
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+              <Button variant="secondary" size="sm" type="button" onClick={() => setIsAddFeeOpen(false)}>
+                Cancel
+              </Button>
+              <Button size="sm" type="submit" className="bg-[#0F7640] hover:bg-[#093322]">
+                Save Schedule
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* ─── MODAL 5: EDIT FEE SCHEDULE ─── */}
+      {!isStudent && editingFee && (
+        <Modal
+          isOpen={isEditFeeOpen}
+          onClose={() => setIsEditFeeOpen(false)}
+          title={`Edit ${editingFee.programmeName} Schedule`}
+          size="md"
+        >
+          <form onSubmit={handleUpdateFeeSubmit} className="space-y-3.5 text-xs">
+            <Input
+              label="Programme Name"
+              value={editingFee.programmeName}
+              onChange={(e) => setEditingFee({ ...editingFee, programmeName: e.target.value })}
+              required
+            />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                label="Session Tuition (₦)"
+                type="number"
+                value={String(Math.round(editingFee.tuitionKobo / 100))}
+                onChange={(e) => setEditingFee({ ...editingFee, tuitionKobo: (parseInt(e.target.value, 10) || 0) * 100 })}
+                required
+              />
+              <Input
+                label="Clinical Levy (₦)"
+                type="number"
+                value={String(Math.round(editingFee.clinicalLevyKobo / 100))}
+                onChange={(e) => setEditingFee({ ...editingFee, clinicalLevyKobo: (parseInt(e.target.value, 10) || 0) * 100 })}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                label="Laboratory Consumables (₦)"
+                type="number"
+                value={String(Math.round(editingFee.labBenchKobo / 100))}
+                onChange={(e) => setEditingFee({ ...editingFee, labBenchKobo: (parseInt(e.target.value, 10) || 0) * 100 })}
+              />
+              <Input
+                label="Board Exam Levy (₦)"
+                type="number"
+                value={String(Math.round(editingFee.boardExamLevyKobo / 100))}
+                onChange={(e) => setEditingFee({ ...editingFee, boardExamLevyKobo: (parseInt(e.target.value, 10) || 0) * 100 })}
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+              <Button variant="secondary" size="sm" type="button" onClick={() => setIsEditFeeOpen(false)}>
+                Cancel
+              </Button>
+              <Button size="sm" type="submit" className="bg-[#0F7640] hover:bg-[#093322]">
+                Update Schedule
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* ─── MODAL 6: DELETE FEE SCHEDULE CONFIRMATION ─── */}
+      {!isStudent && deleteFeeTarget && (
+        <Modal
+          isOpen={isDeleteFeeOpen}
+          onClose={() => setIsDeleteFeeOpen(false)}
+          title="Delete Fee Schedule"
+          size="sm"
+        >
+          <div className="space-y-4 text-xs">
+            <p className="text-slate-700 leading-relaxed">
+              Are you sure you want to delete the fee schedule for{' '}
+              <strong className="text-slate-900">{deleteFeeTarget.programmeName}</strong>?
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+              <Button variant="secondary" size="sm" onClick={() => setIsDeleteFeeOpen(false)}>
+                Cancel
+              </Button>
+              <Button size="sm" variant="danger" onClick={handleDeleteFeeSubmit}>
+                Confirm Delete
               </Button>
             </div>
           </div>

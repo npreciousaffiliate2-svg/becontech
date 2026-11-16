@@ -9,6 +9,7 @@ import {
   Modal,
   Input,
   Select,
+  DatePicker,
   useToast,
   Tabs,
 } from '@campusone/ui';
@@ -35,6 +36,9 @@ import {
   Check,
   X,
   Award,
+  UserCheck,
+  Edit2,
+  Trash2,
 } from 'lucide-react';
 import { formatNaira } from '@campusone/contracts';
 
@@ -85,7 +89,7 @@ interface LeaveRecord {
 }
 
 export const StaffView: React.FC = () => {
-  const { isDense, recordAudit } = useApp();
+  const { isDense, recordAudit, schoolProfile, departments, isSuperAdmin, impersonateUser } = useApp();
   const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -129,6 +133,10 @@ export const StaffView: React.FC = () => {
   const [isPayslipModalOpen, setIsPayslipModalOpen] = useState(false);
   const [selectedPayslipStaff, setSelectedPayslipStaff] = useState<StaffMember | null>(null);
   const [isAddStaffModalOpen, setIsAddStaffModalOpen] = useState(false);
+  const [isEditStaffOpen, setIsEditStaffOpen] = useState(false);
+  const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
+  const [isDeleteStaffOpen, setIsDeleteStaffOpen] = useState(false);
+  const [deleteStaffTarget, setDeleteStaffTarget] = useState<StaffMember | null>(null);
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
   const [selectedLeave, setSelectedLeave] = useState<LeaveRecord | null>(null);
 
@@ -384,7 +392,7 @@ export const StaffView: React.FC = () => {
 
     const newStaff: StaffMember = {
       id: `stf-0${staffMembers.length + 1}`,
-      staffId: `BCHT/ACAD/00${staffMembers.length + 1}`,
+      staffId: `${schoolProfile?.institutionAcronym || 'BCHT'}/ACAD/00${staffMembers.length + 1}`,
       fullName: newStaffName.trim(),
       credentials: newStaffCredentials.trim() || 'BSc, MSc',
       designation: newStaffDesignation.trim() || 'Lecturer II',
@@ -417,6 +425,33 @@ export const StaffView: React.FC = () => {
     setNewStaffName('');
     setNewStaffEmail('');
     setNewStaffPhone('');
+  };
+
+  const handleUpdateStaff = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingStaff) return;
+    setStaffMembers((prev) =>
+      prev.map((s) => (s.id === editingStaff.id ? editingStaff : s))
+    );
+    setIsEditStaffOpen(false);
+    setEditingStaff(null);
+    showToast({
+      type: 'success',
+      title: 'Staff Record Updated',
+      message: `${editingStaff.fullName}'s profile has been updated.`,
+    });
+  };
+
+  const handleDeleteStaff = () => {
+    if (!deleteStaffTarget) return;
+    setStaffMembers((prev) => prev.filter((s) => s.id !== deleteStaffTarget.id));
+    setIsDeleteStaffOpen(false);
+    setDeleteStaffTarget(null);
+    showToast({
+      type: 'success',
+      title: 'Staff Member Removed',
+      message: `${deleteStaffTarget.fullName} has been removed from the directory.`,
+    });
   };
 
   /* ─── DERIVED FILTERED LISTS ─── */
@@ -510,19 +545,78 @@ export const StaffView: React.FC = () => {
     },
     {
       key: 'action',
-      header: 'Staff Record',
+      header: 'Actions',
       align: 'right' as const,
       nowrap: true,
       render: (s: StaffMember) => (
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={() => handleOpenDossier(s)}
-          leftIcon={<Eye className="w-3.5 h-3.5" />}
-          className="whitespace-nowrap"
-        >
-          View Profile
-        </Button>
+        <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
+          {isSuperAdmin && (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                const des = (s.designation || '').toLowerCase();
+                const targetRole = des.includes('provost')
+                  ? 'PROVOST'
+                  : des.includes('registrar')
+                  ? 'REG'
+                  : des.includes('bursar')
+                  ? 'BURSAR'
+                  : des.includes('hod') || des.includes('head')
+                  ? 'HOD'
+                  : 'INSTR';
+                impersonateUser(targetRole, {
+                  id: s.id,
+                  name: s.fullName,
+                  email: s.email,
+                });
+                showToast({
+                  type: 'info',
+                  title: 'Impersonation Mode Active',
+                  message: `Now accessing system as ${s.fullName} (${s.designation}).`,
+                });
+                navigate('/');
+              }}
+              leftIcon={<UserCheck className="w-3.5 h-3.5 text-[#0F7640]" />}
+              className="text-[#0F7640] border-emerald-200 hover:bg-emerald-50"
+            >
+              Impersonate
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => handleOpenDossier(s)}
+            leftIcon={<Eye className="w-3.5 h-3.5" />}
+            className="whitespace-nowrap"
+          >
+            Profile
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              setEditingStaff({ ...s });
+              setIsEditStaffOpen(true);
+            }}
+            leftIcon={<Edit2 className="w-3.5 h-3.5 text-slate-500" />}
+            className="hover:text-slate-900"
+          >
+            Edit
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              setDeleteStaffTarget(s);
+              setIsDeleteStaffOpen(true);
+            }}
+            leftIcon={<Trash2 className="w-3.5 h-3.5 text-red-500" />}
+            className="hover:text-red-700 hover:bg-red-50"
+          >
+            Remove
+          </Button>
+        </div>
       ),
     },
   ];
@@ -787,7 +881,7 @@ export const StaffView: React.FC = () => {
         </div>
       </div>
 
-      {/* ─── Institutional Stat Cards (Spacious, No Squeezing) ─── */}
+      {/* ─── Staff Stat Cards (Spacious, No Squeezing) ─── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <div className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] flex flex-col justify-between h-full min-w-0">
           <div className="flex items-center justify-between">
@@ -813,7 +907,7 @@ export const StaffView: React.FC = () => {
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
               Monthly Payroll
             </span>
-            <div className="w-8 h-8 rounded-[4px] bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center shrink-0">
               <DollarSign className="w-4 h-4" />
             </div>
           </div>
@@ -897,11 +991,7 @@ export const StaffView: React.FC = () => {
                     onChange={(val) => setDeptFilter(val)}
                     options={[
                       { value: 'ALL', label: 'All Departments' },
-                      { value: 'CHE', label: 'Community Health' },
-                      { value: 'MLT', label: 'Medical Laboratory' },
-                      { value: 'PHT', label: 'Pharmacy Tech' },
-                      { value: 'HIM', label: 'Health Information' },
-                      { value: 'EHT', label: 'Environmental Health' },
+                      ...(departments || []).map((d) => ({ value: d.code, label: d.name })),
                     ]}
                   />
                 </div>
@@ -918,6 +1008,17 @@ export const StaffView: React.FC = () => {
                   />
                 </div>
               </>
+            }
+            toolbarActions={
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={() => setIsAddStaffModalOpen(true)}
+                leftIcon={<Plus className="w-3.5 h-3.5" />}
+                className="bg-[#0F7640] hover:bg-[#093322]"
+              >
+                Add Staff Member
+              </Button>
             }
           />
         </Card>
@@ -1085,14 +1186,19 @@ export const StaffView: React.FC = () => {
             <div className="border border-slate-200 p-6 rounded-[4px] bg-white relative">
               {/* Header Letterhead */}
               <div className="text-center pb-4 border-b border-slate-200">
-                <div className="w-12 h-12 mx-auto mb-2 rounded-[4px] bg-[#0F7640] text-white flex items-center justify-center font-bold text-sm shadow-sm">
-                  BCHT
-                </div>
+                <img
+                  src={schoolProfile?.logoUrl || '/BeonTech-Logo.png'}
+                  alt="College Crest"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/BeonTech-Logo.png';
+                  }}
+                  className="w-12 h-12 mx-auto mb-2 object-contain"
+                />
                 <h2 className="text-base font-bold text-slate-900 tracking-wide uppercase">
-                  Bethsaida College of Health Technology
+                  {schoolProfile?.institutionName || 'Bethsaida College of Health Technology'}
                 </h2>
                 <p className="text-[11px] text-slate-500">
-                  Approved by Federal Ministry of Health • Moniya, Ibadan, Oyo State, Nigeria
+                  Approved by Federal Ministry of Health • {schoolProfile?.campusAddress || 'Ogbomoso, Oyo State, Nigeria'}
                 </p>
                 <div className="mt-2 inline-block px-3 py-1 bg-emerald-50 rounded-[4px] text-xs font-bold text-[#0F7640] border border-emerald-200 uppercase">
                   OFFICIAL SALARY PAYSLIP • NOVEMBER 2026
@@ -1189,7 +1295,7 @@ export const StaffView: React.FC = () => {
                 <div className="text-right">
                   <div className="w-28 border-b border-slate-700 ml-auto my-1"></div>
                   <span className="font-bold text-slate-900 text-xs block">College Bursar</span>
-                  <span className="text-[10px] text-slate-400">Bethsaida College of Health Tech</span>
+                  <span className="text-[10px] text-slate-400">{schoolProfile?.institutionName || "College of Health Technology"}</span>
                 </div>
               </div>
             </div>
@@ -1386,6 +1492,180 @@ export const StaffView: React.FC = () => {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* ─── MODAL: EDIT STAFF MEMBER ─── */}
+      <Modal
+        isOpen={isEditStaffOpen && !!editingStaff}
+        onClose={() => {
+          setIsEditStaffOpen(false);
+          setEditingStaff(null);
+        }}
+        title={`Edit Staff Profile: ${editingStaff?.fullName || ''}`}
+        description="Update staff rank, department, contact credentials, or licensing status."
+        size="lg"
+      >
+        {editingStaff && (
+          <form onSubmit={handleUpdateStaff} className="space-y-4 text-xs font-sans">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                label="Full Name"
+                value={editingStaff.fullName}
+                onChange={(e) => setEditingStaff({ ...editingStaff, fullName: e.target.value })}
+                required
+              />
+              <Input
+                label="Academic / Professional Credentials"
+                value={editingStaff.credentials}
+                onChange={(e) => setEditingStaff({ ...editingStaff, credentials: e.target.value })}
+                placeholder="e.g. MBBS, MPH, FWACP"
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <Input
+                label="Designation / Academic Rank"
+                value={editingStaff.designation}
+                onChange={(e) => setEditingStaff({ ...editingStaff, designation: e.target.value })}
+                required
+              />
+              <Select
+                label="Department"
+                options={(departments || []).map((d) => ({ value: d.code, label: d.name }))}
+                value={editingStaff.departmentCode}
+                onChange={(val) => {
+                  const deptObj = (departments || []).find((d) => d.code === val);
+                  setEditingStaff({
+                    ...editingStaff,
+                    departmentCode: val,
+                    departmentName: deptObj ? deptObj.name : editingStaff.departmentName,
+                  });
+                }}
+              />
+              <Select
+                label="Employment Category"
+                options={[
+                  { value: 'FULL_TIME', label: 'Full-Time Faculty' },
+                  { value: 'ADJUNCT_PRECEPTOR', label: 'Clinical Adjunct' },
+                  { value: 'CONTRACT', label: 'Contract' },
+                  { value: 'ADMINISTRATIVE', label: 'Administrative' },
+                ]}
+                value={editingStaff.employmentType}
+                onChange={(val) => setEditingStaff({ ...editingStaff, employmentType: val as any })}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                label="Official College Email"
+                type="email"
+                value={editingStaff.email}
+                onChange={(e) => setEditingStaff({ ...editingStaff, email: e.target.value })}
+                required
+              />
+              <Input
+                label="Phone Number"
+                value={editingStaff.phone}
+                onChange={(e) => setEditingStaff({ ...editingStaff, phone: e.target.value })}
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <Input
+                label="Regulatory License No"
+                value={editingStaff.licenseNumber}
+                onChange={(e) => setEditingStaff({ ...editingStaff, licenseNumber: e.target.value })}
+              />
+              <DatePicker
+                label="License Expiry Date"
+                value={editingStaff.licenseExpiry}
+                onChange={(val) => setEditingStaff({ ...editingStaff, licenseExpiry: val })}
+              />
+              <Select
+                label="Licensing Verification"
+                options={[
+                  { value: 'VERIFIED_CURRENT', label: 'Verified Current' },
+                  { value: 'RENEWAL_DUE', label: 'Renewal Due' },
+                  { value: 'EXPIRED', label: 'Expired' },
+                ]}
+                value={editingStaff.licenseStatus}
+                onChange={(val) => setEditingStaff({ ...editingStaff, licenseStatus: val as any })}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                label="Salary Grade"
+                value={editingStaff.salaryGrade}
+                onChange={(e) => setEditingStaff({ ...editingStaff, salaryGrade: e.target.value })}
+              />
+              <Input
+                label="Monthly Basic Salary (₦)"
+                type="number"
+                value={String(Math.round(editingStaff.basicSalaryKobo / 100))}
+                onChange={(e) =>
+                  setEditingStaff({
+                    ...editingStaff,
+                    basicSalaryKobo: (Number(e.target.value) || 0) * 100,
+                  })
+                }
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-200">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setIsEditStaffOpen(false);
+                  setEditingStaff(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" className="bg-[#0F7640] hover:bg-[#093322]">
+                Save Changes
+              </Button>
+            </div>
+          </form>
+        )}
+      </Modal>
+
+      {/* ─── MODAL: DELETE STAFF CONFIRMATION ─── */}
+      <Modal
+        isOpen={isDeleteStaffOpen && !!deleteStaffTarget}
+        onClose={() => {
+          setIsDeleteStaffOpen(false);
+          setDeleteStaffTarget(null);
+        }}
+        title="Remove Staff Member"
+        description="Are you sure you want to remove this staff member from the college registry?"
+        size="sm"
+      >
+        <div className="space-y-4 text-xs font-sans">
+          <p className="text-slate-600">
+            Removing <span className="font-bold text-slate-900">{deleteStaffTarget?.fullName}</span> (
+            <span className="font-semibold text-slate-800">{deleteStaffTarget?.staffId}</span>) will revoke their directory listing and active payroll schedule.
+          </p>
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setIsDeleteStaffOpen(false);
+                setDeleteStaffTarget(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeleteStaff}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Confirm Remove
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

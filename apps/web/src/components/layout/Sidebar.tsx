@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
+  User,
   UserPlus,
   Users,
   CreditCard,
@@ -20,6 +21,7 @@ import {
   LogOut,
   ShieldAlert,
   FileCheck,
+  LifeBuoy,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext.tsx';
 
@@ -53,7 +55,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isMobileOpen,
   onCloseMobile,
 }) => {
-  const { session, persona } = useApp();
+  const { session, persona, schoolProfile, isImpersonating, signOut } = useApp();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -75,6 +77,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     e.stopPropagation();
     setActiveSubmenu((prev) => (prev === basePath ? null : basePath));
   };
+
+  const isStudent = session.activeRole === 'STU' || session.activeRole === 'SPON';
 
   const navGroups: NavGroup[] = [
     {
@@ -132,48 +136,71 @@ export const Sidebar: React.FC<SidebarProps> = ({
           ],
         },
         {
-          name: 'Academics & Exams',
+          name: isStudent ? 'My Grades & Transcripts' : 'Academics & Exams',
           path: '/academics',
           icon: <GraduationCap size={19} />,
-          subItems: [
-            { name: 'Score Entry', path: '/academics/scores' },
-            { name: 'Broadsheets', path: '/academics/broadsheet' },
-            { name: 'Transcripts', path: '/academics/transcript' },
-            { name: 'Curriculum & Courses', path: '/academics/curriculum' },
-          ],
+          subItems: isStudent
+            ? [
+                { name: 'My Broadsheet Results', path: '/academics/broadsheet' },
+                { name: 'Official Transcript', path: '/academics/transcript' },
+              ]
+            : [
+                { name: 'Score Entry', path: '/academics/scores' },
+                { name: 'Broadsheets', path: '/academics/broadsheet' },
+                { name: 'Transcripts', path: '/academics/transcript' },
+                { name: 'Curriculum & Courses', path: '/academics/curriculum' },
+              ],
         },
         {
-          name: 'Attendance Register',
+          name: isStudent ? 'My Attendance' : 'Attendance Register',
           path: '/attendance',
           icon: <CalendarCheck size={19} />,
-          subItems: [
-            { name: 'Daily Class Register', path: '/attendance/register' },
-            { name: 'Course Summaries', path: '/attendance/courses' },
-            { name: 'Exam Clearance', path: '/attendance/clearance' },
-            { name: 'Medical Waivers', path: '/attendance/waivers' },
-          ],
+          subItems: isStudent
+            ? [
+                { name: 'My Class Attendance', path: '/attendance/register' },
+                { name: 'My Course Summaries', path: '/attendance/courses' },
+                { name: 'My Exam Clearance', path: '/attendance/clearance' },
+              ]
+            : [
+                { name: 'Daily Class Register', path: '/attendance/register' },
+                { name: 'Course Summaries', path: '/attendance/courses' },
+                { name: 'Exam Clearance', path: '/attendance/clearance' },
+                { name: 'Medical Waivers', path: '/attendance/waivers' },
+              ],
         },
         {
-          name: 'Clinical Postings',
+          name: isStudent ? 'My Clinical Posting' : 'Clinical Postings',
           path: '/postings',
           icon: <Stethoscope size={19} />,
-          subItems: [
-            { name: 'Hospital Allocations', path: '/postings/allocations' },
-            { name: 'Training Hospitals', path: '/postings/sites' },
-            { name: 'Logbook Grading', path: '/postings/logbooks' },
-            { name: 'Final Clearance', path: '/postings/clearance' },
-          ],
+          subItems: isStudent
+            ? [
+                { name: 'My Hospital Posting', path: '/postings/allocations' },
+                { name: 'My Clinical Logbook', path: '/postings/logbooks' },
+                { name: 'Posting Clearance', path: '/postings/clearance' },
+              ]
+            : [
+                { name: 'Hospital Allocations', path: '/postings/allocations' },
+                { name: 'Training Hospitals', path: '/postings/sites' },
+                { name: 'Logbook Grading', path: '/postings/logbooks' },
+                { name: 'Final Clearance', path: '/postings/clearance' },
+              ],
         },
         {
-          name: 'E-Learning',
+          name: isStudent ? 'Course Materials & CBT' : 'E-Learning',
           path: '/learning',
           icon: <BookOpen size={19} />,
-          subItems: [
-            { name: 'Course Materials', path: '/learning/materials' },
-            { name: 'Practice Tests', path: '/learning/cbt' },
-            { name: 'Question Bank', path: '/learning/questions' },
-            { name: 'Student Results', path: '/learning/results' },
-          ],
+          subItems: isStudent
+            ? [
+                { name: 'Course Materials & Library', path: '/learning/materials' },
+                { name: 'Take Practice Exams', path: '/learning/cbt' },
+                { name: 'My Test Results', path: '/learning/results' },
+              ]
+            : [
+                { name: 'Course Materials', path: '/learning/materials' },
+                { name: 'Practice Tests', path: '/learning/cbt' },
+                { name: 'Question Bank', path: '/learning/questions' },
+                { name: 'Student Results', path: '/learning/results' },
+              ],
         },
       ],
     },
@@ -181,16 +208,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
       group: 'Finance & Operations',
       items: [
         {
-          name: 'Fees & Bursary',
+          name: isStudent ? 'My Tuition & Fees' : 'Fees & Bursary',
           path: '/bursary',
           icon: <CreditCard size={19} />,
-          subItems: [
-            { name: 'Student Master Ledger', path: '/bursary/ledger' },
-            { name: 'Payment Receipts', path: '/bursary/receipts' },
-            { name: 'Fee Schedules', path: '/bursary/structure' },
-            { name: 'Debtors & Installments', path: '/bursary/debtors' },
-            { name: 'Bank Reconciliation', path: '/bursary/reconciliation' },
-          ],
+          subItems: isStudent
+            ? [
+                { name: 'My Tuition Account', path: '/bursary/ledger' },
+                { name: 'My Payment Receipts', path: '/bursary/receipts' },
+              ]
+            : [
+                { name: 'Student Master Ledger', path: '/bursary/ledger' },
+                { name: 'Payment Receipts', path: '/bursary/receipts' },
+                { name: 'Fee Schedules', path: '/bursary/structure' },
+                { name: 'Debtors & Installments', path: '/bursary/debtors' },
+                { name: 'Bank Reconciliation', path: '/bursary/reconciliation' },
+              ],
         },
         {
           name: 'Staff & HR',
@@ -204,26 +236,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
           ],
         },
         {
-          name: 'Hostels',
+          name: isStudent ? 'My Accommodation' : 'Hostels',
           path: '/hostels',
           icon: <Building2 size={19} />,
-          subItems: [
-            { name: 'Room Inventory', path: '/hostels/inventory' },
-            { name: 'Bed Allocations', path: '/hostels/allocations' },
-            { name: 'Check-In & Clearance', path: '/hostels/checkin' },
-            { name: 'Maintenance & Repairs', path: '/hostels/maintenance' },
-          ],
+          subItems: isStudent
+            ? [
+                { name: 'My Bed Space Pass', path: '/hostels/allocations' },
+                { name: 'Check-In Clearance', path: '/hostels/checkin' },
+              ]
+            : [
+                { name: 'Room Inventory', path: '/hostels/inventory' },
+                { name: 'Bed Allocations', path: '/hostels/allocations' },
+                { name: 'Check-In & Clearance', path: '/hostels/checkin' },
+                { name: 'Maintenance & Repairs', path: '/hostels/maintenance' },
+              ],
         },
         {
-          name: 'Timetable',
+          name: isStudent ? 'My Timetable' : 'Timetable',
           path: '/timetable',
           icon: <Calendar size={19} />,
-          subItems: [
-            { name: 'Class Timetables', path: '/timetable/classes' },
-            { name: 'Practical & Lab Sessions', path: '/timetable/practicals' },
-            { name: 'Lecture Halls & Venues', path: '/timetable/venues' },
-            { name: 'Faculty Teaching Load', path: '/timetable/faculty' },
-          ],
+          subItems: isStudent
+            ? [
+                { name: 'Class Timetables', path: '/timetable/classes' },
+                { name: 'Practical & Lab Sessions', path: '/timetable/practicals' },
+              ]
+            : [
+                { name: 'Class Timetables', path: '/timetable/classes' },
+                { name: 'Practical & Lab Sessions', path: '/timetable/practicals' },
+                { name: 'Lecture Halls & Venues', path: '/timetable/venues' },
+                { name: 'Faculty Teaching Load', path: '/timetable/faculty' },
+              ],
         },
       ],
     },
@@ -242,14 +284,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
           ],
         },
         {
-          name: 'Messages & Notices',
+          name: isStudent ? 'College Notice Board' : 'Messages & Notices',
           path: '/messages',
           icon: <MessageSquare size={19} />,
+          subItems: isStudent
+            ? [
+                { name: 'Official Circulars', path: '/messages/notices' },
+              ]
+            : [
+                { name: 'Broadcast Dispatch', path: '/messages/broadcasts' },
+                { name: 'Official Circulars', path: '/messages/notices' },
+                { name: 'Delivery Logs', path: '/messages/logs' },
+                { name: 'Automated Triggers', path: '/messages/triggers' },
+              ],
+        },
+        {
+          name: 'Help & Support',
+          path: '/support',
+          icon: <LifeBuoy size={19} />,
           subItems: [
-            { name: 'Broadcast Dispatch', path: '/messages/broadcasts' },
-            { name: 'Official Circulars', path: '/messages/notices' },
-            { name: 'Delivery Logs', path: '/messages/logs' },
-            { name: 'Automated Triggers', path: '/messages/triggers' },
+            { name: 'Support Tickets', path: '/support?tab=tickets' },
+            { name: 'Knowledge Base & FAQ', path: '/support?tab=faq' },
+            { name: 'Help Directory', path: '/support?tab=directory' },
           ],
         },
         {
@@ -262,6 +318,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             { name: 'School Settings', path: '/settings/school' },
             { name: 'Security & 2FA', path: '/settings/security' },
           ],
+        },
+        {
+          name: 'My Profile',
+          path: '/profile',
+          icon: <User size={19} />,
         },
       ],
     },
@@ -277,7 +338,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     .filter((group) => group.items.length > 0);
 
   const handleSignOut = () => {
-    navigate('/login');
+    signOut().finally(() => navigate('/login'));
   };
 
   return (
@@ -290,15 +351,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
         />
       )}
 
-      {/* ─── SIDEBAR (Institutional Health Green — Bethsaida Identity) ─── */}
+      {/* ─── SIDEBAR (Health Green — Bethsaida Identity) ─── */}
       <aside
         style={{
           width: isCollapsed ? '68px' : '260px',
+          top: isImpersonating ? '36px' : '0',
           background: 'linear-gradient(180deg, #093322 0%, #052015 100%)',
           boxShadow: 'none',
           borderRadius: '0px',
         }}
-        className={`fixed top-0 bottom-0 left-0 z-40 flex flex-col justify-between text-white transition-all duration-200 select-none rounded-none ${
+        className={`fixed bottom-0 left-0 z-40 flex flex-col justify-between text-white transition-all duration-200 select-none rounded-none ${
           isMobileOpen
             ? 'translate-x-0 opacity-100 pointer-events-auto border-r border-white/10 visible'
             : '-translate-x-full opacity-0 pointer-events-none lg:opacity-100 lg:pointer-events-auto lg:translate-x-0 lg:border-r lg:border-white/10 lg:visible invisible'
@@ -308,18 +370,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {/* Brand Header */}
           <div className="h-14 px-4 border-b border-white/10 flex items-center justify-between shrink-0">
             {!isCollapsed ? (
-              <div className="flex flex-col min-w-0">
-                <span className="text-base font-extrabold tracking-wider text-white uppercase font-sans">
-                  CampusOne
-                </span>
-                <span className="text-[11px] text-emerald-200/80 truncate font-sans">
-                  Bethsaida College of Health Tech
-                </span>
+              <div className="flex items-center gap-2.5 min-w-0">
+                <img
+                  src={schoolProfile?.logoUrl || '/BeonTech-Logo.png'}
+                  alt="BeonTech Platform Logo"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/BeonTech-Logo.png';
+                  }}
+                  className="w-8 h-8 rounded-[4px] bg-white object-contain p-0.5 shrink-0 shadow-sm"
+                />
+                <div className="flex flex-col min-w-0">
+                  <span className="text-sm font-extrabold tracking-wider text-white uppercase font-sans leading-tight">
+                    CampusOne
+                  </span>
+                  <span className="text-[10px] text-emerald-200/80 truncate font-sans">
+                    {schoolProfile?.institutionName || 'Bethsaida College of Health Tech'}
+                  </span>
+                </div>
               </div>
             ) : (
-              <div className="w-8 h-8 bg-[#107C41] text-white font-bold text-xs rounded-[4px] flex items-center justify-center mx-auto border border-emerald-400/30">
-                C1
-              </div>
+              <img
+                src={schoolProfile?.logoUrl || '/BeonTech-Logo.png'}
+                alt="BeonTech Platform Logo"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '/BeonTech-Logo.png';
+                }}
+                className="w-8 h-8 bg-white rounded-[4px] object-contain p-0.5 mx-auto border border-white/20 shadow-sm"
+              />
             )}
             <button
               onClick={onToggleCollapse}

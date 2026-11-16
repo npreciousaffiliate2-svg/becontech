@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext.tsx';
+import { supabase } from '../lib/supabase.ts';
 import {
   Card,
   Button,
@@ -95,20 +96,21 @@ interface StudentAttempt {
 }
 
 export const LearningView: React.FC = () => {
-  const { session, recordAudit, isDense } = useApp();
+  const { session, recordAudit, isDense, persona, schoolProfile, departments, courses } = useApp();
   const isStaff = session.activeRole !== 'STU' && session.activeRole !== 'SPON';
   const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { tab: routeTab } = useParams<{ tab: string }>();
 
-  // Tab synchronization
+  /* ─── TAB SYNCHRONIZATION (ROLE SCOPED) ─── */
+  const validTabs = isStaff
+    ? ['materials', 'cbt', 'questions', 'results']
+    : ['materials', 'cbt', 'results'];
+
   const resolveTab = (tabStr?: string | null): 'materials' | 'cbt' | 'questions' | 'results' => {
-    if (!tabStr) return 'materials';
-    if (['materials', 'cbt', 'questions', 'results'].includes(tabStr)) {
-      return tabStr as 'materials' | 'cbt' | 'questions' | 'results';
-    }
-    return 'materials';
+    if (!tabStr || !validTabs.includes(tabStr)) return 'materials';
+    return tabStr as 'materials' | 'cbt' | 'questions' | 'results';
   };
 
   const [activeTab, setActiveTab] = useState<'materials' | 'cbt' | 'questions' | 'results'>(
@@ -144,7 +146,61 @@ export const LearningView: React.FC = () => {
   const [flaggedQuestions, setFlaggedQuestions] = useState<Record<number, boolean>>({});
   const [secondsRemaining, setSecondsRemaining] = useState(45 * 60);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [exitPrompt, setExitPrompt] = useState(false);
+  const finishingRef = useRef(false);
+  const finishExamRef = useRef<() => void>(() => {});
   const [cbtResult, setCbtResult] = useState<{ score: number; percentage: number; passed: boolean } | null>(null);
+
+  /* ─── LIVE SUPABASE LMS DATABASE HYDRATION ─── */
+  useEffect(() => {
+    async function loadLiveLmsData() {
+      try {
+        const { data: dbMaterials } = await supabase
+          .from('course_materials')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (dbMaterials && dbMaterials.length > 0) {
+          const mappedMaterials: CourseMaterial[] = dbMaterials.map((m: any) => ({
+            id: m.id,
+            courseCode: m.course_code,
+            title: m.title,
+            departmentCode: m.department_code,
+            type: m.type as MaterialType,
+            fileSize: m.file_size,
+            uploadedBy: m.uploaded_by,
+            uploadDate: m.upload_date,
+            downloadCount: m.download_count,
+            description: m.description,
+          }));
+          setMaterials(mappedMaterials);
+        }
+
+        const { data: dbQuestions } = await supabase
+          .from('cbt_questions')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (dbQuestions && dbQuestions.length > 0) {
+          const mappedQuestions: QuestionItem[] = dbQuestions.map((q: any) => ({
+            id: q.id,
+            courseCode: q.course_code,
+            questionText: q.question_text,
+            options: q.options,
+            correctOptionId: q.correct_option_id,
+            difficulty: q.difficulty,
+            explanation: q.explanation,
+            author: q.author,
+          }));
+          setCbtQuestions(mappedQuestions);
+        }
+      } catch (err) {
+        console.warn('[CampusOne] LMS live database load note:', err);
+      }
+    }
+
+    loadLiveLmsData();
+  }, []);
 
   /* ─── NEW MATERIAL FORM STATE ─── */
   const [newMatTitle, setNewMatTitle] = useState('');
@@ -295,7 +351,8 @@ export const LearningView: React.FC = () => {
   ]);
 
   /* ─── CBT QUESTIONS DATASET (10 AUTHENTIC HEALTH TECH QUESTIONS) ─── */
-  const cbtQuestions: QuestionItem[] = [
+  const [cbtQuestions, setCbtQuestions] = useState<QuestionItem[]>([
+
     {
       id: 'q-01',
       courseCode: 'CHE 201',
@@ -446,7 +503,7 @@ export const LearningView: React.FC = () => {
       explanation: 'The Bamako Initiative established community participation and self-sustaining revolving drug funds to ensure accessible essential medicines in rural centers.',
       author: 'Dr. K. Bello',
     },
-  ];
+  ]);
 
   /* ─── DATA: STUDENT RESULTS ─── */
   const [studentAttempts] = useState<StudentAttempt[]>([
@@ -519,20 +576,17 @@ export const LearningView: React.FC = () => {
 
   /* ─── TIMER EFFECT FOR CBT SIMULATOR ─── */
   useEffect(() => {
-    let interval: any = null;
-    if (isCbtModalOpen && !isSubmitted && secondsRemaining > 0) {
-      interval = setInterval(() => {
-        setSecondsRemaining((prev) => {
-          if (prev <= 1) {
-            clearInterval(interval);
-            handleAutoSubmit();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-    return () => clearInterval(interval);
+    if (!isCbtModalOpen || isSubmitted) return;
+    const interval = window.setInterval(() => {
+      setSecondsRemaining((prev) => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+    return () => window.clearInterval(interval);
+  }, [isCbtModalOpen, isSubmitted]);
+
+  useEffect(() => {
+    if (!isCbtModalOpen || isSubmitted || secondsRemaining !== 0 || finishingRef.current) return;
+    finishingRef.current = true;
+    finishExamRef.current();
   }, [isCbtModalOpen, isSubmitted, secondsRemaining]);
 
   /* ─── CBT ACTIONS ─── */
@@ -543,6 +597,8 @@ export const LearningView: React.FC = () => {
     setFlaggedQuestions({});
     setSecondsRemaining(test.durationMinutes * 60);
     setIsSubmitted(false);
+    setExitPrompt(false);
+    finishingRef.current = false;
     setCbtResult(null);
     setIsCbtModalOpen(true);
   };
@@ -561,10 +617,6 @@ export const LearningView: React.FC = () => {
     }));
   };
 
-  const handleAutoSubmit = () => {
-    calculateAndFinishCbt();
-  };
-
   const handleSubmitCbt = () => {
     calculateAndFinishCbt();
   };
@@ -577,7 +629,8 @@ export const LearningView: React.FC = () => {
       }
     });
 
-    const percentage = Math.round((correctCount / cbtQuestions.length) * 100);
+    const total = cbtQuestions.length;
+    const percentage = total === 0 ? 0 : Math.round((correctCount / total) * 100);
     const passed = percentage >= (activeTest?.passMarkPercentage || 50);
 
     setCbtResult({
@@ -591,9 +644,10 @@ export const LearningView: React.FC = () => {
     showToast({
       type: passed ? 'success' : 'warning',
       title: 'Practice Test Completed',
-      message: `Score: ${correctCount} of ${cbtQuestions.length} (${percentage}%). ${passed ? 'Congratulations, you passed!' : 'Review recommended.'}`,
+      message: `Score: ${correctCount} of ${total} (${percentage}%). ${passed ? 'Congratulations, you passed!' : 'Review recommended.'}`,
     });
   };
+  finishExamRef.current = calculateAndFinishCbt;
 
   const formatTimer = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -603,11 +657,10 @@ export const LearningView: React.FC = () => {
 
   /* ─── MATERIAL ACTIONS ─── */
   const handleDownloadMaterial = (m: CourseMaterial) => {
-    recordAudit('COURSE_MATERIAL_DOWNLOADED', 'ONLINE_LEARNING', m.courseCode);
     showToast({
-      type: 'success',
-      title: 'Download Initialized',
-      message: `Downloading "${m.title}" (${m.fileSize}).`,
+      type: 'warning',
+      title: 'File Not Attached',
+      message: `"${m.title}" is listed in the library, but no document file is stored for download.`,
     });
   };
 
@@ -627,7 +680,7 @@ export const LearningView: React.FC = () => {
       title: newMatTitle.trim(),
       departmentCode: newMatCourse.substring(0, 3),
       type: newMatType,
-      fileSize: '4.5 MB',
+      fileSize: 'File pending',
       uploadedBy: 'Dr. Timothy Balogun (Provost)',
       uploadDate: new Date().toISOString().split('T')[0],
       downloadCount: 0,
@@ -635,10 +688,31 @@ export const LearningView: React.FC = () => {
     };
     setMaterials((prev) => [newMaterial, ...prev]);
     recordAudit('COURSE_MATERIAL_UPLOADED', 'ONLINE_LEARNING', newMatCourse);
+    
+    // Save directly to Supabase course_materials database
+    supabase
+      .from('course_materials')
+      .upsert({
+        id: newMaterial.id,
+        college_id: 'bethsaida',
+        course_code: newMaterial.courseCode,
+        title: newMaterial.title,
+        department_code: newMaterial.departmentCode,
+        type: newMaterial.type,
+        file_size: newMaterial.fileSize,
+        uploaded_by: newMaterial.uploadedBy,
+        upload_date: newMaterial.uploadDate,
+        download_count: newMaterial.downloadCount,
+        description: newMaterial.description,
+      })
+      .then(({ error }) => {
+        if (error) console.warn('[CampusOne] Material db save note:', error);
+      });
+
     showToast({
       type: 'success',
-      title: 'Material Published',
-      message: `"${newMatTitle}" has been added to student digital library.`,
+      title: 'Material Published Successfully',
+      message: `"${newMatTitle}" has been saved and published to the student digital library.`,
     });
     setIsUploadModalOpen(false);
     setNewMatTitle('');
@@ -720,6 +794,69 @@ export const LearningView: React.FC = () => {
       ),
     },
   ];
+
+    /* ─── ADD NEW QUESTION HANDLER ─── */
+  const handleAddNewQuestion = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newQText.trim() || !newOptA.trim() || !newOptB.trim()) {
+      showToast({
+        type: 'danger',
+        title: 'Incomplete Question',
+        message: 'Please provide question text and at least options A and B.',
+      });
+      return;
+    }
+
+    const createdQ: QuestionItem = {
+      id: `q-${Date.now().toString().slice(-4)}`,
+      courseCode: newQCourse,
+      questionText: newQText.trim(),
+      options: [
+        { id: 'A', text: newOptA.trim() },
+        { id: 'B', text: newOptB.trim() },
+        { id: 'C', text: newOptC.trim() || 'None of the above' },
+        { id: 'D', text: newOptD.trim() || 'All of the above' },
+      ],
+      correctOptionId: newCorrectOpt as any,
+      difficulty: 'INTERMEDIATE',
+      explanation: newQExplanation.trim() || 'Official curriculum clinical rationale.',
+      author: persona?.fullName || 'Academic Staff',
+    };
+
+    setCbtQuestions((prev) => [createdQ, ...prev]);
+
+    // Save directly to Supabase cbt_questions database
+    supabase
+      .from('cbt_questions')
+      .upsert({
+        id: createdQ.id,
+        college_id: 'bethsaida',
+        course_code: createdQ.courseCode,
+        question_text: createdQ.questionText,
+        options: createdQ.options,
+        correct_option_id: createdQ.correctOptionId,
+        difficulty: createdQ.difficulty,
+        explanation: createdQ.explanation,
+        author: createdQ.author,
+      })
+      .then(({ error }) => {
+        if (error) console.warn('[CampusOne] CBT Question db save note:', error);
+      });
+
+    setIsAddQuestionModalOpen(false);
+    setNewQText('');
+    setNewOptA('');
+    setNewOptB('');
+    setNewOptC('');
+    setNewOptD('');
+    setNewQExplanation('');
+
+    showToast({
+      type: 'success',
+      title: 'Question Saved Successfully',
+      message: `Question added and saved to ${createdQ.courseCode} question bank.`,
+    });
+  };
 
   /* ─── TABLE COLUMNS: QUESTION BANK ─── */
   const questionColumns = [
@@ -819,7 +956,7 @@ export const LearningView: React.FC = () => {
         </div>
       </div>
 
-      {/* ─── Institutional Stat Cards ─── */}
+      {/* ─── Academic Stat Cards ─── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <div className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] flex flex-col justify-between h-full min-w-0">
           <div className="flex items-center justify-between">
@@ -845,7 +982,7 @@ export const LearningView: React.FC = () => {
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
               Practice Mock Tests
             </span>
-            <div className="w-8 h-8 rounded-[4px] bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center shrink-0">
               <GraduationCap className="w-4 h-4" />
             </div>
           </div>
@@ -1062,28 +1199,40 @@ export const LearningView: React.FC = () => {
         </div>
       )}
 
-      {/* ─── TAB 3: QUESTION BANK ─── */}
-      {activeTab === 'questions' && (
+      {/* ─── TAB 3: QUESTION BANK (FACULTY & LECTURERS ONLY) ─── */}
+      {isStaff && activeTab === 'questions' && (
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <p className="text-xs text-slate-500">
               Departmental pool of vetted multiple choice examination items with clinical rationales.
             </p>
-            <Button
-              size="sm"
-              onClick={() => {
-                showToast({
-                  type: 'info',
-                  title: 'Question Bank Export',
-                  message: 'Exporting encrypted question catalog for Senate examination moderation.',
-                });
-              }}
-              leftIcon={<Download className="w-3.5 h-3.5" />}
-              variant="secondary"
-              className="whitespace-nowrap"
-            >
-              Export Question Pool
-            </Button>
+            <div className="flex items-center gap-2">
+              {isStaff && (
+                <Button
+                  size="sm"
+                  onClick={() => setIsAddQuestionModalOpen(true)}
+                leftIcon={<Plus className="w-3.5 h-3.5" />}
+                className="whitespace-nowrap bg-[#0F7640] hover:bg-[#093322]"
+              >
+                Add Question
+              </Button>
+            )}
+              <Button
+                size="sm"
+                onClick={() => {
+                  showToast({
+                    type: 'info',
+                    title: 'Question Bank Export',
+                    message: 'Exporting encrypted question catalog for Senate examination moderation.',
+                  });
+                }}
+                leftIcon={<Download className="w-3.5 h-3.5" />}
+                variant="secondary"
+                className="whitespace-nowrap"
+              >
+                Export Question Pool
+              </Button>
+            </div>
           </div>
 
           <Card>
@@ -1148,7 +1297,7 @@ export const LearningView: React.FC = () => {
                 Chapter 1: Standard Protocols & Statutory Guidelines
               </h4>
               <p>
-                This institutional manual is approved by the Academic Board of Bethsaida College of Health Technology for training in accordance with the regulatory curricula of the Federal Ministry of Health.
+                This official college manual is approved by the Academic Board of {schoolProfile?.institutionName || "Bethsaida College of Health Technology"} for training in accordance with the regulatory curricula of the Federal Ministry of Health.
               </p>
               <p>
                 All students must review the diagnostic and clinical procedures contained herein prior to posting in accredited teaching hospitals and rural health centers. Trainees are responsible for understanding sterile techniques, infection control procedures, and ethical patient engagement protocols.
@@ -1243,19 +1392,143 @@ export const LearningView: React.FC = () => {
         </div>
       </Modal>
 
+            {/* ─── MODAL: ADD CBT QUESTION TO BANK ─── */}
+      <Modal
+        isOpen={isAddQuestionModalOpen}
+        onClose={() => setIsAddQuestionModalOpen(false)}
+        title="Add Question to CBT Bank"
+        description="Create a standardized clinical or theory multiple choice item with answer rationale."
+        size="lg"
+      >
+        <form onSubmit={handleAddNewQuestion} className="space-y-4 text-xs text-slate-800 font-sans">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Select
+              label="Associated Course"
+              options={
+                courses && courses.length > 0
+                  ? courses.map((c) => ({ value: c.code, label: `${c.code} - ${c.title}` }))
+                  : [
+                      { value: 'CHE 201', label: 'CHE 201 - Maternal & Child Health' },
+                      { value: 'MLT 201', label: 'MLT 201 - Haematology & Blood Transfusion' },
+                      { value: 'PHT 201', label: 'PHT 201 - Pharmacology & Dispensing' },
+                      { value: 'HIM 201', label: 'HIM 201 - Health Records Management' },
+                      { value: 'EHT 201', label: 'EHT 201 - Environmental Epidemiology' },
+                    ]
+              }
+              value={newQCourse}
+              onChange={(val) => setNewQCourse(val)}
+            />
+            <Select
+              label="Correct Answer Key"
+              options={[
+                { value: 'A', label: 'Option A' },
+                { value: 'B', label: 'Option B' },
+                { value: 'C', label: 'Option C' },
+                { value: 'D', label: 'Option D' },
+              ]}
+              value={newCorrectOpt}
+              onChange={(val) => setNewCorrectOpt(val)}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="font-bold text-slate-900 block">Question Stem / Prompt:</label>
+            <textarea
+              rows={3}
+              required
+              value={newQText}
+              onChange={(e) => setNewQText(e.target.value)}
+              placeholder="Enter clear clinical scenario or theoretical prompt..."
+              className="w-full p-2.5 text-xs bg-white border border-slate-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="Option A (Required)"
+              value={newOptA}
+              onChange={(e) => setNewOptA(e.target.value)}
+              required
+              placeholder="First choice..."
+            />
+            <Input
+              label="Option B (Required)"
+              value={newOptB}
+              onChange={(e) => setNewOptB(e.target.value)}
+              required
+              placeholder="Second choice..."
+            />
+            <Input
+              label="Option C"
+              value={newOptC}
+              onChange={(e) => setNewOptC(e.target.value)}
+              placeholder="Third choice..."
+            />
+            <Input
+              label="Option D"
+              value={newOptD}
+              onChange={(e) => setNewOptD(e.target.value)}
+              placeholder="Fourth choice..."
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="font-bold text-slate-900 block">Clinical & Academic Rationale / Explanation:</label>
+            <textarea
+              rows={2}
+              value={newQExplanation}
+              onChange={(e) => setNewQExplanation(e.target.value)}
+              placeholder="Provide why the correct option is clinically valid..."
+              className="w-full p-2.5 text-xs bg-white border border-slate-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-200">
+            <Button type="button" variant="secondary" onClick={() => setIsAddQuestionModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" className="bg-[#0F7640] hover:bg-[#093322]">
+              Save Question to Bank
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
       {/* ─── MODAL 3: FULL-SCREEN INTERACTIVE LIVE CBT PRACTICE SIMULATOR ─── */}
       <Modal
         isOpen={isCbtModalOpen}
         onClose={() => {
-          if (!isSubmitted && !window.confirm('Are you sure you want to exit the CBT examination? Your progress will be closed.')) {
+          if (!isSubmitted) {
+            setExitPrompt(true);
             return;
           }
+          setExitPrompt(false);
           setIsCbtModalOpen(false);
         }}
         title={activeTest ? `${activeTest.title}` : 'CBT Practice Simulator'}
         size="lg"
       >
         <div className="space-y-5 text-xs text-slate-800">
+          {exitPrompt && !isSubmitted && (
+            <div className="border border-amber-200 bg-amber-50 p-3 rounded-[4px] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <p className="text-slate-800">Leave this examination? Unsubmitted answers will be closed.</p>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button variant="secondary" size="sm" onClick={() => setExitPrompt(false)}>
+                  Stay
+                </Button>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={() => {
+                    setExitPrompt(false);
+                    setIsCbtModalOpen(false);
+                  }}
+                >
+                  Leave examination
+                </Button>
+              </div>
+            </div>
+          )}
           {!isSubmitted ? (
             <>
               {/* CBT Top Bar: Timer, Course Badge, Flag Button */}

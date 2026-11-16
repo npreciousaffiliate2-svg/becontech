@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   ShieldCheck,
@@ -15,19 +15,27 @@ import {
   Stethoscope,
   Briefcase,
 } from 'lucide-react';
-import { Button, Input, useToast } from '@campusone/ui';
+import { Button, Input, Checkbox, Select, useToast } from '@campusone/ui';
 import { useApp } from '../context/AppContext.tsx';
-import { PERSONA_PROFILES } from '../context/personas.ts';
+import { supabase } from '../lib/supabase.ts';
 import type { RoleCode } from '@campusone/contracts';
 
 export const LoginView: React.FC = () => {
   const navigate = useNavigate();
-  const { switchRole } = useApp();
+  const { loginAs, schoolProfile } = useApp();
   const { showToast } = useToast();
 
+  useEffect(() => {
+    document.title = `CampusOne — ${schoolProfile?.institutionName || 'Sign In'}`;
+    const iconLinks = document.querySelectorAll("link[rel*='icon']");
+    iconLinks.forEach((link) => {
+      (link as HTMLLinkElement).href = '/BeonTech-Logo.png';
+    });
+  }, [schoolProfile?.institutionName]);
+
   const [activeTab, setActiveTab] = useState<'signin' | 'register'>('signin');
-  const [email, setEmail] = useState('provost@bethsaida.edu.ng');
-  const [password, setPassword] = useState('••••••••••••');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -37,44 +45,102 @@ export const LoginView: React.FC = () => {
   const [regEmail, setRegEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [programme, setProgramme] = useState('CHEW');
+  const [regPassword, setRegPassword] = useState('');
 
-  const handleSignIn = (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setTimeout(() => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+    if (error || !data.user) {
       setIsLoading(false);
       showToast({
-        type: 'success',
-        title: 'Authentication Successful',
-        message: 'Welcome back to CampusOne.',
+        type: 'danger',
+        title: 'Sign-in refused',
+        message: error?.message || 'The email or password is not valid.',
       });
-      navigate('/');
-    }, 600);
-  };
-
-  const handleQuickLogin = (role: RoleCode) => {
-    switchRole(role);
-    const p = PERSONA_PROFILES[role];
+      return;
+    }
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role, full_name')
+      .eq('email', email.trim())
+      .maybeSingle();
+    if (!profile?.role) {
+      await supabase.auth.signOut();
+      setIsLoading(false);
+      showToast({
+        type: 'danger',
+        title: 'No college profile',
+        message: 'This account is not linked to a CampusOne role. Ask the super administrator.',
+      });
+      return;
+    }
+    loginAs(profile.role as RoleCode);
+    setIsLoading(false);
     showToast({
-      type: 'info',
-      title: `Signed in as ${p.scopeBadge}`,
-      message: `Welcome, ${p.fullName}. Your authorized workspace is loaded.`,
+      type: 'success',
+      title: 'Signed in',
+      message: `Welcome back, ${profile.full_name}.`,
     });
     navigate('/');
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (regPassword.length < 8) {
+      showToast({
+        type: 'danger',
+        title: 'Password too short',
+        message: 'Use at least 8 characters.',
+      });
+      return;
+    }
     setIsLoading(true);
-    setTimeout(() => {
+    const { data, error } = await supabase.auth.signUp({
+      email: regEmail.trim(),
+      password: regPassword,
+      options: { data: { full_name: fullName, programme } },
+    });
+    if (error || !data.user) {
+      setIsLoading(false);
+      showToast({
+        type: 'danger',
+        title: 'Account not created',
+        message: error?.message || 'Registration could not be completed.',
+      });
+      return;
+    }
+    if (data.session) {
+      await supabase.from('profiles').insert({
+        id: data.user.id,
+        college_id: 'bethsaida',
+        email: regEmail.trim(),
+        full_name: fullName,
+        role: 'STU',
+        auth_user_id: data.user.id,
+        phone,
+      });
+      loginAs('STU');
       setIsLoading(false);
       showToast({
         type: 'success',
-        title: 'Application Account Provisioned',
-        message: 'You can now proceed with online admission screening.',
+        title: 'Account created',
+        message: 'You are signed in as a student. The registry can attach your matriculation number.',
       });
       navigate('/');
-    }, 600);
+      return;
+    }
+    setIsLoading(false);
+    showToast({
+      type: 'info',
+      title: 'Confirm your email',
+      message: 'CampusOne sent a confirmation link. Sign in after you confirm the address.',
+    });
+    setActiveTab('signin');
+    setEmail(regEmail);
   };
 
   return (
@@ -86,21 +152,22 @@ export const LoginView: React.FC = () => {
         }}
         className="hidden lg:flex w-1/2 relative items-center justify-center p-12 overflow-hidden select-none"
       >
-        {/* Soft Background blur circles */}
-        <div className="absolute top-1/4 left-1/4 w-[350px] h-[350px] bg-emerald-500/10 rounded-full blur-[90px] pointer-events-none" />
-        <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-emerald-500/15 rounded-full blur-[100px] pointer-events-none" />
-
         <div className="max-w-md flex flex-col justify-between h-full relative z-10 py-8">
           {/* Brand Logo Header */}
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-[4px] bg-white text-[#093322] font-bold text-sm flex items-center justify-center shadow-md">
-              C1
-            </div>
+          <div className="flex items-center gap-3">
+            <img
+              src="/BeonTech-Logo.png"
+              alt="BeonTech Platform Crest"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = '/BeonTech-Logo.png';
+              }}
+              className="w-10 h-10 rounded-[4px] bg-white object-contain p-1 shadow-md shrink-0"
+            />
             <div>
-              <span className="text-xl font-extrabold tracking-wider text-white uppercase block leading-none">
+              <span className="text-xl font-extrabold tracking-wider text-white uppercase block leading-none font-sans">
                 CampusOne
               </span>
-              <span className="text-[11px] text-emerald-200 block mt-0.5">
+              <span className="text-[11px] text-emerald-200 block mt-1 font-sans">
                 Bethsaida College of Health Tech
               </span>
             </div>
@@ -110,9 +177,9 @@ export const LoginView: React.FC = () => {
           <div className="flex flex-col gap-6 my-auto">
             <div className="flex flex-col gap-2.5">
               <h2 className="text-3xl font-extrabold tracking-tight text-white leading-tight">
-                Unified institutional system of record.
+                College Academic & Management System.
               </h2>
-              <p className="text-sm text-blue-100/80 leading-relaxed font-normal">
+              <p className="text-sm text-emerald-100/80 leading-relaxed font-normal">
                 Seamlessly unifies admissions, bursary fee settlements, examination broadsheets, and clinical hospital postings in one accredited single-tenant cloud environment.
               </p>
             </div>
@@ -125,7 +192,7 @@ export const LoginView: React.FC = () => {
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <span className="font-bold text-white">NDPA 2023 & Board Regulatory Security</span>
-                  <span className="text-blue-100/70 leading-relaxed">
+                  <span className="text-emerald-100/70 leading-relaxed">
                     Tamper-evident audit logging and role-based permissions verified by regulatory boards.
                   </span>
                 </div>
@@ -137,7 +204,7 @@ export const LoginView: React.FC = () => {
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <span className="font-bold text-white">Deterministic Broadsheet Calculations</span>
-                  <span className="text-blue-100/70 leading-relaxed">
+                  <span className="text-emerald-100/70 leading-relaxed">
                     Zero-error GPA/CGPA arithmetic tested against golden statutory grading standards.
                   </span>
                 </div>
@@ -149,7 +216,7 @@ export const LoginView: React.FC = () => {
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <span className="font-bold text-white">Double-Entry Fee Ledger & E-Receipts</span>
-                  <span className="text-blue-100/70 leading-relaxed">
+                  <span className="text-emerald-100/70 leading-relaxed">
                     Instant QR-verifiable official receipts with Paystack & Remita bank settlement integration.
                   </span>
                 </div>
@@ -158,7 +225,7 @@ export const LoginView: React.FC = () => {
           </div>
 
           {/* Social Proof / Accreditation Badges */}
-          <div className="flex items-center justify-between border-t border-white/10 pt-4 text-xs text-blue-100/70">
+          <div className="flex items-center justify-between border-t border-white/10 pt-4 text-xs text-emerald-100/70">
             <span>Accredited: CHPRBN • MLSCN • PCN</span>
             <span className="text-white font-medium">Session: 2026/2027</span>
           </div>
@@ -168,6 +235,21 @@ export const LoginView: React.FC = () => {
       {/* ─── RIGHT: AUTH FORM CONTAINER (UseOneID Style) ─── */}
       <div className="flex-1 flex flex-col justify-center px-6 sm:px-12 lg:px-16 py-12 max-w-xl mx-auto w-full">
         <div className="w-full">
+          {/* Platform Crest Logo */}
+          <div className="flex items-center gap-2 mb-4">
+            <img
+              src="/BeonTech-Logo.png"
+              alt="BeonTech Platform Logo"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = '/BeonTech-Logo.png';
+              }}
+              className="w-8 h-8 rounded-[4px] object-contain shadow-xs"
+            />
+            <span className="text-sm font-extrabold uppercase tracking-wider text-[#093322] font-sans">
+              CampusOne
+            </span>
+          </div>
+
           {/* Header Title */}
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
@@ -175,7 +257,7 @@ export const LoginView: React.FC = () => {
             </h1>
             <p className="text-xs text-slate-500 mt-1">
               {activeTab === 'signin'
-                ? 'Enter your institutional credentials or select a role to test.'
+                ? 'Sign in with the email and password issued by the college.'
                 : 'Create an applicant profile to begin admission screening.'}
             </p>
           </div>
@@ -209,11 +291,11 @@ export const LoginView: React.FC = () => {
           {activeTab === 'signin' ? (
             <form onSubmit={handleSignIn} className="space-y-4">
               <Input
-                label="Institutional Email / Matric No"
+                label="College Email / Matric No"
                 type="text"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@bethsaida.edu.ng"
+                placeholder="name@becohtech.edu.ng"
                 required
               />
 
@@ -235,6 +317,7 @@ export const LoginView: React.FC = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full h-9 rounded-[4px] border border-slate-300 bg-white px-3 pr-9 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#0F7640]"
+                    placeholder="Enter your password"
                     required
                   />
                   <button
@@ -248,142 +331,19 @@ export const LoginView: React.FC = () => {
               </div>
 
               <div className="flex items-center justify-between text-xs">
-                <label className="flex items-center gap-2 cursor-pointer text-slate-700 select-none">
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    className="w-4 h-4 rounded-[4px] text-[#0F7640] border-slate-300 focus:ring-[#0F7640]"
-                  />
-                  <span>Keep me signed in</span>
-                </label>
+                <Checkbox
+                  checked={rememberMe}
+                  onChange={(checked) => setRememberMe(checked)}
+                  label="Keep me signed in on this computer"
+                />
               </div>
 
-              <Button type="submit" isLoading={isLoading} className="w-full h-10 text-sm">
-                Sign In
+              <Button type="submit" isLoading={isLoading} className="w-full h-10 text-sm bg-[#0F7640] hover:bg-[#093322]">
+                Sign In to CampusOne
               </Button>
 
-              {/* 1-Click Persona Simulator Logins (Role Testing & RBAC) */}
-              <div className="pt-4 border-t border-slate-200">
-                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5 text-center">
-                  1-Click Role-Based Quick Sign In
-                </span>
-                <p className="text-[11px] text-slate-400 text-center mb-3">
-                  Select any persona to experience their tailored workspace & permissions
-                </p>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleQuickLogin('PROVOST')}
-                    leftIcon={<ShieldCheck size={14} className="text-[#0F7640]" />}
-                    className="justify-start text-left h-auto py-1.5"
-                  >
-                    <div>
-                      <span className="block font-bold text-slate-900 leading-tight">Provost</span>
-                      <span className="text-[10px] text-slate-400 block leading-none mt-0.5">Full Executive</span>
-                    </div>
-                  </Button>
-
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleQuickLogin('BURSAR')}
-                    leftIcon={<CreditCard size={14} className="text-[#13A348]" />}
-                    className="justify-start text-left h-auto py-1.5"
-                  >
-                    <div>
-                      <span className="block font-bold text-slate-900 leading-tight">Bursar</span>
-                      <span className="text-[10px] text-slate-400 block leading-none mt-0.5">Fees & Finance</span>
-                    </div>
-                  </Button>
-
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleQuickLogin('REG')}
-                    leftIcon={<FileCheck size={14} className="text-blue-600" />}
-                    className="justify-start text-left h-auto py-1.5"
-                  >
-                    <div>
-                      <span className="block font-bold text-slate-900 leading-tight">Registrar</span>
-                      <span className="text-[10px] text-slate-400 block leading-none mt-0.5">Admissions & Records</span>
-                    </div>
-                  </Button>
-
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleQuickLogin('EXAM')}
-                    leftIcon={<GraduationCap size={14} className="text-amber-500" />}
-                    className="justify-start text-left h-auto py-1.5"
-                  >
-                    <div>
-                      <span className="block font-bold text-slate-900 leading-tight">Exams Officer</span>
-                      <span className="text-[10px] text-slate-400 block leading-none mt-0.5">Grades & Broadsheets</span>
-                    </div>
-                  </Button>
-
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleQuickLogin('HOD')}
-                    leftIcon={<Building2 size={14} className="text-purple-600" />}
-                    className="justify-start text-left h-auto py-1.5"
-                  >
-                    <div>
-                      <span className="block font-bold text-slate-900 leading-tight">HOD (CHEW)</span>
-                      <span className="text-[10px] text-slate-400 block leading-none mt-0.5">Department Head</span>
-                    </div>
-                  </Button>
-
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleQuickLogin('INSTR')}
-                    leftIcon={<BookOpen size={14} className="text-teal-600" />}
-                    className="justify-start text-left h-auto py-1.5"
-                  >
-                    <div>
-                      <span className="block font-bold text-slate-900 leading-tight">Lecturer</span>
-                      <span className="text-[10px] text-slate-400 block leading-none mt-0.5">Scores & Classes</span>
-                    </div>
-                  </Button>
-
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleQuickLogin('CLINSUP')}
-                    leftIcon={<Stethoscope size={14} className="text-rose-600" />}
-                    className="justify-start text-left h-auto py-1.5"
-                  >
-                    <div>
-                      <span className="block font-bold text-slate-900 leading-tight">Preceptor</span>
-                      <span className="text-[10px] text-slate-400 block leading-none mt-0.5">Clinical Hospital</span>
-                    </div>
-                  </Button>
-
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleQuickLogin('STU')}
-                    leftIcon={<UserCheck size={14} className="text-[#0F7640]" />}
-                    className="justify-start text-left h-auto py-1.5"
-                  >
-                    <div>
-                      <span className="block font-bold text-slate-900 leading-tight">Student Portal</span>
-                      <span className="text-[10px] text-slate-400 block leading-none mt-0.5">Self-Service</span>
-                    </div>
-                  </Button>
-                </div>
+              <div className="pt-2 text-center text-xs text-slate-400">
+                Single-sign-on protected by NDPA 2023 & Board Regulatory Security.
               </div>
             </form>
           ) : (
@@ -412,21 +372,25 @@ export const LoginView: React.FC = () => {
                 placeholder="+234 803 000 0000"
                 required
               />
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Intended Health Programme
-                </label>
-                <select
-                  value={programme}
-                  onChange={(e) => setProgramme(e.target.value)}
-                  className="w-full h-9 rounded-[4px] border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#0F7640]"
-                >
-                  <option value="CHEW">Community Health Extension Worker (CHEW)</option>
-                  <option value="MLT">Medical Laboratory Technician (MLT)</option>
-                  <option value="PHT">Pharmacy Technician</option>
-                  <option value="HIM">Health Information Management</option>
-                </select>
-              </div>
+              <Input
+                label="Password"
+                type="password"
+                value={regPassword}
+                onChange={(e) => setRegPassword(e.target.value)}
+                placeholder="At least 8 characters"
+                required
+              />
+              <Select
+                label="Intended Health Programme"
+                value={programme}
+                onChange={setProgramme}
+                options={[
+                  { value: 'CHEW', label: 'Community Health Extension Worker (CHEW)' },
+                  { value: 'MLT', label: 'Medical Laboratory Technician (MLT)' },
+                  { value: 'PHT', label: 'Pharmacy Technician' },
+                  { value: 'HIM', label: 'Health Information Management' },
+                ]}
+              />
 
               <Button type="submit" isLoading={isLoading} className="w-full h-10 text-sm">
                 Create Account & Continue

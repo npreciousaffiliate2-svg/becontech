@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Card,
@@ -9,6 +9,7 @@ import {
   Modal,
   Input,
   Select,
+  DatePicker,
   useToast,
 } from '@campusone/ui';
 import {
@@ -27,19 +28,12 @@ import {
   UserCheck,
   FileText,
   Calendar,
+  Edit2,
+  Trash2,
+  Archive,
+  RotateCcw,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext.tsx';
-
-interface Course {
-  code: string;
-  title: string;
-  units: number;
-  semester: 'Harmattan' | 'Rain';
-  level: string;
-  lecturer: string;
-  departmentCode?: string;
-  departmentName?: string;
-}
 
 interface FacultyMember {
   id: string;
@@ -83,17 +77,29 @@ interface Department {
   accreditationValidUntil: string;
   regulatoryBody: string;
   regulatoryBodyFull: string;
-  programmes: { name: string; duration: string; students: number }[];
-  courses: Course[];
+  isArchived?: boolean;
+  programmes?: { name: string; duration: string; students: number }[];
+  courses?: any[];
 }
 
 export const DepartmentsView: React.FC = () => {
-  const { isDense } = useApp();
+  const {
+    isDense,
+    departments,
+    addDepartment,
+    updateDepartment,
+    deleteDepartment,
+    courses,
+    addCourse,
+    updateCourse,
+    deleteCourse,
+    schoolProfile,
+  } = useApp();
   const { showToast } = useToast();
   const { tab: routeTab } = useParams();
   const navigate = useNavigate();
 
-  // Clean industry-standard page routing (/departments, /departments/programmes, /departments/hods, etc.)
+  // Clean page routing (/departments, /departments/programmes, /departments/hods, etc.)
   const activeTab = routeTab || 'directory';
 
   const handleTabChange = (tabId: string) => {
@@ -108,9 +114,15 @@ export const DepartmentsView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBoardFilter, setSelectedBoardFilter] = useState('ALL');
 
-  // Modal State
+  /* ──────────────────────────────────────────────────────────────────────────
+   * 1. DEPARTMENT MANAGEMENT STATE
+   * ────────────────────────────────────────────────────────────────────────── */
   const [selectedDept, setSelectedDept] = useState<Department | null>(null);
   const [isAddDeptOpen, setIsAddDeptOpen] = useState(false);
+  const [isEditDeptOpen, setIsEditDeptOpen] = useState(false);
+  const [editingDept, setEditingDept] = useState<Department | null>(null);
+  const [isDeleteDeptOpen, setIsDeleteDeptOpen] = useState(false);
+  const [deleteDeptTarget, setDeleteDeptTarget] = useState<Department | null>(null);
   const [isReassignHODOpen, setIsReassignHODOpen] = useState(false);
   const [hodFormDeptCode, setHodFormDeptCode] = useState('CHE');
 
@@ -137,258 +149,268 @@ export const DepartmentsView: React.FC = () => {
     memoRef: 'BCHT/PROV/HOD/2026/04',
   });
 
-  // Initial Master Data for 5 Accredited Departments
-  const [departments, setDepartments] = useState<Department[]>([
-    {
-      id: 'dept-01',
-      name: 'Department of Community Health',
-      code: 'CHE',
-      hod: 'Dr. K. Bello',
-      hodTitle: 'Chief Lecturer & Head of Department',
-      hodEmail: 'hod.che@bethsaida.edu.ng',
-      hodPhone: '+234 803 124 5590',
-      office: 'Health Sciences Complex, Suite B101',
-      approvedQuota: 500,
-      programmesCount: 2,
-      studentsCount: 480,
-      facultyCount: 14,
-      accreditationStatus: 'FULL',
-      accreditationValidUntil: 'November 2028',
-      regulatoryBody: 'CHPRBN',
-      regulatoryBodyFull: 'Community Health Practitioners Registration Board of Nigeria',
-      programmes: [
-        { name: 'Community Health Extension Worker (CHEW)', duration: '3-Year Diploma', students: 340 },
-        { name: 'Junior Community Health Extension Worker (JCHEW)', duration: '2-Year Certificate', students: 140 },
-      ],
-      courses: [
-        { code: 'CHE 101', title: 'Introduction to Primary Healthcare', units: 3, semester: 'Harmattan', level: 'Year 1', lecturer: 'Dr. K. Bello' },
-        { code: 'CHE 102', title: 'Community Diagnosis & Field Survey', units: 3, semester: 'Harmattan', level: 'Year 1', lecturer: 'Mrs. R. Ajayi' },
-        { code: 'CHE 201', title: 'Maternal & Child Health Clinicals', units: 4, semester: 'Harmattan', level: 'Year 2', lecturer: 'Mr. D. Alabi' },
-        { code: 'CHE 301', title: 'Rural Healthcare Administration', units: 3, semester: 'Harmattan', level: 'Year 3', lecturer: 'Nurse E. Okon' },
-      ],
-    },
-    {
-      id: 'dept-02',
-      name: 'Department of Medical Laboratory Technology',
-      code: 'MLT',
-      hod: 'Mr. O. Adebisi',
-      hodTitle: 'Principal Lecturer & Head of Department',
-      hodEmail: 'hod.mlt@bethsaida.edu.ng',
-      hodPhone: '+234 802 771 9021',
-      office: 'Diagnostic Science Building, Room 204',
-      approvedQuota: 350,
-      programmesCount: 2,
-      studentsCount: 320,
-      facultyCount: 11,
-      accreditationStatus: 'FULL',
-      accreditationValidUntil: 'October 2027',
-      regulatoryBody: 'MLSCN',
-      regulatoryBodyFull: 'Medical Laboratory Science Council of Nigeria',
-      programmes: [
-        { name: 'Medical Laboratory Technician (MLT)', duration: '3-Year Diploma', students: 220 },
-        { name: 'Medical Laboratory Assistant (MLA)', duration: '2-Year Certificate', students: 100 },
-      ],
-      courses: [
-        { code: 'MLT 101', title: 'Basic Clinical Chemistry & Safety', units: 3, semester: 'Harmattan', level: 'Year 1', lecturer: 'Mr. O. Adebisi' },
-        { code: 'MLT 102', title: 'Medical Microbiology & Parasitology', units: 4, semester: 'Harmattan', level: 'Year 1', lecturer: 'Dr. S. Nnamdi' },
-        { code: 'MLT 201', title: 'Haematology & Blood Transfusion Science', units: 4, semester: 'Harmattan', level: 'Year 2', lecturer: 'Miss B. Eze' },
-        { code: 'MLT 301', title: 'Histopathology Techniques & Biopsies', units: 3, semester: 'Harmattan', level: 'Year 3', lecturer: 'Mr. O. Adebisi' },
-      ],
-    },
-    {
-      id: 'dept-03',
-      name: 'Department of Pharmacy Technician Studies',
-      code: 'PHT',
-      hod: 'Pharm. F. Oladipo',
-      hodTitle: 'Senior Lecturer & Head of Department',
-      hodEmail: 'hod.pht@bethsaida.edu.ng',
-      hodPhone: '+234 805 443 1892',
-      office: 'Pharmaceutical Sciences Wing, Lab P1',
-      approvedQuota: 300,
-      programmesCount: 1,
-      studentsCount: 260,
-      facultyCount: 8,
-      accreditationStatus: 'PROVISIONAL',
-      accreditationValidUntil: 'June 2027',
-      regulatoryBody: 'PCN',
-      regulatoryBodyFull: 'Pharmacy Council of Nigeria',
-      programmes: [
-        { name: 'Pharmacy Technician (PHT)', duration: '3-Year Diploma', students: 260 },
-      ],
-      courses: [
-        { code: 'PHT 101', title: 'Dispensing Principles & Metric Calculations', units: 3, semester: 'Harmattan', level: 'Year 1', lecturer: 'Pharm. F. Oladipo' },
-        { code: 'PHT 102', title: 'Pharmacology for Technicians', units: 4, semester: 'Harmattan', level: 'Year 1', lecturer: 'Pharm. T. Adele' },
-        { code: 'PHT 201', title: 'Pharmaceutics & Hospital Drug Storage', units: 3, semester: 'Harmattan', level: 'Year 2', lecturer: 'Mr. K. Lawal' },
-      ],
-    },
-    {
-      id: 'dept-04',
-      name: 'Department of Health Information Management',
-      code: 'HIM',
-      hod: 'Mrs. T. Adeleke',
-      hodTitle: 'Senior Lecturer & Head of Department',
-      hodEmail: 'hod.him@bethsaida.edu.ng',
-      hodPhone: '+234 809 332 7611',
-      office: 'Administration Annex, Room 108',
-      approvedQuota: 150,
-      programmesCount: 1,
-      studentsCount: 120,
-      facultyCount: 6,
-      accreditationStatus: 'FULL',
-      accreditationValidUntil: 'January 2029',
-      regulatoryBody: 'HRORBN',
-      regulatoryBodyFull: 'Health Records Officers Registration Board of Nigeria',
-      programmes: [
-        { name: 'Health Information Management (HIM)', duration: '3-Year National Diploma', students: 120 },
-      ],
-      courses: [
-        { code: 'HIM 101', title: 'Medical Terminology & Anatomy', units: 3, semester: 'Harmattan', level: 'Year 1', lecturer: 'Mrs. T. Adeleke' },
-        { code: 'HIM 102', title: 'Health Data Classification & ICD-11', units: 4, semester: 'Harmattan', level: 'Year 1', lecturer: 'Mr. J. Ogunlesi' },
-        { code: 'HIM 201', title: 'Electronic Health Records & Medico-Legal Records', units: 3, semester: 'Harmattan', level: 'Year 2', lecturer: 'Mrs. T. Adeleke' },
-      ],
-    },
-    {
-      id: 'dept-05',
-      name: 'Department of Environmental Health Sciences',
-      code: 'EHT',
-      hod: 'Sanitarian B. Ibrahim',
-      hodTitle: 'Principal Lecturer & Head of Department',
-      hodEmail: 'hod.eht@bethsaida.edu.ng',
-      hodPhone: '+234 807 551 2290',
-      office: 'Public Health Pavilion, Room 12',
-      approvedQuota: 100,
-      programmesCount: 1,
-      studentsCount: 68,
-      facultyCount: 5,
-      accreditationStatus: 'FULL',
-      accreditationValidUntil: 'September 2028',
-      regulatoryBody: 'EHORECON',
-      regulatoryBodyFull: 'Environmental Health Officers Registration Council of Nigeria',
-      programmes: [
-        { name: 'Environmental Health Technology (EHT)', duration: '3-Year Diploma', students: 68 },
-      ],
-      courses: [
-        { code: 'EHT 101', title: 'Principles of Environmental Sanitation', units: 3, semester: 'Harmattan', level: 'Year 1', lecturer: 'Sanitarian B. Ibrahim' },
-        { code: 'EHT 102', title: 'Water Quality & Municipal Waste Management', units: 4, semester: 'Harmattan', level: 'Year 1', lecturer: 'Sanitarian A. Bello' },
-        { code: 'EHT 201', title: 'Food Hygiene, Meat Inspection & Vector Control', units: 3, semester: 'Harmattan', level: 'Year 2', lecturer: 'Sanitarian B. Ibrahim' },
-      ],
-    },
-  ]);
-
-  // Master Programmes Catalog
-  const allProgrammes: Programme[] = [
+  /* ──────────────────────────────────────────────────────────────────────────
+   * 2. PROGRAMMES STATE & MANAGEMENT
+   * ────────────────────────────────────────────────────────────────────────── */
+  const initialProgrammes: Programme[] = [
     {
       id: 'prog-01',
-      name: 'Community Health Extension Worker (CHEW)',
-      code: 'CHEW',
-      departmentCode: 'CHE',
-      departmentName: 'Department of Community Health',
+      name: 'Dental Health Technician (DHT)',
+      code: 'DHT',
+      departmentCode: 'DHD',
+      departmentName: 'Dental Health Department',
       duration: '3 Years (6 Semesters)',
-      studentsCount: 340,
-      boardQuota: 350,
-      credentialAwarded: 'Professional National Diploma',
-      regulatoryBody: 'CHPRBN',
+      studentsCount: 105,
+      boardQuota: 120,
+      credentialAwarded: 'Professional Diploma in Dental Health',
+      regulatoryBody: 'DTRBN',
       status: 'Full Accreditation',
     },
     {
       id: 'prog-02',
-      name: 'Junior Community Health Extension Worker (JCHEW)',
-      code: 'JCHEW',
-      departmentCode: 'CHE',
-      departmentName: 'Department of Community Health',
-      duration: '2 Years (4 Semesters)',
-      studentsCount: 140,
-      boardQuota: 150,
-      credentialAwarded: 'Professional Certificate',
-      regulatoryBody: 'CHPRBN',
+      name: 'Dental Surgery Technician (DST)',
+      code: 'DST',
+      departmentCode: 'DHD',
+      departmentName: 'Dental Health Department',
+      duration: '3 Years (6 Semesters)',
+      studentsCount: 80,
+      boardQuota: 100,
+      credentialAwarded: 'Professional Diploma in Dental Surgery',
+      regulatoryBody: 'DTRBN',
       status: 'Full Accreditation',
     },
     {
       id: 'prog-03',
-      name: 'Medical Laboratory Technician (MLT)',
-      code: 'MLT',
-      departmentCode: 'MLT',
-      departmentName: 'Department of Medical Laboratory Technology',
+      name: 'Environmental Health Technician (EHT)',
+      code: 'EHT',
+      departmentCode: 'EHD',
+      departmentName: 'Environmental Health Department',
       duration: '3 Years (6 Semesters)',
-      studentsCount: 220,
-      boardQuota: 250,
+      studentsCount: 130,
+      boardQuota: 150,
       credentialAwarded: 'Professional National Diploma',
-      regulatoryBody: 'MLSCN',
+      regulatoryBody: 'EHORECON',
       status: 'Full Accreditation',
     },
     {
       id: 'prog-04',
-      name: 'Medical Laboratory Assistant (MLA)',
-      code: 'MLA',
-      departmentCode: 'MLT',
-      departmentName: 'Department of Medical Laboratory Technology',
+      name: 'Environmental Health Assistant (EHA)',
+      code: 'EHA',
+      departmentCode: 'EHD',
+      departmentName: 'Environmental Health Department',
       duration: '2 Years (4 Semesters)',
-      studentsCount: 100,
+      studentsCount: 68,
       boardQuota: 100,
       credentialAwarded: 'Professional Certificate',
-      regulatoryBody: 'MLSCN',
+      regulatoryBody: 'EHORECON',
       status: 'Full Accreditation',
     },
     {
       id: 'prog-05',
-      name: 'Pharmacy Technician (PHT)',
-      code: 'PHT',
-      departmentCode: 'PHT',
-      departmentName: 'Department of Pharmacy Technician Studies',
-      duration: '3 Years (6 Semesters)',
-      studentsCount: 260,
-      boardQuota: 300,
-      credentialAwarded: 'Professional Diploma',
-      regulatoryBody: 'PCN',
-      status: 'Provisional',
+      name: 'National Diploma (ND) in Health Information Management',
+      code: 'HIM-ND',
+      departmentCode: 'HIM',
+      departmentName: 'Health Information Management Department',
+      duration: '2 Years (4 Semesters)',
+      studentsCount: 102,
+      boardQuota: 120,
+      credentialAwarded: 'National Diploma (ND)',
+      regulatoryBody: 'HRORBN',
+      status: 'Full Accreditation',
     },
     {
       id: 'prog-06',
-      name: 'Health Information Management (HIM)',
-      code: 'HIM',
+      name: 'Higher National Diploma (HND) in Health Information Management',
+      code: 'HIM-HND',
       departmentCode: 'HIM',
-      departmentName: 'Department of Health Information Management',
-      duration: '3 Years (6 Semesters)',
-      studentsCount: 120,
-      boardQuota: 150,
-      credentialAwarded: 'National Diploma (ND)',
+      departmentName: 'Health Information Management Department',
+      duration: '2 Years (4 Semesters)',
+      studentsCount: 70,
+      boardQuota: 80,
+      credentialAwarded: 'Higher National Diploma (HND)',
       regulatoryBody: 'HRORBN',
       status: 'Full Accreditation',
     },
     {
       id: 'prog-07',
-      name: 'Environmental Health Technology (EHT)',
-      code: 'EHT',
-      departmentCode: 'EHT',
-      departmentName: 'Department of Environmental Health Sciences',
+      name: 'Health Technician (HT)',
+      code: 'HT',
+      departmentCode: 'HTD',
+      departmentName: 'Health Technician Department',
       duration: '3 Years (6 Semesters)',
-      studentsCount: 68,
-      boardQuota: 100,
-      credentialAwarded: 'National Diploma (ND)',
-      regulatoryBody: 'EHORECON',
+      studentsCount: 145,
+      boardQuota: 160,
+      credentialAwarded: 'Professional Diploma in Health Technology',
+      regulatoryBody: 'FMOH',
+      status: 'Full Accreditation',
+    },
+    {
+      id: 'prog-08',
+      name: 'Pharmacy Technician (PHT)',
+      code: 'PHT',
+      departmentCode: 'PHT',
+      departmentName: 'Pharmacy Technician Department',
+      duration: '3 Years (6 Semesters)',
+      studentsCount: 230,
+      boardQuota: 250,
+      credentialAwarded: 'Professional Diploma in Pharmacy Practice',
+      regulatoryBody: 'PCN',
+      status: 'Full Accreditation',
+    },
+    {
+      id: 'prog-09',
+      name: 'Health Assistant (HA)',
+      code: 'HA',
+      departmentCode: 'HAD',
+      departmentName: 'Health Assistant Department',
+      duration: '2 Years (4 Semesters)',
+      studentsCount: 135,
+      boardQuota: 150,
+      credentialAwarded: 'Professional Certificate in Primary Health Support',
+      regulatoryBody: 'FMOH',
+      status: 'Full Accreditation',
+    },
+    {
+      id: 'prog-10',
+      name: 'Community Health Extension Worker (CHEW)',
+      code: 'CHEW',
+      departmentCode: 'CHD',
+      departmentName: 'Community Health Department',
+      duration: '3 Years (6 Semesters)',
+      studentsCount: 260,
+      boardQuota: 300,
+      credentialAwarded: 'Professional National Diploma',
+      regulatoryBody: 'CHPRBN',
+      status: 'Full Accreditation',
+    },
+    {
+      id: 'prog-11',
+      name: 'Junior Community Health Extension Worker (JCHEW)',
+      code: 'JCHEW',
+      departmentCode: 'CHD',
+      departmentName: 'Community Health Department',
+      duration: '2 Years (4 Semesters)',
+      studentsCount: 120,
+      boardQuota: 150,
+      credentialAwarded: 'Professional Certificate',
+      regulatoryBody: 'CHPRBN',
       status: 'Full Accreditation',
     },
   ];
 
-  // Faculty Roster
-  const facultyMembers: FacultyMember[] = [
-    { id: 'fac-01', name: 'Dr. K. Bello', title: 'Chief Lecturer & HOD', departmentCode: 'CHE', email: 'k.bello@bethsaida.edu.ng', phone: '+234 803 124 5590', coursesCount: 3, qualification: 'Ph.D Public Health, FWACN' },
-    { id: 'fac-02', name: 'Mrs. R. Ajayi', title: 'Senior Lecturer', departmentCode: 'CHE', email: 'r.ajayi@bethsaida.edu.ng', phone: '+234 802 331 4455', coursesCount: 2, qualification: 'M.Sc Community Health' },
-    { id: 'fac-03', name: 'Mr. D. Alabi', title: 'Lecturer I', departmentCode: 'CHE', email: 'd.alabi@bethsaida.edu.ng', phone: '+234 806 211 9081', coursesCount: 2, qualification: 'B.Sc Health Education' },
-    { id: 'fac-04', name: 'Nurse E. Okon', title: 'Clinical Preceptor', departmentCode: 'CHE', email: 'e.okon@bethsaida.edu.ng', phone: '+234 807 443 1122', coursesCount: 1, qualification: 'RN, RM, RPHN' },
-    { id: 'fac-05', name: 'Mr. O. Adebisi', title: 'Principal Lecturer & HOD', departmentCode: 'MLT', email: 'o.adebisi@bethsaida.edu.ng', phone: '+234 802 771 9021', coursesCount: 3, qualification: 'FMLSCN, M.Sc Med Micro' },
-    { id: 'fac-06', name: 'Dr. S. Nnamdi', title: 'Senior Lecturer', departmentCode: 'MLT', email: 's.nnamdi@bethsaida.edu.ng', phone: '+234 803 881 2299', coursesCount: 2, qualification: 'Ph.D Chemical Pathology' },
-    { id: 'fac-07', name: 'Miss B. Eze', title: 'Medical Lab Technologist I', departmentCode: 'MLT', email: 'b.eze@bethsaida.edu.ng', phone: '+234 805 119 4433', coursesCount: 2, qualification: 'B.MLS Haematology' },
-    { id: 'fac-08', name: 'Pharm. F. Oladipo', title: 'Senior Lecturer & HOD', departmentCode: 'PHT', email: 'f.oladipo@bethsaida.edu.ng', phone: '+234 805 443 1892', coursesCount: 3, qualification: 'B.Pharm, M.Sc Pharmaceutics' },
-    { id: 'fac-09', name: 'Pharm. T. Adele', title: 'Lecturer II', departmentCode: 'PHT', email: 't.adele@bethsaida.edu.ng', phone: '+234 809 662 1100', coursesCount: 2, qualification: 'B.Pharm, MPSN' },
-    { id: 'fac-10', name: 'Mrs. T. Adeleke', title: 'Senior Lecturer & HOD', departmentCode: 'HIM', email: 't.adeleke@bethsaida.edu.ng', phone: '+234 809 332 7611', coursesCount: 3, qualification: 'M.Sc Health Info, RHRO' },
-    { id: 'fac-11', name: 'Sanitarian B. Ibrahim', title: 'Principal Lecturer & HOD', departmentCode: 'EHT', email: 'b.ibrahim@bethsaida.edu.ng', phone: '+234 807 551 2290', coursesCount: 3, qualification: 'M.Sc Public Health, REHO' },
+  const [programmesList, setProgrammesList] = useState<Programme[]>(() => {
+    try {
+      const saved = localStorage.getItem('campusone_programmes_v2');
+      if (saved) return JSON.parse(saved);
+      const legacy = localStorage.getItem('campusone_programmes');
+      if (legacy) {
+        const parsed = JSON.parse(legacy);
+        if (parsed.length >= 10 && parsed.some((p: any) => p.code === 'DHT')) {
+          return parsed;
+        }
+      }
+    } catch (e) {}
+    try {
+      localStorage.setItem('campusone_programmes_v2', JSON.stringify(initialProgrammes));
+      localStorage.setItem('campusone_programmes', JSON.stringify(initialProgrammes));
+    } catch (e) {}
+    return initialProgrammes;
+  });
+
+  const setProgrammes = (updater: (prev: Programme[]) => Programme[]) => {
+    setProgrammesList((prev) => {
+      const next = updater(prev);
+      try {
+        localStorage.setItem('campusone_programmes_v2', JSON.stringify(next));
+        localStorage.setItem('campusone_programmes', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+  };
+
+  const [isAddProgOpen, setIsAddProgOpen] = useState(false);
+  const [isEditProgOpen, setIsEditProgOpen] = useState(false);
+  const [editingProg, setEditingProg] = useState<Programme | null>(null);
+  const [isDeleteProgOpen, setIsDeleteProgOpen] = useState(false);
+  const [deleteProgTarget, setDeleteProgTarget] = useState<Programme | null>(null);
+
+  const [newProgForm, setNewProgForm] = useState({
+    name: '',
+    code: '',
+    departmentCode: 'CHD',
+    duration: '3 Years (6 Semesters)',
+    boardQuota: '150',
+    credentialAwarded: 'Professional National Diploma',
+    regulatoryBody: 'CHPRBN',
+    status: 'Full Accreditation' as const,
+  });
+
+  /* ──────────────────────────────────────────────────────────────────────────
+   * 3. FACULTY STATE & MANAGEMENT
+   * ────────────────────────────────────────────────────────────────────────── */
+  const initialFaculty: FacultyMember[] = [
+    { id: 'fac-01', name: 'Dr. A. O. Adeleke', title: 'Consultant Dental Surgeon & HOD', departmentCode: 'DHD', email: 'hod.dhd@becohtech.edu.ng', phone: '+234 907 578 9045', coursesCount: 2, qualification: 'BDS, FWACS Oral Health' },
+    { id: 'fac-02', name: 'Sanitarian B. Ibrahim', title: 'Chief Environmental Officer & HOD', departmentCode: 'EHD', email: 'hod.ehd@becohtech.edu.ng', phone: '+234 907 451 7476', coursesCount: 2, qualification: 'M.Sc Public Health, REHO' },
+    { id: 'fac-03', name: 'Mrs. T. Adeleke', title: 'Principal Lecturer & HOD', departmentCode: 'HIM', email: 'hod.him@becohtech.edu.ng', phone: '+234 907 578 9045', coursesCount: 2, qualification: 'M.Sc Health Info, RHRO' },
+    { id: 'fac-04', name: 'Mr. S. O. Alabi', title: 'Senior Lecturer & HOD', departmentCode: 'HTD', email: 'hod.htd@becohtech.edu.ng', phone: '+234 907 451 7476', coursesCount: 2, qualification: 'B.Sc Health Technology' },
+    { id: 'fac-05', name: 'Pharm. F. Oladipo', title: 'Chief Pharmacist & HOD', departmentCode: 'PHT', email: 'hod.pht@becohtech.edu.ng', phone: '+234 907 578 9045', coursesCount: 2, qualification: 'B.Pharm, M.Sc Pharmaceutics' },
+    { id: 'fac-06', name: 'Nurse E. O. Okon', title: 'Chief Nursing Officer & HOD', departmentCode: 'HAD', email: 'hod.had@becohtech.edu.ng', phone: '+234 907 451 7476', coursesCount: 2, qualification: 'RN, RM, RPHN Primary Care' },
+    { id: 'fac-07', name: 'Dr. K. Bello', title: 'Chief Lecturer & HOD', departmentCode: 'CHD', email: 'hod.chd@becohtech.edu.ng', phone: '+234 907 578 9045', coursesCount: 2, qualification: 'Ph.D Public Health, FWACN' },
+    { id: 'fac-08', name: 'Mrs. R. Ajayi', title: 'Senior Lecturer', departmentCode: 'CHD', email: 'r.ajayi@becohtech.edu.ng', phone: '+234 907 578 9045', coursesCount: 2, qualification: 'M.Sc Community Health' },
   ];
 
-  // All Courses across departments
-  const allCourses = departments.flatMap((d) =>
-    d.courses.map((c) => ({ ...c, departmentCode: d.code, departmentName: d.name }))
-  );
+  const [facultyList, setFacultyList] = useState<FacultyMember[]>(() => {
+    try {
+      const saved = localStorage.getItem('campusone_faculty');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return initialFaculty;
+  });
+
+  const setFaculty = (updater: (prev: FacultyMember[]) => FacultyMember[]) => {
+    setFacultyList((prev) => {
+      const next = updater(prev);
+      try {
+        localStorage.setItem('campusone_faculty', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+  };
+
+  const [isAddFacultyOpen, setIsAddFacultyOpen] = useState(false);
+  const [isEditFacultyOpen, setIsEditFacultyOpen] = useState(false);
+  const [editingFaculty, setEditingFaculty] = useState<FacultyMember | null>(null);
+  const [isDeleteFacultyOpen, setIsDeleteFacultyOpen] = useState(false);
+  const [deleteFacultyTarget, setDeleteFacultyTarget] = useState<FacultyMember | null>(null);
+
+  const [newFacultyForm, setNewFacultyForm] = useState({
+    name: '',
+    title: 'Lecturer II',
+    departmentCode: 'CHE',
+    email: '',
+    phone: '',
+    coursesCount: '1',
+    qualification: 'B.Sc, M.Sc',
+  });
+
+  /* ──────────────────────────────────────────────────────────────────────────
+   * 4. CURRICULUM COURSES STATE & MANAGEMENT
+   * ────────────────────────────────────────────────────────────────────────── */
+  const [isAddCourseOpen, setIsAddCourseOpen] = useState(false);
+  const [isEditCourseOpen, setIsEditCourseOpen] = useState(false);
+  const [editingCourse, setEditingCourse] = useState<any | null>(null);
+  const [isDeleteCourseOpen, setIsDeleteCourseOpen] = useState(false);
+  const [deleteCourseTarget, setDeleteCourseTarget] = useState<any | null>(null);
+
+  const [newCourseForm, setNewCourseForm] = useState({
+    code: '',
+    title: '',
+    departmentCode: 'CHE',
+    creditUnits: '3',
+    level: '100 Level',
+    semester: 'Harmattan Semester',
+    lecturer: 'Dr. K. Bello',
+  });
 
   // Filtered Departments
   const filteredDepartments = departments.filter((d) => {
@@ -401,7 +423,9 @@ export const DepartmentsView: React.FC = () => {
     return matchesSearch && matchesBoard;
   });
 
-  // Handle Add Department Submit
+  /* ──────────────────────────────────────────────────────────────────────────
+   * HANDLERS: DEPARTMENTS CRUD
+   * ────────────────────────────────────────────────────────────────────────── */
   const handleAddDepartment = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newDeptForm.name || !newDeptForm.code || !newDeptForm.hodName) {
@@ -413,7 +437,7 @@ export const DepartmentsView: React.FC = () => {
       return;
     }
 
-    const created: Department = {
+    const created: any = {
       id: `dept-${Date.now().toString().slice(-4)}`,
       name: newDeptForm.name,
       code: newDeptForm.code.toUpperCase(),
@@ -430,29 +454,80 @@ export const DepartmentsView: React.FC = () => {
       accreditationValidUntil: 'November 2029',
       regulatoryBody: newDeptForm.regulatoryBody,
       regulatoryBodyFull: newDeptForm.regulatoryBody,
+      isArchived: false,
       programmes: [{ name: `${newDeptForm.name} Diploma`, duration: '3-Year Diploma', students: 0 }],
       courses: [
         {
           code: `${newDeptForm.code.toUpperCase()} 101`,
           title: `Introduction to ${newDeptForm.name}`,
           units: 3,
-          semester: 'Harmattan',
-          level: 'Year 1',
+          semester: schoolProfile?.activeSemester || 'Harmattan Semester',
+          level: '100 Level',
           lecturer: `${newDeptForm.hodTitle} ${newDeptForm.hodName}`,
         },
       ],
     };
 
-    setDepartments((prev) => [...prev, created]);
+    addDepartment(created);
     setIsAddDeptOpen(false);
     showToast({
       type: 'success',
       title: 'Department Created',
-      message: `${created.name} (${created.code}) successfully added to institutional registry.`,
+      message: `${created.name} (${created.code}) successfully added to college registry.`,
     });
   };
 
-  // Handle Reassign HOD Submit
+  const handleOpenEditDept = (d: Department) => {
+    setEditingDept({ ...d });
+    setIsEditDeptOpen(true);
+  };
+
+  const handleUpdateDepartment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingDept) return;
+    updateDepartment(editingDept.id, {
+      name: editingDept.name,
+      code: editingDept.code.toUpperCase(),
+      regulatoryBody: editingDept.regulatoryBody,
+      regulatoryBodyFull: editingDept.regulatoryBodyFull || editingDept.regulatoryBody,
+      office: editingDept.office,
+      approvedQuota: Number(editingDept.approvedQuota),
+      accreditationStatus: editingDept.accreditationStatus,
+      hod: editingDept.hod,
+      hodTitle: editingDept.hodTitle,
+      hodEmail: editingDept.hodEmail,
+      hodPhone: editingDept.hodPhone,
+    });
+    setIsEditDeptOpen(false);
+    showToast({
+      type: 'success',
+      title: 'Department Updated',
+      message: `${editingDept.name} (${editingDept.code}) changes have been saved.`,
+    });
+  };
+
+  const handleDeleteDepartment = () => {
+    if (!deleteDeptTarget) return;
+    deleteDepartment(deleteDeptTarget.id);
+    setIsDeleteDeptOpen(false);
+    showToast({
+      type: 'success',
+      title: 'Department Removed',
+      message: `${deleteDeptTarget.name} has been removed.`,
+    });
+    setDeleteDeptTarget(null);
+  };
+
+  const handleToggleArchiveDept = (d: Department) => {
+    const nextArchived = !d.isArchived;
+    updateDepartment(d.id, { isArchived: nextArchived });
+    showToast({
+      type: 'info',
+      title: nextArchived ? 'Department Archived' : 'Department Restored',
+      message: `${d.name} has been ${nextArchived ? 'moved to archive' : 'restored to active directory'}.`,
+    });
+  };
+
   const handleReassignHOD = (e: React.FormEvent) => {
     e.preventDefault();
     if (!reassignForm.newHodName) {
@@ -465,20 +540,14 @@ export const DepartmentsView: React.FC = () => {
     }
 
     const fullNewHod = `${reassignForm.newHodTitle} ${reassignForm.newHodName}`;
-
-    setDepartments((prev) =>
-      prev.map((d) => {
-        if (d.code === hodFormDeptCode) {
-          return {
-            ...d,
-            hod: fullNewHod,
-            hodEmail: reassignForm.newHodEmail || d.hodEmail,
-            hodPhone: reassignForm.newHodPhone || d.hodPhone,
-          };
-        }
-        return d;
-      })
-    );
+    const targetDept = departments.find((d) => d.code === hodFormDeptCode);
+    if (targetDept) {
+      updateDepartment(targetDept.id, {
+        hod: fullNewHod,
+        hodEmail: reassignForm.newHodEmail || targetDept.hodEmail,
+        hodPhone: reassignForm.newHodPhone || targetDept.hodPhone,
+      });
+    }
 
     if (selectedDept && selectedDept.code === hodFormDeptCode) {
       setSelectedDept((prev) => (prev ? { ...prev, hod: fullNewHod } : null));
@@ -487,18 +556,201 @@ export const DepartmentsView: React.FC = () => {
     setIsReassignHODOpen(false);
     showToast({
       type: 'success',
-      title: 'HOD Reassignment Approved',
-      message: `${fullNewHod} has been confirmed as HOD for ${hodFormDeptCode} via Memo ${reassignForm.memoRef}.`,
+      title: 'HOD Appointment Updated',
+      message: `${fullNewHod} recorded as Head of Department for ${hodFormDeptCode}.`,
     });
   };
 
-  // Table Columns for Department Directory
+  /* ──────────────────────────────────────────────────────────────────────────
+   * HANDLERS: PROGRAMMES CRUD
+   * ────────────────────────────────────────────────────────────────────────── */
+  const handleAddProgramme = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProgForm.name || !newProgForm.code) {
+      showToast({
+        type: 'danger',
+        title: 'Missing Fields',
+        message: 'Please specify the programme name and code.',
+      });
+      return;
+    }
+
+    const dept = departments.find((d) => d.code === newProgForm.departmentCode);
+    const newProg: Programme = {
+      id: `prog-${Date.now().toString().slice(-4)}`,
+      name: newProgForm.name,
+      code: newProgForm.code.toUpperCase(),
+      departmentCode: newProgForm.departmentCode,
+      departmentName: dept?.name || 'Academic Department',
+      duration: newProgForm.duration,
+      studentsCount: 0,
+      boardQuota: parseInt(newProgForm.boardQuota, 10) || 100,
+      credentialAwarded: newProgForm.credentialAwarded,
+      regulatoryBody: newProgForm.regulatoryBody,
+      status: newProgForm.status,
+    };
+
+    setProgrammes((prev) => [newProg, ...prev]);
+    setIsAddProgOpen(false);
+    showToast({
+      type: 'success',
+      title: 'Programme Added',
+      message: `${newProg.name} (${newProg.code}) registered under ${newProg.departmentName}.`,
+    });
+  };
+
+  const handleUpdateProgramme = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProg) return;
+    setProgrammes((prev) => prev.map((p) => (p.id === editingProg.id ? editingProg : p)));
+    setIsEditProgOpen(false);
+    showToast({
+      type: 'success',
+      title: 'Programme Updated',
+      message: `${editingProg.name} details have been updated.`,
+    });
+  };
+
+  const handleDeleteProgramme = () => {
+    if (!deleteProgTarget) return;
+    setProgrammes((prev) => prev.filter((p) => p.id !== deleteProgTarget.id));
+    setIsDeleteProgOpen(false);
+    showToast({
+      type: 'success',
+      title: 'Programme Removed',
+      message: `${deleteProgTarget.name} has been removed.`,
+    });
+    setDeleteProgTarget(null);
+  };
+
+  /* ──────────────────────────────────────────────────────────────────────────
+   * HANDLERS: FACULTY CRUD
+   * ────────────────────────────────────────────────────────────────────────── */
+  const handleAddFaculty = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newFacultyForm.name) {
+      showToast({
+        type: 'danger',
+        title: 'Missing Name',
+        message: 'Please provide the faculty member name.',
+      });
+      return;
+    }
+
+    const newFac: FacultyMember = {
+      id: `fac-${Date.now().toString().slice(-4)}`,
+      name: newFacultyForm.name,
+      title: newFacultyForm.title,
+      departmentCode: newFacultyForm.departmentCode,
+      email: newFacultyForm.email || `${newFacultyForm.name.toLowerCase().replace(/[^a-z]/g, '')}@bethsaida.edu.ng`,
+      phone: newFacultyForm.phone || '+234 800 000 0000',
+      coursesCount: parseInt(newFacultyForm.coursesCount, 10) || 1,
+      qualification: newFacultyForm.qualification,
+    };
+
+    setFaculty((prev) => [newFac, ...prev]);
+    setIsAddFacultyOpen(false);
+    showToast({
+      type: 'success',
+      title: 'Faculty Added',
+      message: `${newFac.name} added to ${newFac.departmentCode} roster.`,
+    });
+  };
+
+  const handleUpdateFaculty = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingFaculty) return;
+    setFaculty((prev) => prev.map((f) => (f.id === editingFaculty.id ? editingFaculty : f)));
+    setIsEditFacultyOpen(false);
+    showToast({
+      type: 'success',
+      title: 'Faculty Updated',
+      message: `${editingFaculty.name} profile has been saved.`,
+    });
+  };
+
+  const handleDeleteFaculty = () => {
+    if (!deleteFacultyTarget) return;
+    setFaculty((prev) => prev.filter((f) => f.id !== deleteFacultyTarget.id));
+    setIsDeleteFacultyOpen(false);
+    showToast({
+      type: 'success',
+      title: 'Faculty Member Removed',
+      message: `${deleteFacultyTarget.name} removed from faculty roster.`,
+    });
+    setDeleteFacultyTarget(null);
+  };
+
+  /* ──────────────────────────────────────────────────────────────────────────
+   * HANDLERS: CURRICULUM COURSES CRUD
+   * ────────────────────────────────────────────────────────────────────────── */
+  const handleAddCourse = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCourseForm.code || !newCourseForm.title) {
+      showToast({
+        type: 'danger',
+        title: 'Missing Course Details',
+        message: 'Please enter both course code and title.',
+      });
+      return;
+    }
+
+    const dept = departments.find((d) => d.code === newCourseForm.departmentCode);
+    const newCourse = {
+      code: newCourseForm.code.toUpperCase(),
+      title: newCourseForm.title,
+      departmentCode: newCourseForm.departmentCode,
+      departmentName: dept?.name || 'Department',
+      creditUnits: parseInt(newCourseForm.creditUnits, 10) || 3,
+      theoryHours: 2,
+      practicalHours: 3,
+      level: newCourseForm.level,
+      semester: newCourseForm.semester,
+      lecturer: newCourseForm.lecturer,
+    };
+
+    addCourse(newCourse);
+    setIsAddCourseOpen(false);
+    showToast({
+      type: 'success',
+      title: 'Course Added',
+      message: `${newCourse.code}: ${newCourse.title} added to curriculum.`,
+    });
+  };
+
+  const handleUpdateCourse = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCourse) return;
+    updateCourse(editingCourse.code, editingCourse);
+    setIsEditCourseOpen(false);
+    showToast({
+      type: 'success',
+      title: 'Course Updated',
+      message: `${editingCourse.code} curriculum updated successfully.`,
+    });
+  };
+
+  const handleDeleteCourse = () => {
+    if (!deleteCourseTarget) return;
+    deleteCourse(deleteCourseTarget.code);
+    setIsDeleteCourseOpen(false);
+    showToast({
+      type: 'success',
+      title: 'Course Removed',
+      message: `${deleteCourseTarget.code} deleted from curriculum.`,
+    });
+    setDeleteCourseTarget(null);
+  };
+
+  /* ──────────────────────────────────────────────────────────────────────────
+   * TABLE COLUMNS
+   * ────────────────────────────────────────────────────────────────────────── */
   const departmentColumns = [
     {
       key: 'code',
       header: 'Code',
       render: (d: Department) => (
-        <span className="font-extrabold text-[#0F7640] text-sm tracking-wide">{d.code}</span>
+        <span className="font-extrabold text-[#0F7640] text-sm tracking-wide font-sans">{d.code}</span>
       ),
     },
     {
@@ -508,7 +760,7 @@ export const DepartmentsView: React.FC = () => {
         <div className="whitespace-nowrap">
           <p className="font-bold text-slate-900">{d.name}</p>
           <span className="text-[11px] text-slate-500 font-medium">
-            Board: {d.regulatoryBody} • Office: {d.office}
+            Council: {d.regulatoryBody} • Office: {d.office}
           </span>
         </div>
       ),
@@ -548,19 +800,26 @@ export const DepartmentsView: React.FC = () => {
     },
     {
       key: 'accreditationStatus',
-      header: 'Statutory Status',
+      header: 'Accreditation Status',
       render: (d: Department) => (
-        <Badge
-          variant={
-            d.accreditationStatus === 'FULL'
-              ? 'success'
-              : d.accreditationStatus === 'PROVISIONAL'
-              ? 'warning'
-              : 'danger'
-          }
-        >
-          {d.accreditationStatus === 'FULL' ? 'Full Accreditation' : 'Provisional'}
-        </Badge>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <Badge
+            variant={
+              d.accreditationStatus === 'FULL'
+                ? 'success'
+                : d.accreditationStatus === 'PROVISIONAL'
+                ? 'warning'
+                : 'danger'
+            }
+          >
+            {d.accreditationStatus === 'FULL' ? 'Full Accreditation' : 'Provisional'}
+          </Badge>
+          {d.isArchived && (
+            <Badge variant="neutral" size="sm">
+              ARCHIVED
+            </Badge>
+          )}
+        </div>
       ),
     },
     {
@@ -574,17 +833,54 @@ export const DepartmentsView: React.FC = () => {
             variant="secondary"
             onClick={() => setSelectedDept(d)}
           >
-            View Details
+            View
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            leftIcon={<Edit2 className="w-3 h-3" />}
+            onClick={() => handleOpenEditDept(d)}
+          >
+            Edit
           </Button>
           <Button
             size="sm"
             variant="ghost"
             onClick={() => {
               setHodFormDeptCode(d.code);
+              setReassignForm({
+                newHodName: '',
+                newHodTitle: 'Dr.',
+                newHodEmail: '',
+                newHodPhone: '',
+                effectiveDate: new Date().toISOString().slice(0, 10),
+                memoRef: `BCHT/PROV/HOD/2026/${d.code}`,
+              });
               setIsReassignHODOpen(true);
             }}
           >
-            Reassign HOD
+            HOD
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className={d.isArchived ? "text-emerald-600 hover:bg-emerald-50" : "text-amber-600 hover:bg-amber-50"}
+            onClick={() => handleToggleArchiveDept(d)}
+            title={d.isArchived ? "Restore Department" : "Archive Department"}
+          >
+            {d.isArchived ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-red-600 hover:bg-red-50"
+            onClick={() => {
+              setDeleteDeptTarget(d);
+              setIsDeleteDeptOpen(true);
+            }}
+            title="Delete Department"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
           </Button>
         </div>
       ),
@@ -593,30 +889,101 @@ export const DepartmentsView: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
+      {/* Module Header with Dynamic Contextual Action Buttons */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Departments</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            Institutional departments, accredited training programmes, statutory board quotas, and faculty appointments.
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight font-sans">
+            Departments & Programmes
+          </h1>
+          <p className="text-xs text-slate-500 mt-0.5 font-sans">
+            Academic departments, accredited training programmes, teaching faculties, and course curriculums.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="secondary"
-            leftIcon={<UserCheck className="w-3.5 h-3.5" />}
-            onClick={() => setIsReassignHODOpen(true)}
-          >
-            Reassign HOD
-          </Button>
-          <Button
-            size="sm"
-            leftIcon={<Plus className="w-3.5 h-3.5" />}
-            onClick={() => setIsAddDeptOpen(true)}
-          >
-            Add Department
-          </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {activeTab === 'directory' && (
+            <>
+              <Button
+                size="sm"
+                variant="secondary"
+                leftIcon={<UserCheck className="w-3.5 h-3.5" />}
+                onClick={() => setIsReassignHODOpen(true)}
+              >
+                Reassign HOD
+              </Button>
+              <Button
+                size="sm"
+                leftIcon={<Plus className="w-3.5 h-3.5" />}
+                onClick={() => setIsAddDeptOpen(true)}
+                className="bg-[#0F7640] hover:bg-[#093322]"
+              >
+                Add Department
+              </Button>
+            </>
+          )}
+          {activeTab === 'programmes' && (
+            <Button
+              size="sm"
+              leftIcon={<Plus className="w-3.5 h-3.5" />}
+              onClick={() => {
+                setNewProgForm({
+                  name: '',
+                  code: '',
+                  departmentCode: departments[0]?.code || 'CHE',
+                  duration: '3 Years (6 Semesters)',
+                  boardQuota: '150',
+                  credentialAwarded: 'Professional National Diploma',
+                  regulatoryBody: departments[0]?.regulatoryBody || 'CHPRBN',
+                  status: 'Full Accreditation',
+                });
+                setIsAddProgOpen(true);
+              }}
+              className="bg-[#0F7640] hover:bg-[#093322]"
+            >
+              Add Programme
+            </Button>
+          )}
+          {activeTab === 'faculty' && (
+            <Button
+              size="sm"
+              leftIcon={<Plus className="w-3.5 h-3.5" />}
+              onClick={() => {
+                setNewFacultyForm({
+                  name: '',
+                  title: 'Lecturer II',
+                  departmentCode: departments[0]?.code || 'CHE',
+                  email: '',
+                  phone: '',
+                  coursesCount: '1',
+                  qualification: 'B.Sc, M.Sc',
+                });
+                setIsAddFacultyOpen(true);
+              }}
+              className="bg-[#0F7640] hover:bg-[#093322]"
+            >
+              Add Lecturer
+            </Button>
+          )}
+          {activeTab === 'courses' && (
+            <Button
+              size="sm"
+              leftIcon={<Plus className="w-3.5 h-3.5" />}
+              onClick={() => {
+                setNewCourseForm({
+                  code: '',
+                  title: '',
+                  departmentCode: departments[0]?.code || 'CHE',
+                  creditUnits: '3',
+                  level: schoolProfile?.academicLevels[0] || '100 Level',
+                  semester: schoolProfile?.academicSemesters[0] || 'Harmattan Semester',
+                  lecturer: facultyList[0]?.name || 'Dr. K. Bello',
+                });
+                setIsAddCourseOpen(true);
+              }}
+              className="bg-[#0F7640] hover:bg-[#093322]"
+            >
+              Add Course
+            </Button>
+          )}
         </div>
       </div>
 
@@ -651,11 +1018,11 @@ export const DepartmentsView: React.FC = () => {
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold text-[#0F7640] font-sans tracking-tight">7</div>
+            <div className="text-2xl font-bold text-[#0F7640] font-sans tracking-tight">{programmesList.length}</div>
             <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
               <span className="text-[#13A348] font-semibold">Diploma & Certificate</span>
               <span className="text-slate-300">•</span>
-              <span className="text-[11px] text-slate-400">Board regulated</span>
+              <span className="text-[11px] text-slate-400">Approved curriculum</span>
             </div>
           </div>
         </Card>
@@ -665,18 +1032,18 @@ export const DepartmentsView: React.FC = () => {
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Academic Faculty
             </span>
-            <div className="w-8 h-8 rounded-[4px] bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center shrink-0">
               <Users className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold text-blue-600 font-sans tracking-tight">
-              {departments.reduce((acc, d) => acc + d.facultyCount, 0)}
+            <div className="text-2xl font-bold text-[#0F7640] font-sans tracking-tight">
+              {facultyList.length}
             </div>
             <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
-              <span className="text-blue-700 font-semibold">Lecturers & Preceptors</span>
+              <span className="text-[#0F7640] font-semibold">Lecturers & Preceptors</span>
               <span className="text-slate-300">•</span>
-              <span className="text-[11px] text-slate-400">Full-time cadre</span>
+              <span className="text-[11px] text-slate-400">Teaching cadre</span>
             </div>
           </div>
         </Card>
@@ -684,7 +1051,7 @@ export const DepartmentsView: React.FC = () => {
         <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Total Students
+              Curriculum Courses
             </span>
             <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#13A348] flex items-center justify-center shrink-0">
               <GraduationCap className="w-4 h-4" />
@@ -692,18 +1059,18 @@ export const DepartmentsView: React.FC = () => {
           </div>
           <div className="mt-3">
             <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">
-              {departments.reduce((acc, d) => acc + d.studentsCount, 0).toLocaleString()}
+              {courses.length}
             </div>
             <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
-              <span className="text-[#13A348] font-semibold">Enrolled across levels</span>
+              <span className="text-[#13A348] font-semibold">Active semester subjects</span>
               <span className="text-slate-300">•</span>
-              <span className="text-[11px] text-slate-400">Active trainees</span>
+              <span className="text-[11px] text-slate-400">Accredited course list</span>
             </div>
           </div>
         </Card>
       </div>
 
-      {/* Institutional Nav Tabs */}
+      {/* Nav Tabs */}
       <Tabs
         tabs={[
           { id: 'directory', label: 'Department Directory' },
@@ -719,7 +1086,6 @@ export const DepartmentsView: React.FC = () => {
       {/* ─── TAB 1: Department Directory ─── */}
       {activeTab === 'directory' && (
         <div className="space-y-4">
-          {/* Search & Custom UI Filter Bar */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3 rounded-[4px] border border-slate-200 shadow-sm">
             <div className="relative w-full sm:w-72">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -728,20 +1094,20 @@ export const DepartmentsView: React.FC = () => {
                 placeholder="Search department, code, or HOD..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 text-xs rounded-[4px] border border-slate-300 focus:outline-none focus:ring-1 focus:ring-[#0F7640] focus:border-[#0F7640]"
+                className="w-full pl-9 pr-3 py-1.5 text-xs rounded-[4px] border border-slate-300 focus:outline-none focus:ring-1 focus:ring-[#0F7640] focus:border-[#0F7640] font-sans"
               />
             </div>
             <div className="flex items-center gap-2 w-full sm:w-auto">
-              <span className="text-xs text-slate-500 font-medium shrink-0">Regulatory Board:</span>
+              <span className="text-xs text-slate-500 font-medium shrink-0">Regulatory Council:</span>
               <div className="w-56 shrink-0">
                 <Select
                   options={[
-                    { value: 'ALL', label: 'All Statutory Boards' },
-                    { value: 'CHPRBN', label: 'CHPRBN (Community Health)' },
-                    { value: 'MLSCN', label: 'MLSCN (Medical Lab)' },
-                    { value: 'PCN', label: 'PCN (Pharmacy)' },
-                    { value: 'HRORBN', label: 'HRORBN (Health Records)' },
-                    { value: 'EHORECON', label: 'EHORECON (Environmental)' },
+                    { value: 'ALL', label: 'All Regulatory Councils' },
+                    ...schoolProfile.regulatoryCouncils.map((c) => {
+                      const match = c.match(/\(([^)]+)\)/);
+                      const code = match ? match[1] : c;
+                      return { value: code, label: c };
+                    }),
                   ]}
                   value={selectedBoardFilter}
                   onChange={(val) => setSelectedBoardFilter(val)}
@@ -753,7 +1119,7 @@ export const DepartmentsView: React.FC = () => {
           <Card
             header={
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-2">
-                <span className="font-bold text-slate-900">Health Science Academic Departments</span>
+                <span className="font-bold text-slate-900">Enrolled Academic Departments</span>
                 <span className="text-xs text-slate-500 font-medium shrink-0">
                   Showing {filteredDepartments.length} of {departments.length} departments
                 </span>
@@ -773,62 +1139,115 @@ export const DepartmentsView: React.FC = () => {
       {/* ─── TAB 2: Accredited Programmes ─── */}
       {activeTab === 'programmes' && (
         <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-slate-500 font-medium">
+              Showing {programmesList.length} approved training programmes
+            </span>
+            <Button
+              size="sm"
+              leftIcon={<Plus className="w-3.5 h-3.5" />}
+              onClick={() => {
+                setNewProgForm({
+                  name: '',
+                  code: '',
+                  departmentCode: departments[0]?.code || 'CHE',
+                  duration: '3 Years (6 Semesters)',
+                  boardQuota: '150',
+                  credentialAwarded: 'Professional National Diploma',
+                  regulatoryBody: departments[0]?.regulatoryBody || 'CHPRBN',
+                  status: 'Full Accreditation',
+                });
+                setIsAddProgOpen(true);
+              }}
+              className="bg-[#0F7640] hover:bg-[#093322]"
+            >
+              Add Programme
+            </Button>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {allProgrammes.map((p) => {
+            {programmesList.map((p) => {
               const quotaPercent = Math.round((p.studentsCount / p.boardQuota) * 100);
               return (
                 <div
                   key={p.id}
-                  className="bg-white rounded-[4px] border border-slate-200 p-5 shadow-sm space-y-4 hover:border-slate-300 transition-colors"
+                  className="bg-white rounded-[4px] border border-slate-200 p-5 shadow-sm space-y-4 hover:border-slate-300 transition-colors flex flex-col justify-between"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-extrabold text-[#0F7640] bg-emerald-50 px-2 py-0.5 rounded-[4px] border border-emerald-200">
-                          {p.code}
-                        </span>
-                        <Badge variant={p.status === 'Full Accreditation' ? 'success' : 'warning'}>
-                          {p.status}
-                        </Badge>
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-extrabold text-[#0F7640] bg-emerald-50 px-2 py-0.5 rounded-[4px] border border-emerald-200">
+                            {p.code}
+                          </span>
+                          <Badge variant={p.status === 'Full Accreditation' ? 'success' : 'warning'}>
+                            {p.status}
+                          </Badge>
+                        </div>
+                        <h3 className="font-bold text-slate-900 text-sm mt-2">{p.name}</h3>
+                        <p className="text-xs text-slate-500">{p.departmentName}</p>
                       </div>
-                      <h3 className="font-bold text-slate-900 text-sm mt-2">{p.name}</h3>
-                      <p className="text-xs text-slate-500">{p.departmentName}</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 pt-3 border-t border-slate-100 text-xs">
+                      <div>
+                        <span className="text-slate-400 block text-[11px]">Duration</span>
+                        <span className="font-semibold text-slate-800">{p.duration}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[11px]">Credential</span>
+                        <span className="font-semibold text-slate-800">{p.credentialAwarded}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[11px]">Regulatory Council</span>
+                        <span className="font-semibold text-slate-800">{p.regulatoryBody}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[11px]">Approved Quota</span>
+                        <span className="font-semibold text-slate-800">{p.boardQuota} Candidates</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5 pt-1">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-500 font-medium">Current Enrollment</span>
+                        <span className="font-bold text-slate-900">
+                          {p.studentsCount} / {p.boardQuota} ({quotaPercent}%)
+                        </span>
+                      </div>
+                      <div className="h-1.5 w-full bg-slate-100 rounded-[4px] overflow-hidden">
+                        <div
+                          className="h-full bg-[#0F7640] rounded-[4px]"
+                          style={{ width: `${Math.min(quotaPercent, 100)}%` }}
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 pt-3 border-t border-slate-100 text-xs">
-                    <div>
-                      <span className="text-slate-400 block text-[11px]">Duration</span>
-                      <span className="font-semibold text-slate-800">{p.duration}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block text-[11px]">Credential</span>
-                      <span className="font-semibold text-slate-800">{p.credentialAwarded}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block text-[11px]">Regulatory Body</span>
-                      <span className="font-semibold text-slate-800">{p.regulatoryBody}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block text-[11px]">Approved Quota</span>
-                      <span className="font-semibold text-slate-800">{p.boardQuota} Candidates</span>
-                    </div>
-                  </div>
-
-                  {/* Enrollment Progress Bar */}
-                  <div className="space-y-1.5 pt-1">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-slate-500 font-medium">Current Enrollment</span>
-                      <span className="font-bold text-slate-900">
-                        {p.studentsCount} / {p.boardQuota} ({quotaPercent}%)
-                      </span>
-                    </div>
-                    <div className="h-1.5 w-full bg-slate-100 rounded-[4px] overflow-hidden">
-                      <div
-                        className="h-full bg-[#0F7640] rounded-[4px]"
-                        style={{ width: `${Math.min(quotaPercent, 100)}%` }}
-                      />
-                    </div>
+                  <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      leftIcon={<Edit2 className="w-3 h-3" />}
+                      onClick={() => {
+                        setEditingProg({ ...p });
+                        setIsEditProgOpen(true);
+                      }}
+                    >
+                      Edit Programme
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-red-600 hover:bg-red-50"
+                      leftIcon={<Trash2 className="w-3.5 h-3.5" />}
+                      onClick={() => {
+                        setDeleteProgTarget(p);
+                        setIsDeleteProgOpen(true);
+                      }}
+                    >
+                      Delete
+                    </Button>
                   </div>
                 </div>
               );
@@ -884,26 +1303,33 @@ export const DepartmentsView: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Fixed Action Buttons: Balanced flex-1 and shrink-0 so Details is NEVER squashed */}
                 <div className="pt-3 border-t border-slate-100 flex items-center gap-2">
                   <Button
                     size="sm"
                     variant="secondary"
                     className="flex-1"
+                    onClick={() => setSelectedDept(d)}
+                  >
+                    View Details
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    leftIcon={<UserCheck className="w-3.5 h-3.5" />}
                     onClick={() => {
                       setHodFormDeptCode(d.code);
+                      setReassignForm({
+                        newHodName: '',
+                        newHodTitle: 'Dr.',
+                        newHodEmail: '',
+                        newHodPhone: '',
+                        effectiveDate: new Date().toISOString().slice(0, 10),
+                        memoRef: `BCHT/PROV/HOD/2026/${d.code}`,
+                      });
                       setIsReassignHODOpen(true);
                     }}
                   >
                     Reassign HOD
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="shrink-0 px-3"
-                    onClick={() => setSelectedDept(d)}
-                  >
-                    Details
                   </Button>
                 </div>
               </div>
@@ -917,10 +1343,26 @@ export const DepartmentsView: React.FC = () => {
         <Card
           header={
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-2">
-              <span className="font-bold text-slate-900">Academic Faculty Roster</span>
-              <span className="text-xs text-slate-500 font-medium shrink-0">
-                {facultyMembers.length} active lecturers & clinical tutors
-              </span>
+              <span className="font-bold text-slate-900">Teaching Faculty Roster</span>
+              <Button
+                size="sm"
+                leftIcon={<Plus className="w-3.5 h-3.5" />}
+                onClick={() => {
+                  setNewFacultyForm({
+                    name: '',
+                    title: 'Lecturer II',
+                    departmentCode: departments[0]?.code || 'CHE',
+                    email: '',
+                    phone: '',
+                    coursesCount: '1',
+                    qualification: 'B.Sc, M.Sc',
+                  });
+                  setIsAddFacultyOpen(true);
+                }}
+                className="bg-[#0F7640] hover:bg-[#093322]"
+              >
+                Add Lecturer
+              </Button>
             </div>
           }
         >
@@ -977,23 +1419,35 @@ export const DepartmentsView: React.FC = () => {
                 header: 'Action',
                 align: 'right' as const,
                 render: (f: FacultyMember) => (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() =>
-                      showToast({
-                        type: 'info',
-                        title: 'Faculty Dossier',
-                        message: `Viewing academic teaching timetable for ${f.name}.`,
-                      })
-                    }
-                  >
-                    View Timetable
-                  </Button>
+                  <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      leftIcon={<Edit2 className="w-3 h-3" />}
+                      onClick={() => {
+                        setEditingFaculty({ ...f });
+                        setIsEditFacultyOpen(true);
+                      }}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-red-600 hover:bg-red-50"
+                      onClick={() => {
+                        setDeleteFacultyTarget(f);
+                        setIsDeleteFacultyOpen(true);
+                      }}
+                      title="Remove Faculty Member"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
                 ),
               },
             ]}
-            data={facultyMembers}
+            data={facultyList}
             keyExtractor={(f) => f.id}
             isDense={isDense}
           />
@@ -1006,9 +1460,25 @@ export const DepartmentsView: React.FC = () => {
           header={
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-2">
               <span className="font-bold text-slate-900">Curriculum Course Offerings</span>
-              <span className="text-xs text-slate-500 font-medium shrink-0">
-                {allCourses.length} accredited department courses
-              </span>
+              <Button
+                size="sm"
+                leftIcon={<Plus className="w-3.5 h-3.5" />}
+                onClick={() => {
+                  setNewCourseForm({
+                    code: '',
+                    title: '',
+                    departmentCode: departments[0]?.code || 'CHE',
+                    creditUnits: '3',
+                    level: schoolProfile?.academicLevels[0] || '100 Level',
+                    semester: schoolProfile?.academicSemesters[0] || 'Harmattan Semester',
+                    lecturer: facultyList[0]?.name || 'Dr. K. Bello',
+                  });
+                  setIsAddCourseOpen(true);
+                }}
+                className="bg-[#0F7640] hover:bg-[#093322]"
+              >
+                Add Course
+              </Button>
             </div>
           }
         >
@@ -1017,8 +1487,8 @@ export const DepartmentsView: React.FC = () => {
               {
                 key: 'code',
                 header: 'Course Code',
-                render: (c: Course) => (
-                  <span className="font-extrabold text-[#0F7640] text-sm tracking-wide">
+                render: (c: any) => (
+                  <span className="font-extrabold text-[#0F7640] text-sm tracking-wide font-sans">
                     {c.code}
                   </span>
                 ),
@@ -1026,7 +1496,7 @@ export const DepartmentsView: React.FC = () => {
               {
                 key: 'title',
                 header: 'Course Title',
-                render: (c: Course) => (
+                render: (c: any) => (
                   <div className="whitespace-nowrap">
                     <p className="font-bold text-slate-900">{c.title}</p>
                     <span className="text-[11px] text-slate-500">{c.departmentName}</span>
@@ -1037,14 +1507,14 @@ export const DepartmentsView: React.FC = () => {
                 key: 'units',
                 header: 'Credit Units',
                 align: 'center' as const,
-                render: (c: Course) => (
-                  <span className="font-bold text-slate-800">{c.units} Units</span>
+                render: (c: any) => (
+                  <span className="font-bold text-slate-800">{c.creditUnits || c.units} Units</span>
                 ),
               },
               {
                 key: 'level',
-                header: 'Cohort Level',
-                render: (c: Course) => (
+                header: 'Level',
+                render: (c: any) => (
                   <Badge variant="neutral" size="sm">
                     {c.level}
                   </Badge>
@@ -1053,31 +1523,66 @@ export const DepartmentsView: React.FC = () => {
               {
                 key: 'semester',
                 header: 'Semester',
-                render: (c: Course) => (
+                render: (c: any) => (
                   <span className="text-xs font-semibold text-slate-700">{c.semester}</span>
                 ),
               },
               {
                 key: 'lecturer',
                 header: 'Assigned Lecturer',
-                render: (c: Course) => (
-                  <span className="font-medium text-slate-800 whitespace-nowrap">{c.lecturer}</span>
+                render: (c: any) => (
+                  <span className="text-xs text-slate-800 font-medium whitespace-nowrap">
+                    {c.lecturer}
+                  </span>
+                ),
+              },
+              {
+                key: 'action',
+                header: 'Action',
+                align: 'right' as const,
+                render: (c: any) => (
+                  <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      leftIcon={<Edit2 className="w-3 h-3" />}
+                      onClick={() => {
+                        setEditingCourse({ ...c });
+                        setIsEditCourseOpen(true);
+                      }}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-red-600 hover:bg-red-50"
+                      onClick={() => {
+                        setDeleteCourseTarget(c);
+                        setIsDeleteCourseOpen(true);
+                      }}
+                      title="Delete Course"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
                 ),
               },
             ]}
-            data={allCourses}
+            data={courses}
             keyExtractor={(c) => c.code}
             isDense={isDense}
           />
         </Card>
       )}
 
-      {/* ─── MODAL 1: Department Details Drill-down ─── */}
+      {/* ──────────────────────────────────────────────────────────────────────────
+       * MODAL 1: VIEW DEPARTMENT DETAILS
+       * ────────────────────────────────────────────────────────────────────────── */}
       <Modal
-        isOpen={Boolean(selectedDept)}
+        isOpen={!!selectedDept}
         onClose={() => setSelectedDept(null)}
-        title={selectedDept ? `${selectedDept.name} (${selectedDept.code})` : 'Department Details'}
-        description="Comprehensive statutory registry, accredited programmes, and departmental leadership."
+        title={selectedDept?.name || 'Department Details'}
         size="lg"
         footer={
           <div className="flex flex-col sm:flex-row items-center justify-between w-full gap-2">
@@ -1106,10 +1611,9 @@ export const DepartmentsView: React.FC = () => {
       >
         {selectedDept && (
           <div className="space-y-5 text-xs text-slate-700">
-            {/* Header Summary Box */}
             <div className="bg-slate-50 p-4 rounded-[4px] border border-slate-200 grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div>
-                <span className="text-[11px] text-slate-400 block font-medium">Statutory Body</span>
+                <span className="text-[11px] text-slate-400 block font-medium">Regulatory Council</span>
                 <span className="font-bold text-slate-900">{selectedDept.regulatoryBody}</span>
               </div>
               <div>
@@ -1128,7 +1632,6 @@ export const DepartmentsView: React.FC = () => {
               </div>
             </div>
 
-            {/* HOD Profile Section */}
             <div className="space-y-2">
               <span className="font-bold text-slate-900 text-xs uppercase tracking-wider block">
                 Departmental Leadership
@@ -1147,79 +1650,19 @@ export const DepartmentsView: React.FC = () => {
                 </div>
               </div>
             </div>
-
-            {/* Active Programmes Under Department */}
-            <div className="space-y-2">
-              <span className="font-bold text-slate-900 text-xs uppercase tracking-wider block">
-                Accredited Programmes
-              </span>
-              <div className="space-y-2">
-                {selectedDept.programmes.map((p, idx) => (
-                  <div
-                    key={idx}
-                    className="p-3 bg-white border border-slate-200 rounded-[4px] flex items-center justify-between"
-                  >
-                    <div>
-                      <p className="font-bold text-slate-900">{p.name}</p>
-                      <span className="text-slate-500 text-[11px]">{p.duration}</span>
-                    </div>
-                    <Badge variant="neutral" size="sm">
-                      {p.students} Enrolled
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Department Courses */}
-            <div className="space-y-2">
-              <span className="font-bold text-slate-900 text-xs uppercase tracking-wider block">
-                Harmattan Semester Courses
-              </span>
-              <div className="border border-slate-200 rounded-[4px] overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold">
-                    <tr>
-                      <th className="px-3 py-2">Code</th>
-                      <th className="px-3 py-2">Course Title</th>
-                      <th className="px-3 py-2">Units</th>
-                      <th className="px-3 py-2">Lecturer</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {selectedDept.courses.map((c) => (
-                      <tr key={c.code} className="hover:bg-slate-50/50">
-                        <td className="px-3 py-2 font-bold text-[#0F7640]">{c.code}</td>
-                        <td className="px-3 py-2 text-slate-800">{c.title}</td>
-                        <td className="px-3 py-2 font-semibold text-slate-700">{c.units}</td>
-                        <td className="px-3 py-2 text-slate-600">{c.lecturer}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
           </div>
         )}
       </Modal>
 
-      {/* ─── MODAL 2: Register New Department (Strict Custom UI Select) ─── */}
+      {/* ──────────────────────────────────────────────────────────────────────────
+       * MODAL 2: ADD DEPARTMENT
+       * ────────────────────────────────────────────────────────────────────────── */}
       <Modal
         isOpen={isAddDeptOpen}
         onClose={() => setIsAddDeptOpen(false)}
         title="Register Department"
-        description="Establish a new health training department in the institutional college registry."
+        description="Establish a new academic department in the college registry."
         size="md"
-        footer={
-          <div className="flex items-center justify-end gap-2 w-full">
-            <Button variant="secondary" size="sm" onClick={() => setIsAddDeptOpen(false)}>
-              Cancel
-            </Button>
-            <Button size="sm" onClick={handleAddDepartment}>
-              Register Department
-            </Button>
-          </div>
-        }
       >
         <form onSubmit={handleAddDepartment} className="space-y-3.5 text-xs">
           <Input
@@ -1239,15 +1682,12 @@ export const DepartmentsView: React.FC = () => {
               required
             />
             <Select
-              label="Regulatory Board"
-              options={[
-                { value: 'CHPRBN', label: 'CHPRBN (Community Health)' },
-                { value: 'MLSCN', label: 'MLSCN (Medical Laboratory)' },
-                { value: 'PCN', label: 'PCN (Pharmacy)' },
-                { value: 'HRORBN', label: 'HRORBN (Health Records)' },
-                { value: 'EHORECON', label: 'EHORECON (Environmental)' },
-                { value: 'DHRB', label: 'DHRB (Dental Health)' },
-              ]}
+              label="Regulatory Council"
+              options={schoolProfile.regulatoryCouncils.map((c) => {
+                const match = c.match(/\(([^)]+)\)/);
+                const code = match ? match[1] : c;
+                return { value: code, label: c };
+              })}
               value={newDeptForm.regulatoryBody}
               onChange={(val) => setNewDeptForm({ ...newDeptForm, regulatoryBody: val })}
             />
@@ -1300,26 +1740,137 @@ export const DepartmentsView: React.FC = () => {
             value={newDeptForm.hodEmail}
             onChange={(e) => setNewDeptForm({ ...newDeptForm, hodEmail: e.target.value })}
           />
+
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+            <Button variant="secondary" size="sm" type="button" onClick={() => setIsAddDeptOpen(false)}>
+              Cancel
+            </Button>
+            <Button size="sm" type="submit" className="bg-[#0F7640] hover:bg-[#093322]">
+              Register Department
+            </Button>
+          </div>
         </form>
       </Modal>
 
-      {/* ─── MODAL 3: Reassign / Appoint HOD (Strict Custom UI Select) ─── */}
+      {/* ──────────────────────────────────────────────────────────────────────────
+       * MODAL 3: EDIT DEPARTMENT
+       * ────────────────────────────────────────────────────────────────────────── */}
+      {editingDept && (
+        <Modal
+          isOpen={isEditDeptOpen}
+          onClose={() => setIsEditDeptOpen(false)}
+          title={`Edit ${editingDept.name}`}
+          description="Update department records, office location, and approved quotas."
+          size="md"
+        >
+          <form onSubmit={handleUpdateDepartment} className="space-y-3.5 text-xs">
+            <Input
+              label="Department Name"
+              value={editingDept.name}
+              onChange={(e) => setEditingDept({ ...editingDept, name: e.target.value })}
+              required
+            />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                label="Department Code"
+                value={editingDept.code}
+                onChange={(e) => setEditingDept({ ...editingDept, code: e.target.value.toUpperCase() })}
+                required
+              />
+              <Select
+                label="Regulatory Council"
+                options={schoolProfile.regulatoryCouncils.map((c) => {
+                  const match = c.match(/\(([^)]+)\)/);
+                  const code = match ? match[1] : c;
+                  return { value: code, label: c };
+                })}
+                value={editingDept.regulatoryBody}
+                onChange={(val) => setEditingDept({ ...editingDept, regulatoryBody: val })}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                label="Approved Student Quota"
+                type="number"
+                value={String(editingDept.approvedQuota)}
+                onChange={(e) => setEditingDept({ ...editingDept, approvedQuota: parseInt(e.target.value, 10) || 0 })}
+              />
+              <Input
+                label="Office Location"
+                value={editingDept.office}
+                onChange={(e) => setEditingDept({ ...editingDept, office: e.target.value })}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Select
+                label="Accreditation Status"
+                options={[
+                  { value: 'FULL', label: 'Full Accreditation' },
+                  { value: 'PROVISIONAL', label: 'Provisional' },
+                  { value: 'RENEWAL_DUE', label: 'Renewal Due' },
+                ]}
+                value={editingDept.accreditationStatus}
+                onChange={(val: any) => setEditingDept({ ...editingDept, accreditationStatus: val })}
+              />
+              <Input
+                label="Valid Until"
+                value={editingDept.accreditationValidUntil}
+                onChange={(e) => setEditingDept({ ...editingDept, accreditationValidUntil: e.target.value })}
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+              <Button variant="secondary" size="sm" type="button" onClick={() => setIsEditDeptOpen(false)}>
+                Cancel
+              </Button>
+              <Button size="sm" type="submit" className="bg-[#0F7640] hover:bg-[#093322]">
+                Save Changes
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* ──────────────────────────────────────────────────────────────────────────
+       * MODAL 4: DELETE DEPARTMENT CONFIRMATION
+       * ────────────────────────────────────────────────────────────────────────── */}
+      {deleteDeptTarget && (
+        <Modal
+          isOpen={isDeleteDeptOpen}
+          onClose={() => setIsDeleteDeptOpen(false)}
+          title="Delete Department"
+          size="sm"
+        >
+          <div className="space-y-4 text-xs">
+            <p className="text-slate-700 leading-relaxed">
+              Are you sure you want to permanently delete{' '}
+              <strong className="text-slate-900">{deleteDeptTarget.name} ({deleteDeptTarget.code})</strong>?
+              This will remove the department from the academic directory.
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+              <Button variant="secondary" size="sm" onClick={() => setIsDeleteDeptOpen(false)}>
+                Cancel
+              </Button>
+              <Button size="sm" variant="danger" onClick={handleDeleteDepartment}>
+                Confirm Delete
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* ──────────────────────────────────────────────────────────────────────────
+       * MODAL 5: REASSIGN HOD
+       * ────────────────────────────────────────────────────────────────────────── */}
       <Modal
         isOpen={isReassignHODOpen}
         onClose={() => setIsReassignHODOpen(false)}
         title="Reassign Head of Department (HOD)"
         description="Formal provost appointment of an academic department head."
         size="md"
-        footer={
-          <div className="flex items-center justify-end gap-2 w-full">
-            <Button variant="secondary" size="sm" onClick={() => setIsReassignHODOpen(false)}>
-              Cancel
-            </Button>
-            <Button size="sm" onClick={handleReassignHOD}>
-              Approve Appointment
-            </Button>
-          </div>
-        }
       >
         <form onSubmit={handleReassignHOD} className="space-y-3.5 text-xs">
           <Select
@@ -1358,11 +1909,10 @@ export const DepartmentsView: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Input
+            <DatePicker
               label="Effective Appointment Date"
-              type="date"
               value={reassignForm.effectiveDate}
-              onChange={(e) => setReassignForm({ ...reassignForm, effectiveDate: e.target.value })}
+              onChange={(val) => setReassignForm({ ...reassignForm, effectiveDate: val })}
             />
             <Input
               label="Provost Memo Reference"
@@ -1379,8 +1929,522 @@ export const DepartmentsView: React.FC = () => {
             value={reassignForm.newHodEmail}
             onChange={(e) => setReassignForm({ ...reassignForm, newHodEmail: e.target.value })}
           />
+
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+            <Button variant="secondary" size="sm" type="button" onClick={() => setIsReassignHODOpen(false)}>
+              Cancel
+            </Button>
+            <Button size="sm" type="submit" className="bg-[#0F7640] hover:bg-[#093322]">
+              Approve Appointment
+            </Button>
+          </div>
         </form>
       </Modal>
+
+      {/* ──────────────────────────────────────────────────────────────────────────
+       * MODAL 6: ADD PROGRAMME
+       * ────────────────────────────────────────────────────────────────────────── */}
+      <Modal
+        isOpen={isAddProgOpen}
+        onClose={() => setIsAddProgOpen(false)}
+        title="Add Training Programme"
+        description="Register an accredited certificate, diploma, or national diploma programme."
+        size="md"
+      >
+        <form onSubmit={handleAddProgramme} className="space-y-3.5 text-xs">
+          <Input
+            label="Programme Title"
+            placeholder="e.g. Community Health Extension Worker (CHEW)"
+            value={newProgForm.name}
+            onChange={(e) => setNewProgForm({ ...newProgForm, name: e.target.value })}
+            required
+          />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="Programme Code"
+              placeholder="e.g. CHEW"
+              value={newProgForm.code}
+              onChange={(e) => setNewProgForm({ ...newProgForm, code: e.target.value.toUpperCase() })}
+              required
+            />
+            <Select
+              label="Department"
+              options={departments.map((d) => ({ value: d.code, label: d.name }))}
+              value={newProgForm.departmentCode}
+              onChange={(val) => setNewProgForm({ ...newProgForm, departmentCode: val })}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="Duration"
+              placeholder="e.g. 3 Years (6 Semesters)"
+              value={newProgForm.duration}
+              onChange={(e) => setNewProgForm({ ...newProgForm, duration: e.target.value })}
+            />
+            <Input
+              label="Approved Student Quota"
+              type="number"
+              placeholder="e.g. 150"
+              value={newProgForm.boardQuota}
+              onChange={(e) => setNewProgForm({ ...newProgForm, boardQuota: e.target.value })}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="Credential Awarded"
+              placeholder="e.g. Professional National Diploma"
+              value={newProgForm.credentialAwarded}
+              onChange={(e) => setNewProgForm({ ...newProgForm, credentialAwarded: e.target.value })}
+            />
+            <Select
+              label="Regulatory Council"
+              options={schoolProfile.regulatoryCouncils.map((c) => {
+                const match = c.match(/\(([^)]+)\)/);
+                const code = match ? match[1] : c;
+                return { value: code, label: c };
+              })}
+              value={newProgForm.regulatoryBody}
+              onChange={(val) => setNewProgForm({ ...newProgForm, regulatoryBody: val })}
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+            <Button variant="secondary" size="sm" type="button" onClick={() => setIsAddProgOpen(false)}>
+              Cancel
+            </Button>
+            <Button size="sm" type="submit" className="bg-[#0F7640] hover:bg-[#093322]">
+              Add Programme
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* ──────────────────────────────────────────────────────────────────────────
+       * MODAL 7: EDIT PROGRAMME
+       * ────────────────────────────────────────────────────────────────────────── */}
+      {editingProg && (
+        <Modal
+          isOpen={isEditProgOpen}
+          onClose={() => setIsEditProgOpen(false)}
+          title={`Edit ${editingProg.name}`}
+          size="md"
+        >
+          <form onSubmit={handleUpdateProgramme} className="space-y-3.5 text-xs">
+            <Input
+              label="Programme Title"
+              value={editingProg.name}
+              onChange={(e) => setEditingProg({ ...editingProg, name: e.target.value })}
+              required
+            />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                label="Programme Code"
+                value={editingProg.code}
+                onChange={(e) => setEditingProg({ ...editingProg, code: e.target.value.toUpperCase() })}
+                required
+              />
+              <Input
+                label="Duration"
+                value={editingProg.duration}
+                onChange={(e) => setEditingProg({ ...editingProg, duration: e.target.value })}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                label="Approved Student Quota"
+                type="number"
+                value={String(editingProg.boardQuota)}
+                onChange={(e) => setEditingProg({ ...editingProg, boardQuota: parseInt(e.target.value, 10) || 0 })}
+              />
+              <Input
+                label="Credential Awarded"
+                value={editingProg.credentialAwarded}
+                onChange={(e) => setEditingProg({ ...editingProg, credentialAwarded: e.target.value })}
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+              <Button variant="secondary" size="sm" type="button" onClick={() => setIsEditProgOpen(false)}>
+                Cancel
+              </Button>
+              <Button size="sm" type="submit" className="bg-[#0F7640] hover:bg-[#093322]">
+                Save Changes
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* ──────────────────────────────────────────────────────────────────────────
+       * MODAL 8: DELETE PROGRAMME CONFIRMATION
+       * ────────────────────────────────────────────────────────────────────────── */}
+      {deleteProgTarget && (
+        <Modal
+          isOpen={isDeleteProgOpen}
+          onClose={() => setIsDeleteProgOpen(false)}
+          title="Delete Programme"
+          size="sm"
+        >
+          <div className="space-y-4 text-xs">
+            <p className="text-slate-700 leading-relaxed">
+              Are you sure you want to delete{' '}
+              <strong className="text-slate-900">{deleteProgTarget.name} ({deleteProgTarget.code})</strong>?
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+              <Button variant="secondary" size="sm" onClick={() => setIsDeleteProgOpen(false)}>
+                Cancel
+              </Button>
+              <Button size="sm" variant="danger" onClick={handleDeleteProgramme}>
+                Confirm Delete
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* ──────────────────────────────────────────────────────────────────────────
+       * MODAL 9: ADD FACULTY MEMBER
+       * ────────────────────────────────────────────────────────────────────────── */}
+      <Modal
+        isOpen={isAddFacultyOpen}
+        onClose={() => setIsAddFacultyOpen(false)}
+        title="Add Academic Lecturer"
+        size="md"
+      >
+        <form onSubmit={handleAddFaculty} className="space-y-3.5 text-xs">
+          <Input
+            label="Full Name"
+            placeholder="e.g. Dr. Samuel Adebayo"
+            value={newFacultyForm.name}
+            onChange={(e) => setNewFacultyForm({ ...newFacultyForm, name: e.target.value })}
+            required
+          />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Select
+              label="Rank / Designation"
+              options={[
+                { value: 'Chief Lecturer', label: 'Chief Lecturer' },
+                { value: 'Principal Lecturer', label: 'Principal Lecturer' },
+                { value: 'Senior Lecturer', label: 'Senior Lecturer' },
+                { value: 'Lecturer I', label: 'Lecturer I' },
+                { value: 'Lecturer II', label: 'Lecturer II' },
+                { value: 'Assistant Lecturer', label: 'Assistant Lecturer' },
+                { value: 'Clinical Preceptor', label: 'Clinical Preceptor' },
+              ]}
+              value={newFacultyForm.title}
+              onChange={(val) => setNewFacultyForm({ ...newFacultyForm, title: val })}
+            />
+            <Select
+              label="Department"
+              options={departments.map((d) => ({ value: d.code, label: d.name }))}
+              value={newFacultyForm.departmentCode}
+              onChange={(val) => setNewFacultyForm({ ...newFacultyForm, departmentCode: val })}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="Official Email"
+              type="email"
+              placeholder="e.g. s.adebayo@bethsaida.edu.ng"
+              value={newFacultyForm.email}
+              onChange={(e) => setNewFacultyForm({ ...newFacultyForm, email: e.target.value })}
+            />
+            <Input
+              label="Phone Number"
+              placeholder="e.g. +234 803 111 2233"
+              value={newFacultyForm.phone}
+              onChange={(e) => setNewFacultyForm({ ...newFacultyForm, phone: e.target.value })}
+            />
+          </div>
+
+          <Input
+            label="Academic Qualifications"
+            placeholder="e.g. Ph.D Public Health, M.Sc Community Health"
+            value={newFacultyForm.qualification}
+            onChange={(e) => setNewFacultyForm({ ...newFacultyForm, qualification: e.target.value })}
+          />
+
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+            <Button variant="secondary" size="sm" type="button" onClick={() => setIsAddFacultyOpen(false)}>
+              Cancel
+            </Button>
+            <Button size="sm" type="submit" className="bg-[#0F7640] hover:bg-[#093322]">
+              Save Lecturer
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* ──────────────────────────────────────────────────────────────────────────
+       * MODAL 10: EDIT FACULTY MEMBER
+       * ────────────────────────────────────────────────────────────────────────── */}
+      {editingFaculty && (
+        <Modal
+          isOpen={isEditFacultyOpen}
+          onClose={() => setIsEditFacultyOpen(false)}
+          title={`Edit ${editingFaculty.name}`}
+          size="md"
+        >
+          <form onSubmit={handleUpdateFaculty} className="space-y-3.5 text-xs">
+            <Input
+              label="Full Name"
+              value={editingFaculty.name}
+              onChange={(e) => setEditingFaculty({ ...editingFaculty, name: e.target.value })}
+              required
+            />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                label="Designation / Rank"
+                value={editingFaculty.title}
+                onChange={(e) => setEditingFaculty({ ...editingFaculty, title: e.target.value })}
+              />
+              <Select
+                label="Department"
+                options={departments.map((d) => ({ value: d.code, label: d.name }))}
+                value={editingFaculty.departmentCode}
+                onChange={(val) => setEditingFaculty({ ...editingFaculty, departmentCode: val })}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                label="Official Email"
+                value={editingFaculty.email}
+                onChange={(e) => setEditingFaculty({ ...editingFaculty, email: e.target.value })}
+              />
+              <Input
+                label="Phone Number"
+                value={editingFaculty.phone}
+                onChange={(e) => setEditingFaculty({ ...editingFaculty, phone: e.target.value })}
+              />
+            </div>
+
+            <Input
+              label="Academic Qualifications"
+              value={editingFaculty.qualification}
+              onChange={(e) => setEditingFaculty({ ...editingFaculty, qualification: e.target.value })}
+            />
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+              <Button variant="secondary" size="sm" type="button" onClick={() => setIsEditFacultyOpen(false)}>
+                Cancel
+              </Button>
+              <Button size="sm" type="submit" className="bg-[#0F7640] hover:bg-[#093322]">
+                Save Changes
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* ──────────────────────────────────────────────────────────────────────────
+       * MODAL 11: DELETE FACULTY CONFIRMATION
+       * ────────────────────────────────────────────────────────────────────────── */}
+      {deleteFacultyTarget && (
+        <Modal
+          isOpen={isDeleteFacultyOpen}
+          onClose={() => setIsDeleteFacultyOpen(false)}
+          title="Remove Faculty Member"
+          size="sm"
+        >
+          <div className="space-y-4 text-xs">
+            <p className="text-slate-700 leading-relaxed">
+              Are you sure you want to remove{' '}
+              <strong className="text-slate-900">{deleteFacultyTarget.name}</strong> from the academic faculty?
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+              <Button variant="secondary" size="sm" onClick={() => setIsDeleteFacultyOpen(false)}>
+                Cancel
+              </Button>
+              <Button size="sm" variant="danger" onClick={handleDeleteFaculty}>
+                Confirm Remove
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* ──────────────────────────────────────────────────────────────────────────
+       * MODAL 12: ADD COURSE
+       * ────────────────────────────────────────────────────────────────────────── */}
+      <Modal
+        isOpen={isAddCourseOpen}
+        onClose={() => setIsAddCourseOpen(false)}
+        title="Add Curriculum Course"
+        size="md"
+      >
+        <form onSubmit={handleAddCourse} className="space-y-3.5 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <Input
+              label="Course Code"
+              placeholder="e.g. CHE 202"
+              value={newCourseForm.code}
+              onChange={(e) => setNewCourseForm({ ...newCourseForm, code: e.target.value.toUpperCase() })}
+              required
+            />
+            <div className="sm:col-span-2">
+              <Input
+                label="Course Title"
+                placeholder="e.g. Community Health Nutrition & Dietetics"
+                value={newCourseForm.title}
+                onChange={(e) => setNewCourseForm({ ...newCourseForm, title: e.target.value })}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Select
+              label="Department"
+              options={departments.map((d) => ({ value: d.code, label: d.name }))}
+              value={newCourseForm.departmentCode}
+              onChange={(val) => setNewCourseForm({ ...newCourseForm, departmentCode: val })}
+            />
+            <Input
+              label="Credit Units"
+              type="number"
+              value={newCourseForm.creditUnits}
+              onChange={(e) => setNewCourseForm({ ...newCourseForm, creditUnits: e.target.value })}
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Select
+              label="Target Level"
+              options={schoolProfile.academicLevels.map((l) => ({ value: l, label: l }))}
+              value={newCourseForm.level}
+              onChange={(val) => setNewCourseForm({ ...newCourseForm, level: val })}
+            />
+            <Select
+              label="Semester"
+              options={schoolProfile.academicSemesters.map((s) => ({ value: s, label: s }))}
+              value={newCourseForm.semester}
+              onChange={(val) => setNewCourseForm({ ...newCourseForm, semester: val })}
+            />
+          </div>
+
+          <Input
+            label="Assigned Lecturer"
+            placeholder="e.g. Dr. K. Bello"
+            value={newCourseForm.lecturer}
+            onChange={(e) => setNewCourseForm({ ...newCourseForm, lecturer: e.target.value })}
+          />
+
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+            <Button variant="secondary" size="sm" type="button" onClick={() => setIsAddCourseOpen(false)}>
+              Cancel
+            </Button>
+            <Button size="sm" type="submit" className="bg-[#0F7640] hover:bg-[#093322]">
+              Add Course
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* ──────────────────────────────────────────────────────────────────────────
+       * MODAL 13: EDIT COURSE
+       * ────────────────────────────────────────────────────────────────────────── */}
+      {editingCourse && (
+        <Modal
+          isOpen={isEditCourseOpen}
+          onClose={() => setIsEditCourseOpen(false)}
+          title={`Edit ${editingCourse.code}`}
+          size="md"
+        >
+          <form onSubmit={handleUpdateCourse} className="space-y-3.5 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <Input
+                label="Course Code"
+                value={editingCourse.code}
+                readOnly
+              />
+              <div className="sm:col-span-2">
+                <Input
+                  label="Course Title"
+                  value={editingCourse.title}
+                  onChange={(e) => setEditingCourse({ ...editingCourse, title: e.target.value })}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                label="Credit Units"
+                type="number"
+                value={String(editingCourse.creditUnits || editingCourse.units)}
+                onChange={(e) => setEditingCourse({ ...editingCourse, creditUnits: parseInt(e.target.value, 10) || 0 })}
+                required
+              />
+              <Input
+                label="Assigned Lecturer"
+                value={editingCourse.lecturer}
+                onChange={(e) => setEditingCourse({ ...editingCourse, lecturer: e.target.value })}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Select
+                label="Target Level"
+                options={schoolProfile.academicLevels.map((l) => ({ value: l, label: l }))}
+                value={editingCourse.level}
+                onChange={(val) => setEditingCourse({ ...editingCourse, level: val })}
+              />
+              <Select
+                label="Semester"
+                options={schoolProfile.academicSemesters.map((s) => ({ value: s, label: s }))}
+                value={editingCourse.semester}
+                onChange={(val) => setEditingCourse({ ...editingCourse, semester: val })}
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+              <Button variant="secondary" size="sm" type="button" onClick={() => setIsEditCourseOpen(false)}>
+                Cancel
+              </Button>
+              <Button size="sm" type="submit" className="bg-[#0F7640] hover:bg-[#093322]">
+                Save Changes
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* ──────────────────────────────────────────────────────────────────────────
+       * MODAL 14: DELETE COURSE CONFIRMATION
+       * ────────────────────────────────────────────────────────────────────────── */}
+      {deleteCourseTarget && (
+        <Modal
+          isOpen={isDeleteCourseOpen}
+          onClose={() => setIsDeleteCourseOpen(false)}
+          title="Delete Course"
+          size="sm"
+        >
+          <div className="space-y-4 text-xs">
+            <p className="text-slate-700 leading-relaxed">
+              Are you sure you want to delete{' '}
+              <strong className="text-slate-900">{deleteCourseTarget.code}: {deleteCourseTarget.title}</strong>?
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+              <Button variant="secondary" size="sm" onClick={() => setIsDeleteCourseOpen(false)}>
+                Cancel
+              </Button>
+              <Button size="sm" variant="danger" onClick={handleDeleteCourse}>
+                Confirm Delete
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };

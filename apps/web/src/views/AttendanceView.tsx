@@ -84,7 +84,7 @@ interface MedicalWaiver {
 }
 
 export const AttendanceView: React.FC = () => {
-  const { recordAudit, isDense, session } = useApp();
+  const { recordAudit, isDense, session, schoolProfile, departments } = useApp();
   const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -742,7 +742,7 @@ export const AttendanceView: React.FC = () => {
             <div className="flex items-center gap-1.5">
               <span className="font-bold text-slate-900">{pct}%</span>
               {s.waiverGranted && (
-                <span className="text-[10px] px-1 py-0.5 rounded-[4px] bg-blue-50 text-blue-700 font-bold">
+                <span className="text-[10px] px-1 py-0.5 rounded-[4px] bg-emerald-50 text-[#0F7640] font-bold">
                   WAIVER
                 </span>
               )}
@@ -902,7 +902,7 @@ export const AttendanceView: React.FC = () => {
         <div>
           <h1 className="text-xl font-bold text-slate-900">Class Attendance & Exam Clearance</h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Institutional lecture roll-call registers, statutory 75% attendance rule compliance, and official examination dockets.
+            College lecture roll-call registers, statutory 75% attendance rule compliance, and official examination dockets.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -932,7 +932,7 @@ export const AttendanceView: React.FC = () => {
         </div>
       </div>
 
-      {/* ─── Institutional Stat Cards ─── */}
+      {/* ─── College Stat Cards ─── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
           <div className="flex items-center justify-between">
@@ -996,7 +996,7 @@ export const AttendanceView: React.FC = () => {
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Active Courses
             </span>
-            <div className="w-8 h-8 rounded-[4px] bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center shrink-0">
               <BookOpen className="w-4 h-4" />
             </div>
           </div>
@@ -1100,9 +1100,10 @@ export const AttendanceView: React.FC = () => {
                   onChange={(val) => setSelectedLevel(val)}
                   options={[
                     { value: 'ALL', label: 'All Levels' },
-                    { value: '100L', label: '100 Level' },
-                    { value: '200L', label: '200 Level' },
-                    { value: '300L', label: '300 Level' },
+                    ...(schoolProfile?.academicLevels || ['100 Level', '200 Level', '300 Level']).map((lvl) => ({
+                      value: lvl,
+                      label: lvl,
+                    })),
                   ]}
                 />
               </div>
@@ -1241,14 +1242,19 @@ export const AttendanceView: React.FC = () => {
             {/* Docket Header & Letterhead */}
             <div className="border border-slate-200 p-5 rounded-[4px] bg-white relative">
               <div className="text-center pb-4 border-b border-slate-200">
-                <div className="w-12 h-12 mx-auto mb-2 rounded-[4px] bg-[#0F7640] text-white flex items-center justify-center font-bold text-sm shadow-sm">
-                  BCHT
-                </div>
+                <img
+                  src={schoolProfile?.logoUrl || '/BeonTech-Logo.png'}
+                  alt="College Crest"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/BeonTech-Logo.png';
+                  }}
+                  className="w-12 h-12 mx-auto mb-2 object-contain"
+                />
                 <h2 className="text-base font-bold text-slate-900 tracking-wide uppercase">
-                  Bethsaida College of Health Technology
+                  {schoolProfile?.institutionName || 'Bethsaida College of Health Technology'}
                 </h2>
                 <p className="text-[11px] text-slate-500">
-                  Approved by Federal Ministry of Health • Moniya, Ibadan, Oyo State, Nigeria
+                  Approved by Federal Ministry of Health • {schoolProfile?.campusAddress || 'Ogbomoso, Oyo State, Nigeria'}
                 </p>
                 <div className="inline-block mt-2 px-3 py-0.5 rounded-[4px] bg-emerald-50 text-[#0F7640] border border-emerald-200 font-extrabold uppercase text-[11px]">
                   Official Examination Clearance Docket • 2026/2027 Session

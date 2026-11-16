@@ -11,6 +11,7 @@ import {
   Tabs,
   Input,
   Select,
+  DatePicker,
   Modal,
 } from '@campusone/ui';
 import {
@@ -77,7 +78,7 @@ interface AllocationRecord {
 }
 
 export const ClinicalPostingsView: React.FC = () => {
-  const { recordAudit, isDense, session } = useApp();
+  const { recordAudit, isDense, session, schoolProfile, departments } = useApp();
   const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -126,6 +127,22 @@ export const ClinicalPostingsView: React.FC = () => {
   const [gradeInput, setGradeInput] = useState<number>(85);
   const [remarksInput, setRemarksInput] = useState<string>('Candidate demonstrated exceptional diagnostic accuracy and patient bed manners.');
   const [isAddSiteModalOpen, setIsAddSiteModalOpen] = useState(false);
+
+  // Edit & Delete Site States
+  const [editingSite, setEditingSite] = useState<PostingSite | null>(null);
+  const [isEditSiteOpen, setIsEditSiteOpen] = useState(false);
+  const [deletingSite, setDeletingSite] = useState<PostingSite | null>(null);
+  const [isDeleteSiteOpen, setIsDeleteSiteOpen] = useState(false);
+
+  // New Placement Allocation Modal
+  const [isAddAllocationOpen, setIsAddAllocationOpen] = useState(false);
+  const [newAllocMatric, setNewAllocMatric] = useState('CHE/2026/0014');
+  const [newAllocStudentName, setNewAllocStudentName] = useState('Blessing Adeyemi');
+  const [newAllocDept, setNewAllocDept] = useState('Community Health');
+  const [newAllocSiteId, setNewAllocSiteId] = useState('site-01');
+  const [newAllocUnit, setNewAllocUnit] = useState('Community Ward & Outpatient Clinic');
+  const [newAllocStart, setNewAllocStart] = useState('2026-11-20');
+  const [newAllocEnd, setNewAllocEnd] = useState('2027-01-20');
 
   /* ─── NEW SITE FORM STATE ─── */
   const [newSiteName, setNewSiteName] = useState('');
@@ -465,7 +482,7 @@ export const ClinicalPostingsView: React.FC = () => {
     showToast({
       type: 'success',
       title: 'Clearance Certificate Issued',
-      message: `Institutional clinical clearance generated for ${record.studentName}.`,
+      message: `Clinical training clearance generated for ${record.studentName}.`,
     });
   };
 
@@ -503,6 +520,98 @@ export const ClinicalPostingsView: React.FC = () => {
     setNewSiteName('');
     setNewSiteSupervisor('');
     setNewSiteLocation('');
+  };
+
+  const handleSaveEditSite = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSite) return;
+
+    setSites((prev) =>
+      prev.map((s) => (s.id === editingSite.id ? editingSite : s))
+    );
+
+    recordAudit('HOSPITAL_FACILITY_UPDATED', 'CLINICAL_FACILITY', editingSite.name, {
+      capacity: editingSite.capacity,
+      supervisor: editingSite.supervisorName,
+    });
+
+    setIsEditSiteOpen(false);
+    setEditingSite(null);
+    showToast({
+      type: 'success',
+      title: 'Facility Saved',
+      message: `${editingSite.name} details have been updated.`,
+    });
+  };
+
+  const handleConfirmDeleteSite = () => {
+    if (!deletingSite) return;
+
+    setSites((prev) => prev.filter((s) => s.id !== deletingSite.id));
+
+    recordAudit('HOSPITAL_FACILITY_DELETED', 'CLINICAL_FACILITY', deletingSite.name);
+
+    setIsDeleteSiteOpen(false);
+    setDeletingSite(null);
+    showToast({
+      type: 'success',
+      title: 'Facility Removed',
+      message: `${deletingSite.name} removed from partner hospital registry.`,
+    });
+  };
+
+  const handleCreateAllocation = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newAllocStart && newAllocEnd && newAllocEnd < newAllocStart) {
+      showToast({
+        type: 'danger',
+        title: 'Invalid Posting Dates',
+        message: 'The posting end date must be on or after the start date.',
+      });
+      return;
+    }
+    const siteObj = sites.find((s) => s.id === newAllocSiteId) || sites[0];
+    if (!siteObj) {
+      showToast({
+        type: 'danger',
+        title: 'No Hospital Selected',
+        message: 'Add a training hospital before allocating a trainee.',
+      });
+      return;
+    }
+    const matchedDept = (departments || []).find((d) => d.name === newAllocDept);
+
+    const newAlloc: AllocationRecord = {
+      id: `alloc-${Date.now()}`,
+      studentName: newAllocStudentName,
+      matricNumber: newAllocMatric,
+      departmentCode: matchedDept?.code || 'GEN',
+      departmentName: newAllocDept,
+      level: '200L',
+      siteId: siteObj.id,
+      siteName: siteObj.name,
+      clinicalUnit: newAllocUnit,
+      rotationPeriod: `${newAllocStart} – ${newAllocEnd}`,
+      status: 'ACTIVE',
+      feeSettled: false,
+      logbookStatus: 'IN_PROGRESS',
+      proceduresCompleted: 0,
+      totalProceduresRequired: 40,
+      clearanceGenerated: false,
+    };
+
+    setAllocations((prev) => [newAlloc, ...prev]);
+    recordAudit('CLINICAL_PLACEMENT_ALLOCATED', 'CLINICAL_ROTATION', newAlloc.matricNumber, {
+      hospital: siteObj.name,
+      unit: newAlloc.clinicalUnit,
+    });
+
+    setIsAddAllocationOpen(false);
+    showToast({
+      type: 'success',
+      title: 'Trainee Placement Allocated',
+      message: `${newAlloc.studentName} assigned to ${siteObj.name} (${newAlloc.clinicalUnit}).`,
+    });
   };
 
   /* ─── TABLE 1: ALLOCATION COLUMNS ─── */
@@ -683,6 +792,36 @@ export const ClinicalPostingsView: React.FC = () => {
               {b}
             </span>
           ))}
+        </div>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      align: 'right' as const,
+      nowrap: true,
+      render: (s: PostingSite) => (
+        <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              setEditingSite({ ...s });
+              setIsEditSiteOpen(true);
+            }}
+          >
+            Edit
+          </Button>
+          <Button
+            size="sm"
+            variant="danger"
+            onClick={() => {
+              setDeletingSite(s);
+              setIsDeleteSiteOpen(true);
+            }}
+          >
+            Delete
+          </Button>
         </div>
       ),
     },
@@ -873,6 +1012,16 @@ export const ClinicalPostingsView: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {activeTab === 'allocations' && !isStudent && (
+            <Button
+              size="sm"
+              onClick={() => setIsAddAllocationOpen(true)}
+              leftIcon={<Plus className="w-3.5 h-3.5" />}
+              className="whitespace-nowrap bg-[#0F7640] hover:bg-[#093322]"
+            >
+              Allocate Placement
+            </Button>
+          )}
           {activeTab === 'sites' && (
             <Button
               size="sm"
@@ -891,7 +1040,7 @@ export const ClinicalPostingsView: React.FC = () => {
                 showToast({
                   type: 'info',
                   title: 'Batch Certificate Export',
-                  message: 'Exporting institutional clinical training clearance dossier for statutory boards.',
+                  message: 'Exporting clinical training clearance dossier for statutory boards.',
                 });
               }}
               leftIcon={<Download className="w-3.5 h-3.5" />}
@@ -903,7 +1052,7 @@ export const ClinicalPostingsView: React.FC = () => {
         </div>
       </div>
 
-      {/* ─── Institutional Stat Cards ─── */}
+      {/* ─── Stat Cards ─── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
           <div className="flex items-center justify-between">
@@ -929,7 +1078,7 @@ export const ClinicalPostingsView: React.FC = () => {
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Partner Hospitals
             </span>
-            <div className="w-8 h-8 rounded-[4px] bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center shrink-0">
               <Building2 className="w-4 h-4" />
             </div>
           </div>
@@ -1024,11 +1173,7 @@ export const ClinicalPostingsView: React.FC = () => {
                   onChange={(val) => setSelectedDeptFilter(val)}
                   options={[
                     { value: 'ALL', label: 'All Programmes' },
-                    { value: 'CHE', label: 'Community Health' },
-                    { value: 'MLT', label: 'Medical Laboratory' },
-                    { value: 'PHT', label: 'Pharmacy Tech' },
-                    { value: 'HIM', label: 'Health Information' },
-                    { value: 'EHT', label: 'Environmental Health' },
+                    ...(departments || []).map((d) => ({ value: d.code, label: d.name })),
                   ]}
                 />
               </div>
@@ -1127,17 +1272,22 @@ export const ClinicalPostingsView: React.FC = () => {
             <div className="border border-slate-200 p-6 rounded-[4px] bg-white relative">
               {/* Header Letterhead */}
               <div className="text-center pb-4 border-b border-slate-200">
-                <div className="w-12 h-12 mx-auto mb-2 rounded-[4px] bg-[#0F7640] text-white flex items-center justify-center font-bold text-sm shadow-sm">
-                  BCHT
-                </div>
+                <img
+                  src={schoolProfile?.logoUrl || '/BeonTech-Logo.png'}
+                  alt="College Crest"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/BeonTech-Logo.png';
+                  }}
+                  className="w-14 h-14 mx-auto mb-2 rounded-[4px] object-contain shadow-xs"
+                />
                 <h2 className="text-base font-bold text-slate-900 tracking-wide uppercase">
-                  Bethsaida College of Health Technology
+                  {schoolProfile?.institutionName || 'Bethsaida College of Health Technology'}
                 </h2>
                 <p className="text-[11px] text-slate-500">
-                  Approved by Federal Ministry of Health • Moniya, Ibadan, Oyo State, Nigeria
+                  Approved by Federal Ministry of Health • {schoolProfile?.campusAddress || 'Ogbomoso, Oyo State, Nigeria'}
                 </p>
                 <div className="mt-2 inline-block px-3 py-0.5 rounded-[4px] bg-slate-100 text-slate-800 font-bold text-[10px] uppercase">
-                  Ref: BCHT/CLN/POST/2026/0491
+                  Ref: {schoolProfile?.institutionAcronym || "BCHT"}/CLN/POST/{schoolProfile?.activeSession?.split("/")[0] || "2026"}/0491
                 </div>
               </div>
 
@@ -1178,7 +1328,7 @@ export const ClinicalPostingsView: React.FC = () => {
                 <div className="text-right">
                   <div className="w-32 border-b border-slate-800 ml-auto mb-1"></div>
                   <span className="font-bold text-slate-900 text-xs block">Dr. Timothy Balogun</span>
-                  <span className="text-[10px] text-slate-500">College Provost, BCHT</span>
+                  <span className="text-[10px] text-slate-500">College Provost, {schoolProfile?.institutionAcronym || "BCHT"}</span>
                 </div>
               </div>
             </div>
@@ -1210,14 +1360,19 @@ export const ClinicalPostingsView: React.FC = () => {
           <div className="space-y-6 text-xs text-slate-800">
             <div className="border-4 border-double border-emerald-700/60 p-6 rounded-[4px] bg-white relative">
               <div className="text-center pb-4 border-b border-slate-200">
-                <div className="w-12 h-12 mx-auto mb-2 rounded-[4px] bg-[#0F7640] text-white flex items-center justify-center font-bold text-sm shadow-sm">
-                  BCHT
-                </div>
+                <img
+                  src={schoolProfile?.logoUrl || '/BeonTech-Logo.png'}
+                  alt="College Crest"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/BeonTech-Logo.png';
+                  }}
+                  className="w-14 h-14 mx-auto mb-2 rounded-[4px] object-contain shadow-xs"
+                />
                 <h2 className="text-base font-bold text-slate-900 tracking-wide uppercase">
-                  Bethsaida College of Health Technology
+                  {schoolProfile?.institutionName || 'Bethsaida College of Health Technology'}
                 </h2>
                 <p className="text-[11px] text-slate-500">
-                  Approved by Federal Ministry of Health • Moniya, Ibadan, Oyo State, Nigeria
+                  Approved by Federal Ministry of Health • {schoolProfile?.campusAddress || 'Ogbomoso, Oyo State, Nigeria'}
                 </p>
                 <div className="mt-3 inline-block px-4 py-1 rounded-[4px] bg-emerald-50 text-[#0F7640] border border-emerald-300 font-extrabold uppercase text-xs tracking-wider">
                   Certificate of Clinical Training Completion
@@ -1260,7 +1415,7 @@ export const ClinicalPostingsView: React.FC = () => {
                 <div className="text-right">
                   <div className="w-28 border-b border-slate-800 ml-auto mb-1"></div>
                   <span className="font-bold text-slate-900 text-[11px] block">Dr. Timothy Balogun</span>
-                  <span className="text-[10px] text-slate-500">Provost, BCHT</span>
+                  <span className="text-[10px] text-slate-500">Provost, {schoolProfile?.institutionAcronym || "BCHT"}</span>
                 </div>
               </div>
             </div>
@@ -1445,6 +1600,199 @@ export const ClinicalPostingsView: React.FC = () => {
           </div>
         </div>
       </Modal>
+
+      {/* ─── MODAL 5: ALLOCATE TRAINEE PLACEMENT ─── */}
+      <Modal
+        isOpen={isAddAllocationOpen}
+        onClose={() => setIsAddAllocationOpen(false)}
+        title="Allocate Clinical Trainee Placement"
+        description="Assign a health trainee to an accredited partner teaching hospital and ward rotation."
+        size="md"
+      >
+        <form onSubmit={handleCreateAllocation} className="space-y-4 text-xs font-sans">
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="Trainee Matric No."
+              value={newAllocMatric}
+              onChange={(e) => setNewAllocMatric(e.target.value)}
+              required
+            />
+            <Input
+              label="Trainee Full Name"
+              value={newAllocStudentName}
+              onChange={(e) => setNewAllocStudentName(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Select
+              label="Partner Hospital Facility"
+              options={sites.map((s) => ({ value: s.id, label: s.name }))}
+              value={newAllocSiteId}
+              onChange={(val) => setNewAllocSiteId(val)}
+            />
+            <Select
+              label="Department / Programme"
+              options={(departments || []).map((d) => ({ value: d.name, label: d.name }))}
+              value={newAllocDept}
+              onChange={(val) => setNewAllocDept(val)}
+            />
+          </div>
+
+          <Input
+            label="Clinical Rotation Unit / Ward"
+            value={newAllocUnit}
+            onChange={(e) => setNewAllocUnit(e.target.value)}
+            required
+          />
+
+          <div className="grid grid-cols-2 gap-3">
+            <DatePicker
+              label="Posting Start Date"
+              value={newAllocStart}
+              onChange={setNewAllocStart}
+            />
+            <DatePicker
+              label="Posting End Date"
+              value={newAllocEnd}
+              onChange={setNewAllocEnd}
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+            <Button variant="secondary" type="button" onClick={() => setIsAddAllocationOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" className="bg-[#0F7640] hover:bg-[#093322]">
+              Confirm Placement
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* ─── MODAL 6: EDIT HOSPITAL PARTNER ─── */}
+      {editingSite && (
+        <Modal
+          isOpen={isEditSiteOpen}
+          onClose={() => {
+            setIsEditSiteOpen(false);
+            setEditingSite(null);
+          }}
+          title={`Edit Facility: ${editingSite.name}`}
+          description="Update partner hospital specifications, ward capacity, and preceptor contact."
+          size="md"
+        >
+          <form onSubmit={handleSaveEditSite} className="space-y-4 text-xs font-sans">
+            <Input
+              label="Hospital Facility Name"
+              value={editingSite.name}
+              onChange={(e) => setEditingSite({ ...editingSite, name: e.target.value })}
+              required
+            />
+
+            <div className="grid grid-cols-2 gap-3">
+              <Select
+                label="Facility Tier"
+                options={[
+                  { value: 'TEACHING_HOSPITAL', label: 'Federal Teaching Hospital' },
+                  { value: 'STATE_GENERAL_HOSPITAL', label: 'State General Hospital' },
+                  { value: 'PRIMARY_HEALTH_CARE', label: 'Primary Healthcare Center' },
+                  { value: 'SPECIALIST_CLINIC', label: 'Accredited Specialist Clinic' },
+                ]}
+                value={editingSite.type}
+                onChange={(val) => setEditingSite({ ...editingSite, type: val as FacilityType })}
+              />
+              <Input
+                label="Bed / Trainee Capacity"
+                type="number"
+                value={String(editingSite.capacity)}
+                onChange={(e) => setEditingSite({ ...editingSite, capacity: parseInt(e.target.value) || 10 })}
+                required
+              />
+            </div>
+
+            <Input
+              label="Physical Location / Address"
+              value={editingSite.location}
+              onChange={(e) => setEditingSite({ ...editingSite, location: e.target.value })}
+              required
+            />
+
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                label="Chief Clinical Preceptor"
+                value={editingSite.supervisorName}
+                onChange={(e) => setEditingSite({ ...editingSite, supervisorName: e.target.value })}
+                required
+              />
+              <Input
+                label="Liaison Phone"
+                value={editingSite.contactPhone}
+                onChange={(e) => setEditingSite({ ...editingSite, contactPhone: e.target.value })}
+                required
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+              <Button
+                variant="secondary"
+                type="button"
+                onClick={() => {
+                  setIsEditSiteOpen(false);
+                  setEditingSite(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" className="bg-[#0F7640] hover:bg-[#093322]">
+                Save Changes
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* ─── MODAL 7: DELETE HOSPITAL CONFIRMATION ─── */}
+      {deletingSite && (
+        <Modal
+          isOpen={isDeleteSiteOpen}
+          onClose={() => {
+            setIsDeleteSiteOpen(false);
+            setDeletingSite(null);
+          }}
+          title="Remove Hospital Partner"
+          size="sm"
+        >
+          <div className="space-y-3 text-xs text-slate-700 font-sans">
+            <p>
+              Are you sure you want to remove <strong>{deletingSite.name}</strong> from accredited hospital partners?
+            </p>
+            <p className="text-[11px] text-slate-500">
+              Active postings at this facility must be reassigned before final de-accreditation.
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+              <Button
+                variant="secondary"
+                type="button"
+                onClick={() => {
+                  setIsDeleteSiteOpen(false);
+                  setDeletingSite(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                type="button"
+                onClick={handleConfirmDeleteSite}
+              >
+                Confirm Removal
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };

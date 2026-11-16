@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, KeyRound, CheckCircle2 } from 'lucide-react';
 import { Button, Input, useToast } from '@campusone/ui';
+import { supabase } from '../lib/supabase.ts';
 
 export const ForgotPasswordView: React.FC = () => {
   const navigate = useNavigate();
@@ -10,18 +11,22 @@ export const ForgotPasswordView: React.FC = () => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      setIsSubmitted(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/login`,
+    });
+    setIsLoading(false);
+    if (error) {
       showToast({
-        type: 'success',
-        title: 'Reset Link Dispatched',
-        message: 'Check your institutional inbox for instructions.',
+        type: 'danger',
+        title: 'Reset email not sent',
+        message: error.message,
       });
-    }, 600);
+      return;
+    }
+    setIsSubmitted(true);
   };
 
   return (
@@ -42,7 +47,7 @@ export const ForgotPasswordView: React.FC = () => {
           Reset Your Password
         </h1>
         <p className="text-xs text-slate-500 mt-1 mb-6">
-          Enter your registered institutional email address and we'll send you an audited password reset link.
+          Enter your registered college email address and we'll send you an audited password reset link.
         </p>
 
         {isSubmitted ? (
@@ -62,7 +67,7 @@ export const ForgotPasswordView: React.FC = () => {
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <Input
-              label="Institutional Email Address"
+              label="College Email Address"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}

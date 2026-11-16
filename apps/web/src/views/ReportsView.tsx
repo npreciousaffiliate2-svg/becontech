@@ -23,7 +23,6 @@ import {
   Search,
   Filter,
   Layers,
-  Database,
   Building2,
   UserCheck,
   Calendar,
@@ -79,7 +78,7 @@ export interface StandardReportItem {
 export const ReportsView: React.FC = () => {
   const { tab } = useParams<{ tab?: string }>();
   const navigate = useNavigate();
-  const { isDense, recordAudit } = useApp();
+  const { isDense, recordAudit, schoolProfile } = useApp();
   const { showToast } = useToast();
 
   /* ─── TAB ROUTING STATE ─── */
@@ -115,7 +114,7 @@ export const ReportsView: React.FC = () => {
       id: 'acc-01',
       councilCode: 'NBTE',
       councilName: 'National Board for Technical Education',
-      programmesCovered: 'Monotechnic Institutional License & National Diploma (ND) Programs',
+      programmesCovered: 'College Accreditation License & National Diploma (ND) Programs',
       status: 'FULL_ACCREDITATION',
       inspectionScore: 96.5,
       accreditedDate: '2023-04-15',
@@ -305,9 +304,9 @@ export const ReportsView: React.FC = () => {
       id: 'rpt-01',
       title: 'NBTE Monotechnic Accreditation & Staff-to-Student Ratio Audit',
       domainCategory: 'Regulatory',
-      formats: ['Excel / XLSX', 'PDF Cryptographic', 'CSV'],
+      formats: ['Excel / XLSX', 'PDF Document', 'CSV'],
       recordCount: 1248,
-      description: 'Comprehensive institutional audit: lecturer contact hours, lab infrastructure inventory, and 3-year performance metrics.',
+      description: 'Comprehensive college audit: lecturer contact hours, lab infrastructure inventory, and 3-year performance metrics.',
       lastGenerated: '2026-11-12 10:30',
     },
     {
@@ -325,7 +324,7 @@ export const ReportsView: React.FC = () => {
       domainCategory: 'Financial',
       formats: ['Excel / XLSX', 'PDF Audit Report'],
       recordCount: 1840,
-      description: 'Bank settlement audit vs Paystack and Remita automated webhooks for Harmattan 2026/2027.',
+      description: 'Bank settlement audit vs Paystack and Remita automated webhooks for {schoolProfile?.activeSemester || "Harmattan"} {schoolProfile?.activeSession || "2026/2027"}.',
       lastGenerated: '2026-11-13 09:00',
     },
     {
@@ -399,7 +398,7 @@ export const ReportsView: React.FC = () => {
     showToast({
       type: 'success',
       title: 'Report Compiled & Exported',
-      message: `${title} exported in ${format} with institutional cryptographic seal.`,
+      message: `${title} exported in ${format} with official college seal.`,
     });
   };
 
@@ -680,7 +679,7 @@ export const ReportsView: React.FC = () => {
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Board Eligible Trainees
             </span>
-            <div className="w-8 h-8 rounded-[4px] bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center shrink-0">
               <UserCheck className="w-4 h-4" />
             </div>
           </div>
@@ -689,7 +688,7 @@ export const ReportsView: React.FC = () => {
               880 Candidates
             </div>
             <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
-              <span className="text-blue-700 font-semibold">CGPA ≥ 2.00 Cleared</span>
+              <span className="text-[#0F7640] font-semibold">CGPA ≥ 2.00 Cleared</span>
               <span className="text-slate-300">•</span>
               <span className="text-[11px] text-slate-400">Fees & Logbooks verified</span>
             </div>
@@ -712,7 +711,7 @@ export const ReportsView: React.FC = () => {
             <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
               <span className="text-[#0F7640] font-semibold">Timestamped</span>
               <span className="text-slate-300">•</span>
-              <span className="text-[11px] text-slate-400">Harmattan 2026/2027</span>
+              <span className="text-[11px] text-slate-400">{schoolProfile?.activeSemester || "Harmattan"} {schoolProfile?.activeSession || "2026/2027"}</span>
             </div>
           </div>
         </Card>
@@ -840,7 +839,7 @@ export const ReportsView: React.FC = () => {
           <Card
             header={
               <span className="font-bold text-slate-900 uppercase tracking-wider text-xs">
-                Interactive Institutional Query Designer
+                Interactive Custom Query Designer
               </span>
             }
           >
@@ -1043,17 +1042,22 @@ export const ReportsView: React.FC = () => {
           <div className="border border-slate-200 p-6 rounded-[4px] bg-white relative">
             {/* Header Letterhead */}
             <div className="text-center pb-4 border-b border-slate-200">
-              <div className="w-12 h-12 mx-auto mb-2 rounded-[4px] bg-[#0F7640] text-white flex items-center justify-center font-bold text-sm shadow-sm">
-                BCHT
-              </div>
+              <img
+                src={schoolProfile?.logoUrl || '/BeonTech-Logo.png'}
+                alt="College Crest"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '/BeonTech-Logo.png';
+                }}
+                className="w-14 h-14 mx-auto mb-2 rounded-[4px] object-contain shadow-xs"
+              />
               <h2 className="text-base font-bold text-slate-900 tracking-wide uppercase">
-                Bethsaida College of Health Technology
+                {schoolProfile?.institutionName || 'Bethsaida College of Health Technology'}
               </h2>
               <p className="text-[11px] text-slate-500">
-                Directorate of Academic Planning & Regulatory Council Examination Board • Moniya, Ibadan
+                Directorate of Academic Planning & Regulatory Council Examination Board • {schoolProfile?.campusAddress || "Ogbomoso, Oyo State"}
               </p>
               <div className="mt-2 inline-block px-3 py-1 bg-emerald-50 rounded-[4px] text-xs font-bold text-[#0F7640] border border-emerald-200 uppercase">
-                OFFICIAL NATIONAL BOARD CANDIDATE NOMINAL ROLL • 2026/2027 SESSION
+                OFFICIAL NATIONAL BOARD CANDIDATE NOMINAL ROLL • {schoolProfile?.activeSession || "2026/2027"} SESSION
               </div>
             </div>
 
@@ -1092,7 +1096,7 @@ export const ReportsView: React.FC = () => {
               <div>
                 <div className="w-28 border-b border-slate-700 mb-1"></div>
                 <span className="font-bold text-slate-900 text-xs block">College Examination Officer</span>
-                <span className="text-[10px] text-slate-400">Bethsaida College of Health Tech</span>
+                <span className="text-[10px] text-slate-400">{schoolProfile?.institutionName || "College of Health Technology"}</span>
               </div>
               <div className="text-right">
                 <div className="w-28 border-b border-slate-700 ml-auto mb-1"></div>

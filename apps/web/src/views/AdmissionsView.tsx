@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useApp } from '../context/AppContext.tsx';
+import { useApp, AdmissionCandidateItem } from '../context/AppContext.tsx';
 import {
   Card,
   Button,
@@ -29,6 +29,8 @@ import {
   Calendar,
   Layers,
   Filter,
+  Edit2,
+  Trash2,
 } from 'lucide-react';
 
 interface OLevelSubject {
@@ -36,35 +38,21 @@ interface OLevelSubject {
   grade: string;
 }
 
-interface Candidate {
-  id: string;
-  applicationNumber: string;
-  fullName: string;
-  email: string;
-  phone: string;
-  gender: 'Female' | 'Male';
-  stateOfOrigin: string;
-  lga: string;
-  programmeCode: string;
-  programme: string;
-  department: string;
-  regulatoryBody: string;
-  olevelExamBody: 'WAEC' | 'NECO' | 'NABTEB';
-  olevelExamYear: string;
-  olevelStatus: 'VERIFIED' | 'PENDING' | 'DEFICIENT';
-  olevelSubjects: OLevelSubject[];
-  cbtScore: number;
-  cbtDate: string;
-  status: 'APPLIED' | 'SCREENED' | 'ADMITTED' | 'ENROLLED';
-  admissionListBatch?: 'Merit List (Batch 1)' | 'Supplementary (Batch 2)';
-  matricNumber?: string;
-  acceptanceFeePaid: boolean;
-  acceptanceFeeRef?: string;
-  admittedAt?: string;
-}
+type Candidate = AdmissionCandidateItem;
 
 export const AdmissionsView: React.FC = () => {
-  const { recordAudit, isDense } = useApp();
+  const {
+    recordAudit,
+    isDense,
+    candidates,
+    addCandidate,
+    updateCandidate,
+    deleteCandidate,
+    admitCandidate,
+    enrollCandidate,
+    schoolProfile,
+    departments,
+  } = useApp();
   const { showToast } = useToast();
   const { tab: routeTab } = useParams();
   const navigate = useNavigate();
@@ -90,7 +78,51 @@ export const AdmissionsView: React.FC = () => {
   const [letterCandidate, setLetterCandidate] = useState<Candidate | null>(null);
   const [isNewAppOpen, setIsNewAppOpen] = useState(false);
   const [isBatchScreenOpen, setIsBatchScreenOpen] = useState(false);
-  const [batchCutoffScore, setBatchCutoffScore] = useState('50');
+  const [batchCutoffScore, setBatchCutoffScore] = useState(String(schoolProfile?.minimumCutoffScore || 50));
+
+  // Edit & Delete Management State
+  const [isEditCandidateOpen, setIsEditCandidateOpen] = useState(false);
+  const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null);
+  const [isDeleteCandidateOpen, setIsDeleteCandidateOpen] = useState(false);
+  const [deleteCandidateTarget, setDeleteCandidateTarget] = useState<Candidate | null>(null);
+
+  const handleOpenEditCandidate = (c: Candidate) => {
+    setEditingCandidate({ ...c });
+    setIsEditCandidateOpen(true);
+  };
+
+  const handleUpdateCandidate = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCandidate) return;
+    updateCandidate(editingCandidate.id, {
+      fullName: editingCandidate.fullName,
+      email: editingCandidate.email,
+      phone: editingCandidate.phone,
+      stateOfOrigin: editingCandidate.stateOfOrigin,
+      department: editingCandidate.department,
+      utmeScore: Number(editingCandidate.utmeScore) || 0,
+      cbtScore: Number(editingCandidate.cbtScore) || 0,
+      status: editingCandidate.status,
+    });
+    setIsEditCandidateOpen(false);
+    showToast({
+      type: 'success',
+      title: 'Application Updated',
+      message: `${editingCandidate.fullName} record has been saved.`,
+    });
+  };
+
+  const handleDeleteCandidate = () => {
+    if (!deleteCandidateTarget) return;
+    deleteCandidate(deleteCandidateTarget.id);
+    setIsDeleteCandidateOpen(false);
+    showToast({
+      type: 'success',
+      title: 'Application Removed',
+      message: `${deleteCandidateTarget.fullName} deleted from admissions registry.`,
+    });
+    setDeleteCandidateTarget(null);
+  };
 
   // New Application Form State
   const [newAppForm, setNewAppForm] = useState({
@@ -105,260 +137,34 @@ export const AdmissionsView: React.FC = () => {
     olevelExamYear: '2025',
   });
 
-  // Master Candidates Registry
-  const [candidates, setCandidates] = useState<Candidate[]>([
-    {
-      id: 'app-01',
-      applicationNumber: 'APP/2026/0142',
-      fullName: 'Amina Yusuf',
-      email: 'amina.yusuf@gmail.com',
-      phone: '+234 803 445 1190',
-      gender: 'Female',
-      stateOfOrigin: 'Oyo',
-      lga: 'Ibadan North',
-      programmeCode: 'CHEW',
-      programme: 'Community Health Extension Worker (CHEW)',
-      department: 'Department of Community Health',
-      regulatoryBody: 'CHPRBN',
-      olevelExamBody: 'WAEC',
-      olevelExamYear: '2025',
-      olevelStatus: 'VERIFIED',
-      olevelSubjects: [
-        { subject: 'English Language', grade: 'B3' },
-        { subject: 'Mathematics', grade: 'C4' },
-        { subject: 'Biology', grade: 'B2' },
-        { subject: 'Chemistry', grade: 'B3' },
-        { subject: 'Physics', grade: 'C5' },
-      ],
-      cbtScore: 78,
-      cbtDate: '2026-10-18',
-      status: 'SCREENED',
-      acceptanceFeePaid: false,
-    },
-    {
-      id: 'app-02',
-      applicationNumber: 'APP/2026/0143',
-      fullName: 'David Adeleke',
-      email: 'david.adeleke@yahoo.com',
-      phone: '+234 802 771 8820',
-      gender: 'Male',
-      stateOfOrigin: 'Osun',
-      lga: 'Ede South',
-      programmeCode: 'MLT',
-      programme: 'Medical Laboratory Technician (MLT)',
-      department: 'Department of Medical Laboratory Technology',
-      regulatoryBody: 'MLSCN',
-      olevelExamBody: 'WAEC',
-      olevelExamYear: '2025',
-      olevelStatus: 'VERIFIED',
-      olevelSubjects: [
-        { subject: 'English Language', grade: 'B2' },
-        { subject: 'Mathematics', grade: 'B3' },
-        { subject: 'Biology', grade: 'A1' },
-        { subject: 'Chemistry', grade: 'B2' },
-        { subject: 'Physics', grade: 'B3' },
-      ],
-      cbtScore: 82,
-      cbtDate: '2026-10-18',
-      status: 'SCREENED',
-      acceptanceFeePaid: false,
-    },
-    {
-      id: 'app-03',
-      applicationNumber: 'APP/2026/0144',
-      fullName: 'Zainab Bello',
-      email: 'zainab.bello@outlook.com',
-      phone: '+234 805 119 4432',
-      gender: 'Female',
-      stateOfOrigin: 'Oyo',
-      lga: 'Oyo West',
-      programmeCode: 'PHT',
-      programme: 'Pharmacy Technician',
-      department: 'Department of Pharmacy Technician Studies',
-      regulatoryBody: 'PCN',
-      olevelExamBody: 'NECO',
-      olevelExamYear: '2024',
-      olevelStatus: 'VERIFIED',
-      olevelSubjects: [
-        { subject: 'English Language', grade: 'C4' },
-        { subject: 'Mathematics', grade: 'C5' },
-        { subject: 'Biology', grade: 'B3' },
-        { subject: 'Chemistry', grade: 'B3' },
-        { subject: 'Physics', grade: 'C4' },
-      ],
-      cbtScore: 71,
-      cbtDate: '2026-10-19',
-      status: 'ADMITTED',
-      admissionListBatch: 'Merit List (Batch 1)',
-      matricNumber: 'PHT/2026/0018',
-      acceptanceFeePaid: true,
-      acceptanceFeeRef: 'REC-ACC-2026-0041',
-      admittedAt: '2026-11-04',
-    },
-    {
-      id: 'app-04',
-      applicationNumber: 'APP/2026/0145',
-      fullName: 'Sunday Okon',
-      email: 'sunday.okon@gmail.com',
-      phone: '+234 807 551 2004',
-      gender: 'Male',
-      stateOfOrigin: 'Akwa Ibom',
-      lga: 'Uyo',
-      programmeCode: 'HIM',
-      programme: 'Health Information Management (HIM)',
-      department: 'Department of Health Information Management',
-      regulatoryBody: 'HRORBN',
-      olevelExamBody: 'WAEC',
-      olevelExamYear: '2025',
-      olevelStatus: 'PENDING',
-      olevelSubjects: [
-        { subject: 'English Language', grade: 'C5' },
-        { subject: 'Mathematics', grade: 'D7' },
-        { subject: 'Biology', grade: 'C4' },
-        { subject: 'Chemistry', grade: 'C6' },
-        { subject: 'Physics', grade: 'P8' },
-      ],
-      cbtScore: 54,
-      cbtDate: '2026-10-19',
-      status: 'APPLIED',
-      acceptanceFeePaid: false,
-    },
-    {
-      id: 'app-05',
-      applicationNumber: 'APP/2026/0146',
-      fullName: 'Blessing Chukwuma',
-      email: 'blessing.c@gmail.com',
-      phone: '+234 813 902 3341',
-      gender: 'Female',
-      stateOfOrigin: 'Delta',
-      lga: 'Aniocha South',
-      programmeCode: 'CHEW',
-      programme: 'Community Health Extension Worker (CHEW)',
-      department: 'Department of Community Health',
-      regulatoryBody: 'CHPRBN',
-      olevelExamBody: 'WAEC',
-      olevelExamYear: '2025',
-      olevelStatus: 'VERIFIED',
-      olevelSubjects: [
-        { subject: 'English Language', grade: 'B3' },
-        { subject: 'Mathematics', grade: 'B2' },
-        { subject: 'Biology', grade: 'A1' },
-        { subject: 'Chemistry', grade: 'B3' },
-        { subject: 'Physics', grade: 'C4' },
-      ],
-      cbtScore: 88,
-      cbtDate: '2026-10-20',
-      status: 'ENROLLED',
-      admissionListBatch: 'Merit List (Batch 1)',
-      matricNumber: 'CHE/2026/0014',
-      acceptanceFeePaid: true,
-      acceptanceFeeRef: 'REC-ACC-2026-0014',
-      admittedAt: '2026-11-02',
-    },
-    {
-      id: 'app-06',
-      applicationNumber: 'APP/2026/0147',
-      fullName: 'Fatima Ibrahim',
-      email: 'fatima.ibrahim@yahoo.com',
-      phone: '+234 809 332 9988',
-      gender: 'Female',
-      stateOfOrigin: 'Kogi',
-      lga: 'Lokoja',
-      programmeCode: 'EHT',
-      programme: 'Environmental Health Technology (EHT)',
-      department: 'Department of Environmental Health Sciences',
-      regulatoryBody: 'EHORECON',
-      olevelExamBody: 'WAEC',
-      olevelExamYear: '2024',
-      olevelStatus: 'VERIFIED',
-      olevelSubjects: [
-        { subject: 'English Language', grade: 'C4' },
-        { subject: 'Mathematics', grade: 'C4' },
-        { subject: 'Biology', grade: 'B3' },
-        { subject: 'Chemistry', grade: 'C5' },
-        { subject: 'Physics', grade: 'C5' },
-      ],
-      cbtScore: 68,
-      cbtDate: '2026-10-20',
-      status: 'SCREENED',
-      acceptanceFeePaid: false,
-    },
-    {
-      id: 'app-07',
-      applicationNumber: 'APP/2026/0148',
-      fullName: 'Oluwaseun Balogun',
-      email: 'seun.balogun@gmail.com',
-      phone: '+234 816 772 1102',
-      gender: 'Male',
-      stateOfOrigin: 'Oyo',
-      lga: 'Ogbomoso North',
-      programmeCode: 'MLT',
-      programme: 'Medical Laboratory Technician (MLT)',
-      department: 'Department of Medical Laboratory Technology',
-      regulatoryBody: 'MLSCN',
-      olevelExamBody: 'WAEC',
-      olevelExamYear: '2025',
-      olevelStatus: 'VERIFIED',
-      olevelSubjects: [
-        { subject: 'English Language', grade: 'B2' },
-        { subject: 'Mathematics', grade: 'B2' },
-        { subject: 'Biology', grade: 'A1' },
-        { subject: 'Chemistry', grade: 'B2' },
-        { subject: 'Physics', grade: 'B3' },
-      ],
-      cbtScore: 84,
-      cbtDate: '2026-10-21',
-      status: 'ADMITTED',
-      admissionListBatch: 'Merit List (Batch 1)',
-      matricNumber: 'MLT/2026/0022',
-      acceptanceFeePaid: true,
-      acceptanceFeeRef: 'REC-ACC-2026-0055',
-      admittedAt: '2026-11-05',
-    },
-  ]);
+  // Master candidates registry is loaded from central AppContext
 
   // Handle Granting Admission to Individual Candidate
   const handleAdmitCandidate = (candidateId: string) => {
-    setCandidates((prev) =>
-      prev.map((c) => {
-        if (c.id === candidateId) {
-          const serial = Math.floor(10 + Math.random() * 89);
-          const matricNumber = `${c.programmeCode}/2026/00${serial}`;
-          recordAudit('CANDIDATE_ADMITTED', 'ADM_CANDIDATE', c.applicationNumber, { matricNumber });
-          return {
-            ...c,
-            status: 'ADMITTED',
-            matricNumber,
-            admissionListBatch: 'Merit List (Batch 1)',
-            admittedAt: new Date().toISOString().split('T')[0],
-          };
-        }
-        return c;
-      })
-    );
-
-    const admittedCandidate = candidates.find((c) => c.id === candidateId);
+    const candidate = candidates.find((c) => c.id === candidateId);
+    if (!candidate) return;
+    const serial = Math.floor(10 + Math.random() * 89);
+    const matricNumber = `${candidate.programmeCode}/2026/00${serial}`;
+    admitCandidate(candidateId, matricNumber, 'Merit List (Batch 1)');
+    recordAudit('CANDIDATE_ADMITTED', 'ADM_CANDIDATE', candidate.applicationNumber, { matricNumber });
     showToast({
       type: 'success',
       title: 'Admission Granted',
-      message: `Provisional admission granted to ${admittedCandidate?.fullName}. Acceptance letter issued.`,
+      message: `Provisional admission granted to ${candidate.fullName}. Matric: ${matricNumber}`,
     });
   };
 
   // Handle Batch Screening Qualify
   const handleBatchScreen = () => {
-    const threshold = parseInt(batchCutoffScore) || 50;
+    const threshold = parseInt(batchCutoffScore) || (schoolProfile?.minimumCutoffScore || 50);
     let qualifiedCount = 0;
 
-    setCandidates((prev) =>
-      prev.map((c) => {
-        if (c.status === 'APPLIED' && c.cbtScore >= threshold && c.olevelStatus === 'VERIFIED') {
-          qualifiedCount++;
-          return { ...c, status: 'SCREENED' };
-        }
-        return c;
-      })
-    );
+    candidates.forEach((c) => {
+      if (c.status === 'APPLIED' && c.cbtScore >= threshold && c.olevelStatus === 'VERIFIED') {
+        qualifiedCount++;
+        updateCandidate(c.id, { status: 'SCREENED' });
+      }
+    });
 
     setIsBatchScreenOpen(false);
     showToast({
@@ -383,20 +189,15 @@ export const AdmissionsView: React.FC = () => {
     const nextSerial = candidates.length + 142;
     const appNumber = `APP/2026/0${nextSerial}`;
 
-    const progMap: Record<string, { name: string; dept: string; board: string }> = {
-      CHEW: { name: 'Community Health Extension Worker (CHEW)', dept: 'Department of Community Health', board: 'CHPRBN' },
-      JCHEW: { name: 'Junior Community Health Extension Worker (JCHEW)', dept: 'Department of Community Health', board: 'CHPRBN' },
-      MLT: { name: 'Medical Laboratory Technician (MLT)', dept: 'Department of Medical Laboratory Technology', board: 'MLSCN' },
-      MLA: { name: 'Medical Laboratory Assistant (MLA)', dept: 'Department of Medical Laboratory Technology', board: 'MLSCN' },
-      PHT: { name: 'Pharmacy Technician', dept: 'Department of Pharmacy Technician Studies', board: 'PCN' },
-      HIM: { name: 'Health Information Management (HIM)', dept: 'Department of Health Information Management', board: 'HRORBN' },
-      EHT: { name: 'Environmental Health Technology (EHT)', dept: 'Department of Environmental Health Sciences', board: 'EHORECON' },
-    };
+    const matchedDept = departments.find((d) => d.code === newAppForm.programmeCode) || departments[0];
+    const deptName = matchedDept ? matchedDept.name : 'Department of Health Sciences';
+    const regBoard = matchedDept ? matchedDept.regulatoryBody : (schoolProfile?.regulatoryCouncils?.[0] || 'NBTE');
+    const progName = matchedDept ? `${matchedDept.name} (${matchedDept.code})` : newAppForm.programmeCode;
+    const score = parseInt(newAppForm.cbtScore) || (schoolProfile?.minimumCutoffScore || 70);
 
-    const progInfo = progMap[newAppForm.programmeCode] || progMap.CHEW;
-
-    const newCandidate: Candidate = {
+    const newCandidate = addCandidate({
       id: `app-${Date.now().toString().slice(-4)}`,
+      cbtDate: new Date().toISOString().split('T')[0],
       applicationNumber: appNumber,
       fullName: newAppForm.fullName,
       email: newAppForm.email,
@@ -404,10 +205,10 @@ export const AdmissionsView: React.FC = () => {
       gender: newAppForm.gender as 'Female' | 'Male',
       stateOfOrigin: newAppForm.stateOfOrigin,
       lga: 'Central',
-      programmeCode: newAppForm.programmeCode,
-      programme: progInfo.name,
-      department: progInfo.dept,
-      regulatoryBody: progInfo.board,
+      programmeCode: matchedDept ? matchedDept.code : newAppForm.programmeCode,
+      programme: progName,
+      department: deptName,
+      regulatoryBody: regBoard,
       olevelExamBody: newAppForm.olevelExamBody as any,
       olevelExamYear: newAppForm.olevelExamYear,
       olevelStatus: 'VERIFIED',
@@ -418,13 +219,12 @@ export const AdmissionsView: React.FC = () => {
         { subject: 'Chemistry', grade: 'C5' },
         { subject: 'Physics', grade: 'C5' },
       ],
-      cbtScore: parseInt(newAppForm.cbtScore) || 70,
-      cbtDate: new Date().toISOString().split('T')[0],
-      status: parseInt(newAppForm.cbtScore) >= 50 ? 'SCREENED' : 'APPLIED',
+      cbtScore: score,
+      status: score >= (schoolProfile?.minimumCutoffScore || 50) ? 'SCREENED' : 'APPLIED',
+      applicationFeePaid: true,
+      applicationFeeRef: `PAY-APP-${Date.now().toString().slice(-6)}`,
       acceptanceFeePaid: false,
-    };
-
-    setCandidates((prev) => [newCandidate, ...prev]);
+    });
     setIsNewAppOpen(false);
     showToast({
       type: 'success',
@@ -534,11 +334,19 @@ export const AdmissionsView: React.FC = () => {
             variant="secondary"
             onClick={() => setSelectedCandidate(c)}
           >
-            View Dossier
+            View
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            leftIcon={<Edit2 className="w-3 h-3" />}
+            onClick={() => handleOpenEditCandidate(c)}
+          >
+            Edit
           </Button>
           {c.status === 'SCREENED' && (
             <Button size="sm" onClick={() => handleAdmitCandidate(c.id)}>
-              Grant Admission
+              Admit
             </Button>
           )}
           {c.status === 'ADMITTED' && (
@@ -551,6 +359,18 @@ export const AdmissionsView: React.FC = () => {
               Letter
             </Button>
           )}
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-red-600 hover:bg-red-50"
+            onClick={() => {
+              setDeleteCandidateTarget(c);
+              setIsDeleteCandidateOpen(true);
+            }}
+            title="Delete Application"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </Button>
         </div>
       ),
     },
@@ -632,16 +452,16 @@ export const AdmissionsView: React.FC = () => {
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Admissions Granted
             </span>
-            <div className="w-8 h-8 rounded-[4px] bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center shrink-0">
               <Award className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold text-blue-600 font-sans tracking-tight">
+            <div className="text-2xl font-bold text-[#0F7640] font-sans tracking-tight">
               {candidates.filter((c) => c.status === 'ADMITTED' || c.status === 'ENROLLED').length}
             </div>
             <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
-              <span className="text-blue-700 font-semibold">Offers published</span>
+              <span className="text-[#0F7640] font-semibold">Offers published</span>
               <span className="text-slate-300">•</span>
               <span className="text-[11px] text-slate-400">Provisional merit list</span>
             </div>
@@ -670,7 +490,7 @@ export const AdmissionsView: React.FC = () => {
         </Card>
       </div>
 
-      {/* Institutional Nav Tabs */}
+      {/* Nav Tabs */}
       <Tabs
         tabs={[
           { id: 'applications', label: 'All Applications' },
@@ -702,11 +522,15 @@ export const AdmissionsView: React.FC = () => {
                 <Select
                   options={[
                     { value: 'ALL', label: 'All Programmes' },
-                    { value: 'CHEW', label: 'CHEW (Community Health)' },
-                    { value: 'MLT', label: 'MLT (Medical Lab)' },
-                    { value: 'PHT', label: 'PHT (Pharmacy Tech)' },
-                    { value: 'HIM', label: 'HIM (Health Records)' },
-                    { value: 'EHT', label: 'EHT (Environmental)' },
+                    ...(departments && departments.length > 0
+                      ? departments.map((d) => ({ value: d.code, label: `${d.code} - ${d.name}` }))
+                      : [
+                          { value: 'CHEW', label: 'CHEW (Community Health)' },
+                          { value: 'MLT', label: 'MLT (Medical Lab)' },
+                          { value: 'PHT', label: 'PHT (Pharmacy Tech)' },
+                          { value: 'HIM', label: 'HIM (Health Records)' },
+                          { value: 'EHT', label: 'EHT (Environmental)' },
+                        ]),
                   ]}
                   value={selectedProgrammeFilter}
                   onChange={(val) => setSelectedProgrammeFilter(val)}
@@ -840,11 +664,7 @@ export const AdmissionsView: React.FC = () => {
                           size="sm"
                           variant="secondary"
                           onClick={() => {
-                            setCandidates((prev) =>
-                              prev.map((item) =>
-                                item.id === c.id ? { ...item, status: 'SCREENED' } : item
-                              )
-                            );
+                            updateCandidate(c.id, { status: 'SCREENED' });
                             showToast({
                               type: 'success',
                               title: 'Candidate Screened',
@@ -1212,7 +1032,7 @@ export const AdmissionsView: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {selectedCandidate.olevelSubjects.map((s, idx) => (
+                    {(selectedCandidate.olevelSubjects || []).map((s: { subject: string; grade: string }, idx: number) => (
                       <tr key={idx}>
                         <td className="px-3 py-2 font-medium text-slate-800">{s.subject}</td>
                         <td className="px-3 py-2 font-bold text-slate-900">{s.grade}</td>
@@ -1300,15 +1120,14 @@ export const AdmissionsView: React.FC = () => {
 
           <Select
             label="Applied Health Programme"
-            options={[
-              { value: 'CHEW', label: 'Community Health Extension Worker (CHEW)' },
-              { value: 'JCHEW', label: 'Junior Community Health Extension Worker (JCHEW)' },
-              { value: 'MLT', label: 'Medical Laboratory Technician (MLT)' },
-              { value: 'MLA', label: 'Medical Laboratory Assistant (MLA)' },
-              { value: 'PHT', label: 'Pharmacy Technician (PHT)' },
-              { value: 'HIM', label: 'Health Information Management (HIM)' },
-              { value: 'EHT', label: 'Environmental Health Technology (EHT)' },
-            ]}
+            options={
+              departments && departments.length > 0
+                ? departments.map((d) => ({ value: d.code, label: `${d.name} (${d.code})` }))
+                : [
+                    { value: 'CHEW', label: 'Community Health Extension Worker (CHEW)' },
+                    { value: 'MLT', label: 'Medical Laboratory Technician (MLT)' },
+                  ]
+            }
             value={newAppForm.programmeCode}
             onChange={(val) => setNewAppForm({ ...newAppForm, programmeCode: val })}
           />
@@ -1349,7 +1168,7 @@ export const AdmissionsView: React.FC = () => {
         footer={
           <div className="flex items-center justify-between w-full">
             <span className="text-xs text-slate-500 font-medium">
-              Reference: BCHT/ADM/2026/{letterCandidate?.applicationNumber.replace('APP/2026/', '')}
+              Reference: ${schoolProfile?.institutionAcronym || 'BCHT'}/ADM/${schoolProfile?.activeSession?.split('/')[0] || '2026'}/{letterCandidate?.applicationNumber.replace('APP/2026/', '')}
             </span>
             <div className="flex items-center gap-2">
               <Button
@@ -1370,17 +1189,22 @@ export const AdmissionsView: React.FC = () => {
           <div className="bg-white p-6 border border-slate-200 rounded-[4px] space-y-5 text-slate-800 text-xs shadow-sm font-sans">
             {/* Official Letterhead Header */}
             <div className="border-b-2 border-[#0F7640] pb-4 flex flex-col items-center text-center">
-              <div className="w-12 h-12 bg-[#0F7640] text-white font-extrabold text-sm rounded-[4px] flex items-center justify-center mb-2">
-                BCHT
-              </div>
+              <img
+                src={schoolProfile?.logoUrl || '/BeonTech-Logo.png'}
+                alt="College Crest"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '/BeonTech-Logo.png';
+                }}
+                className="w-14 h-14 mx-auto mb-2 rounded-[4px] object-contain shadow-xs"
+              />
               <h2 className="text-base font-extrabold text-slate-900 uppercase tracking-wider">
                 Bethsaida College of Health Technology
               </h2>
               <p className="text-[11px] text-slate-600">
-                KM 4, Old Oyo Road, Moniya, Ibadan, Oyo State, Nigeria
+                {schoolProfile?.campusAddress || 'Ikolaba Aladan layout, off Ayegun Yemetu Road, along CAC grammar school, Ogbomoso, Oyo State'}
               </p>
               <p className="text-[10px] text-slate-500">
-                Email: admissions@bethsaida.edu.ng • Phone: +234 803 124 5590 • Web: www.bethsaida.edu.ng
+                Email: {schoolProfile?.officialEmail || 'info@becohtech.edu.ng'} • Phone: {schoolProfile?.officialPhone || '+234 907 578 9045, +234 907 451 7476'} • Web: {schoolProfile?.websiteUrl || 'www.becohtech.edu.ng'}
               </p>
               <div className="mt-2 text-[10px] font-bold text-[#0F7640] uppercase tracking-widest bg-emerald-50 px-3 py-0.5 rounded-[4px] border border-emerald-200">
                 Office of the Registrar • Admissions Board
@@ -1409,7 +1233,7 @@ export const AdmissionsView: React.FC = () => {
             {/* Subject */}
             <div className="pt-2">
               <p className="font-extrabold text-slate-900 underline uppercase tracking-wide text-center">
-                OFFER OF PROVISIONAL ADMISSION FOR 2026/2027 ACADEMIC SESSION
+                OFFER OF PROVISIONAL ADMISSION FOR {schoolProfile?.activeSession || '2026/2027'} ACADEMIC SESSION
               </p>
             </div>
 
@@ -1447,7 +1271,7 @@ export const AdmissionsView: React.FC = () => {
               </div>
               <div className="text-right">
                 <div className="w-16 h-16 border-2 border-dashed border-emerald-400/60 rounded-[4px] flex items-center justify-center text-[9px] text-emerald-800 font-bold uppercase text-center p-1">
-                  OFFICIAL BCHT SEAL
+                  OFFICIAL {schoolProfile?.institutionAcronym || 'BCHT'} SEAL
                 </div>
               </div>
             </div>
@@ -1489,6 +1313,115 @@ export const AdmissionsView: React.FC = () => {
           </div>
         </div>
       </Modal>
+      {/* ─── MODAL 5: Edit Candidate Application ─── */}
+      {editingCandidate && (
+        <Modal
+          isOpen={isEditCandidateOpen}
+          onClose={() => setIsEditCandidateOpen(false)}
+          title={`Edit ${editingCandidate.fullName}`}
+          description="Update applicant contact details, exam scores, and department choice."
+          size="md"
+        >
+          <form onSubmit={handleUpdateCandidate} className="space-y-3.5 text-xs">
+            <Input
+              label="Candidate Full Name"
+              value={editingCandidate.fullName}
+              onChange={(e) => setEditingCandidate({ ...editingCandidate, fullName: e.target.value })}
+              required
+            />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                label="Email Address"
+                type="email"
+                value={editingCandidate.email}
+                onChange={(e) => setEditingCandidate({ ...editingCandidate, email: e.target.value })}
+                required
+              />
+              <Input
+                label="Phone Number"
+                value={editingCandidate.phone}
+                onChange={(e) => setEditingCandidate({ ...editingCandidate, phone: e.target.value })}
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                label="State of Origin"
+                value={editingCandidate.stateOfOrigin || ''}
+                onChange={(e) => setEditingCandidate({ ...editingCandidate, stateOfOrigin: e.target.value })}
+              />
+              <Select
+                label="Programme Department"
+                options={departments.map((d) => ({ value: d.name, label: d.name }))}
+                value={editingCandidate.department}
+                onChange={(val) => setEditingCandidate({ ...editingCandidate, department: val })}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <Input
+                label="UTME / JAMB Score"
+                type="number"
+                value={String(editingCandidate.utmeScore || 0)}
+                onChange={(e) => setEditingCandidate({ ...editingCandidate, utmeScore: parseInt(e.target.value, 10) || 0 })}
+              />
+              <Input
+                label="Screening CBT Score (%)"
+                type="number"
+                value={String(editingCandidate.cbtScore || 0)}
+                onChange={(e) => setEditingCandidate({ ...editingCandidate, cbtScore: parseInt(e.target.value, 10) || 0 })}
+              />
+              <Select
+                label="Admission Status"
+                options={[
+                  { value: 'APPLIED', label: 'Applied' },
+                  { value: 'SCREENED', label: 'Screened' },
+                  { value: 'ADMITTED', label: 'Admitted' },
+                  { value: 'ENROLLED', label: 'Enrolled' },
+                ]}
+                value={editingCandidate.status}
+                onChange={(val: any) => setEditingCandidate({ ...editingCandidate, status: val })}
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+              <Button variant="secondary" size="sm" type="button" onClick={() => setIsEditCandidateOpen(false)}>
+                Cancel
+              </Button>
+              <Button size="sm" type="submit" className="bg-[#0F7640] hover:bg-[#093322]">
+                Save Changes
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* ─── MODAL 6: Delete Candidate Confirmation ─── */}
+      {deleteCandidateTarget && (
+        <Modal
+          isOpen={isDeleteCandidateOpen}
+          onClose={() => setIsDeleteCandidateOpen(false)}
+          title="Delete Application"
+          size="sm"
+        >
+          <div className="space-y-4 text-xs">
+            <p className="text-slate-700 leading-relaxed">
+              Are you sure you want to delete the application record for{' '}
+              <strong className="text-slate-900">{deleteCandidateTarget.fullName}</strong> ({deleteCandidateTarget.applicationNumber})?
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+              <Button variant="secondary" size="sm" onClick={() => setIsDeleteCandidateOpen(false)}>
+                Cancel
+              </Button>
+              <Button size="sm" variant="danger" onClick={handleDeleteCandidate}>
+                Confirm Delete
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };

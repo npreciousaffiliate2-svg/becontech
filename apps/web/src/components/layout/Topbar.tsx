@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   UserCheck,
   User,
+  UserCog,
 } from 'lucide-react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext.tsx';
@@ -35,47 +36,21 @@ interface NotificationItem {
   link: string;
 }
 
-const INITIAL_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: 'n1',
-    title: 'Tuition Fee Payment Verified',
-    desc: 'Emmanuel Chukwuma paid ₦140,000 for Medical Laboratory 100L via Remita.',
-    time: '5 mins ago',
-    isRead: false,
-    type: 'success',
-    link: '/bursary?tab=receipts',
-  },
-  {
-    id: 'n2',
-    title: 'Harmattan Broadsheet Submitted',
-    desc: 'Community Health 200L exam results ready for Provost publication review.',
-    time: '1 hour ago',
-    isRead: false,
-    type: 'warning',
-    link: '/academics?tab=broadsheet',
-  },
-  {
-    id: 'n3',
-    title: 'Batch 2026 Admissions Ready',
-    desc: '45 candidates screened and awaiting final admission letter approvals.',
-    time: '3 hours ago',
-    isRead: false,
-    type: 'info',
-    link: '/admissions?tab=admission_lists',
-  },
-  {
-    id: 'n4',
-    title: 'Clinical Logbook Clearance',
-    desc: '12 hospital posting logs submitted for General Hospital Asaba.',
-    time: 'Yesterday',
-    isRead: true,
-    type: 'info',
-    link: '/postings?tab=logbooks',
-  },
-];
-
 export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed }) => {
-  const { session, persona, switchRole } = useApp();
+  const {
+    session,
+    persona,
+    switchRole,
+    isSuperAdmin,
+    isImpersonating,
+    impersonateUser,
+    stopImpersonating,
+    notifications,
+    unreadNotificationsCount,
+    markNotificationAsRead,
+    markAllNotificationsAsRead,
+    signOut,
+  } = useApp();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -83,7 +58,6 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isRoleSwitcherOpen, setIsRoleSwitcherOpen] = useState(false);
   const [notificationTab, setNotificationTab] = useState<'all' | 'unread'>('all');
-  const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
 
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -106,16 +80,14 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
+  const unreadCount = unreadNotificationsCount;
 
   const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    markAllNotificationsAsRead();
   };
 
   const markAsRead = (id: string, link: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
-    );
+    markNotificationAsRead(id);
     setIsNotificationsOpen(false);
     navigate(link);
   };
@@ -313,7 +285,8 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
 
   return (
     <header
-      className={`h-14 fixed top-0 right-0 z-30 bg-white border-b border-slate-200 flex items-center justify-between px-3 sm:px-6 transition-all duration-200 rounded-none ${
+      style={{ top: isImpersonating ? '36px' : '0' }}
+      className={`h-14 fixed right-0 z-30 bg-white border-b border-slate-200 flex items-center justify-between px-3 sm:px-6 transition-all duration-200 rounded-none ${
         isSidebarCollapsed ? 'left-0 lg:left-[68px]' : 'left-0 lg:left-[260px]'
       }`}
     >
@@ -327,14 +300,14 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
           <Menu className="w-5 h-5 text-slate-800" />
         </button>
 
-        {/* Mobile Header: Clean & Uncluttered Logo/Title (No decorative dot) */}
+        {/* Mobile Header: Clean & Uncluttered Title */}
         <div className="sm:hidden flex items-center min-w-0">
           <span className="text-xs font-bold text-slate-900 truncate">
             {breadcrumbs[breadcrumbs.length - 1]?.label || 'Overview'}
           </span>
         </div>
 
-        {/* Desktop / Tablet Breadcrumbs (Xiroly Style — Clean, No Dots) */}
+        {/* Desktop / Tablet Breadcrumbs (Xiroly Style — Clean, No Dots, Zero Logo) */}
         <nav className="hidden sm:flex items-center gap-1.5 text-xs font-medium text-slate-500 min-w-0">
           <Link
             to="/"
@@ -380,84 +353,107 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
           />
         </div>
 
-        {/* ─── Quick Persona / Role Switcher ─── */}
-        <div className="relative" ref={roleSwitcherRef}>
-          <button
-            onClick={() => setIsRoleSwitcherOpen(!isRoleSwitcherOpen)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[4px] bg-emerald-50 hover:bg-emerald-100/70 border border-emerald-200 text-[#0F7640] transition-colors"
-            title="Switch User Role Persona"
-          >
-            <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
-            <span className="text-xs font-bold whitespace-nowrap hidden sm:inline">
+        {/* ─── Role Display: Non-Super-Admins get clean read-only badge (Zero Switcher) ─── */}
+        {!isSuperAdmin ? (
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[4px] bg-slate-50 border border-slate-200 text-slate-800">
+            <ShieldCheck className="w-3.5 h-3.5 text-[#0F7640] shrink-0" />
+            <span className="text-xs font-bold whitespace-nowrap">
               {persona?.scopeBadge || session.activeRole}
             </span>
-            <ChevronDown className="w-3 h-3 text-[#0F7640] shrink-0" />
-          </button>
-
-          {isRoleSwitcherOpen && (
-            <div
-              className="absolute right-0 mt-2 w-72 sm:w-80 rounded-[4px] border border-slate-200 bg-white py-1 z-50 text-xs animate-in fade-in duration-150"
-              style={{
-                boxShadow: '0 2px 6px 2px rgba(60, 64, 67, 0.15), 0 1px 2px 0 rgba(60, 64, 67, 0.30)',
-              }}
+          </div>
+        ) : (
+          /* ─── Administrative Impersonation Menu (Super Admin Only) ─── */
+          <div className="relative" ref={roleSwitcherRef}>
+            <button
+              onClick={() => setIsRoleSwitcherOpen(!isRoleSwitcherOpen)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[4px] bg-emerald-50 hover:bg-emerald-100/70 border border-emerald-200 text-[#0F7640] transition-colors"
+              title="Administrative Impersonation & Role Perspectives"
             >
-              <div className="px-3.5 py-2.5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
-                <div>
-                  <p className="font-bold text-slate-900 text-xs">Switch User Persona</p>
-                  <p className="text-[11px] text-slate-500">Live preview across institutional roles</p>
+              <UserCog className="w-3.5 h-3.5 shrink-0" />
+              <span className="text-xs font-bold whitespace-nowrap hidden sm:inline">
+                {isImpersonating ? `Viewing as ${session.activeRole}` : 'Super Admin'}
+              </span>
+              <ChevronDown className="w-3 h-3 text-[#0F7640] shrink-0" />
+            </button>
+
+            {isRoleSwitcherOpen && (
+              <div
+                className="absolute right-0 mt-2 w-72 sm:w-80 max-w-[calc(100vw-1rem)] rounded-[4px] border border-slate-200 bg-white py-1 z-50 text-xs animate-in fade-in duration-150 shadow-md overflow-x-hidden"
+              >
+                <div className="px-3.5 py-2.5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+                  <div>
+                    <p className="font-bold text-slate-900 text-xs">Impersonate User Role</p>
+                    <p className="text-[11px] text-slate-500">Preview system scope & workflow permissions</p>
+                  </div>
+                  <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded-[4px]">
+                    Admin Privilege
+                  </span>
                 </div>
-                <span className="text-[10px] bg-emerald-100 text-[#0F7640] font-bold px-1.5 py-0.5 rounded-[4px]">
-                  RBAC Active
-                </span>
-              </div>
-              <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
-                {Object.values(PERSONA_PROFILES).map((p) => {
-                  const isActive = p.role === session.activeRole;
-                  return (
+
+                {isImpersonating && (
+                  <div className="p-2 border-b border-amber-100 bg-amber-50">
                     <button
-                      key={p.role}
                       onClick={() => {
-                        switchRole(p.role);
+                        stopImpersonating();
                         setIsRoleSwitcherOpen(false);
                       }}
-                      className={`w-full px-3.5 py-2.5 text-left flex items-start gap-2.5 hover:bg-slate-50 transition-colors ${
-                        isActive ? 'bg-emerald-50/70 font-semibold' : ''
-                      }`}
+                      className="w-full py-1.5 px-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-[4px] font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
                     >
-                      <div
-                        className={`w-7 h-7 rounded-[4px] text-xs font-extrabold flex items-center justify-center shrink-0 mt-0.5 shadow-sm ${
-                          isActive
-                            ? 'bg-[#107C41] text-white'
-                            : 'bg-slate-100 text-slate-700'
+                      <LogOut className="w-3.5 h-3.5" />
+                      Exit Impersonation (Return to Super Admin)
+                    </button>
+                  </div>
+                )}
+
+                <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
+                  {Object.values(PERSONA_PROFILES).map((p) => {
+                    const isActive = p.role === session.activeRole;
+                    return (
+                      <button
+                        key={p.role}
+                        onClick={() => {
+                          impersonateUser(p.role);
+                          setIsRoleSwitcherOpen(false);
+                        }}
+                        className={`w-full px-3.5 py-2.5 text-left flex items-start gap-2.5 hover:bg-slate-50 transition-colors ${
+                          isActive ? 'bg-emerald-50/70 font-semibold' : ''
                         }`}
                       >
-                        {p.initials}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-1">
-                          <span
-                            className={`text-xs truncate ${
-                              isActive ? 'text-[#0F7640] font-bold' : 'text-slate-900 font-semibold'
-                            }`}
-                          >
-                            {p.fullName}
-                          </span>
-                          {isActive && <Check className="w-3.5 h-3.5 text-[#0F7640] shrink-0" />}
+                        <div
+                          className={`w-7 h-7 rounded-[4px] text-xs font-extrabold flex items-center justify-center shrink-0 mt-0.5 shadow-sm ${
+                            isActive
+                              ? 'bg-[#107C41] text-white'
+                              : 'bg-slate-100 text-slate-700'
+                          }`}
+                        >
+                          {p.initials}
                         </div>
-                        <span className="text-[11px] text-emerald-800 font-medium block truncate">
-                          {p.scopeBadge}
-                        </span>
-                        <span className="text-[10px] text-slate-400 block truncate mt-0.5">
-                          {p.description}
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-1">
+                            <span
+                              className={`text-xs truncate ${
+                                isActive ? 'text-[#0F7640] font-bold' : 'text-slate-900 font-semibold'
+                              }`}
+                            >
+                              {p.fullName}
+                            </span>
+                            {isActive && <Check className="w-3.5 h-3.5 text-[#0F7640] shrink-0" />}
+                          </div>
+                          <span className="text-[11px] text-emerald-800 font-medium block truncate">
+                            {p.scopeBadge}
+                          </span>
+                          <span className="text-[10px] text-slate-400 block truncate mt-0.5">
+                            {p.description}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
 
         {/* Notifications Flyout (UseOneID Style) */}
         <div className="relative" ref={notifRef}>
@@ -477,10 +473,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
           {/* Floating Notifications Popover */}
           {isNotificationsOpen && (
             <div
-              className="absolute right-0 mt-2 w-80 sm:w-96 rounded-[4px] border border-slate-200 bg-white z-50 text-xs animate-in fade-in duration-150"
-              style={{
-                boxShadow: '0 2px 6px 2px rgba(60, 64, 67, 0.15), 0 1px 2px 0 rgba(60, 64, 67, 0.30)',
-              }}
+              className="absolute right-0 mt-2 w-80 sm:w-96 max-w-[calc(100vw-1rem)] rounded-[4px] border border-slate-200 bg-white z-50 text-xs animate-in fade-in duration-150 shadow-md overflow-x-hidden"
             >
               {/* Header */}
               <div className="p-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
@@ -621,10 +614,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
 
           {isProfileOpen && (
             <div
-              className="absolute right-0 mt-1.5 w-60 rounded-[4px] border border-slate-200 bg-white py-1 z-50 text-xs"
-              style={{
-                boxShadow: '0 2px 6px 2px rgba(60, 64, 67, 0.15), 0 1px 2px 0 rgba(60, 64, 67, 0.30)',
-              }}
+              className="absolute right-0 mt-1.5 w-60 max-w-[calc(100vw-1rem)] rounded-[4px] border border-slate-200 bg-white py-1 z-50 text-xs shadow-md overflow-x-hidden"
             >
               <div className="px-3 py-2.5 border-b border-slate-100 flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-[4px] bg-[#107C41] text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-sm overflow-hidden border border-slate-200">
@@ -657,7 +647,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
                 My Profile & Account
               </button>
 
-              {/* Institutional Governance Settings restricted strictly to Provost and Super Admin */}
+              {/* Governance Settings restricted strictly to Provost and Super Admin */}
               {(session.activeRole === 'PROVOST' || session.activeRole === 'SADMIN') && (
                 <button
                   onClick={() => {
@@ -674,7 +664,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
               <button
                 onClick={() => {
                   setIsProfileOpen(false);
-                  navigate('/login');
+                  signOut().finally(() => navigate('/login'));
                 }}
                 className="w-full px-3 py-2 text-left text-rose-600 hover:bg-rose-50 flex items-center gap-2 border-t border-slate-100 transition-colors"
               >

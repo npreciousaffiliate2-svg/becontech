@@ -33,17 +33,17 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
           </div>
 
           <Badge variant="danger" className="mb-3 px-3 py-1 font-semibold uppercase tracking-wider text-xs">
-            HTTP 403 • Access Restricted
+            Access Restricted
           </Badge>
 
           <h2 className="text-xl font-bold text-slate-900 mb-2">
-            Institutional Privilege Required
+            Authorized Account Required
           </h2>
 
           <p className="text-sm text-slate-600 leading-relaxed mb-6">
-            You do not possess the statutory administrative clearance to access the{' '}
-            <strong className="text-slate-900 font-semibold">{moduleName || path}</strong> module.
-            CampusOne enforces strict regulatory separation of duties and zero data leakage.
+            You do not currently have permission to access the{' '}
+            <strong className="text-slate-900 font-semibold">{moduleName || path}</strong> page.
+            Please switch to an authorized staff role or contact the school administrator.
           </p>
 
           <div className="bg-slate-50 border border-slate-200 rounded p-4 text-left mb-6 space-y-2">

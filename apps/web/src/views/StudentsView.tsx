@@ -10,6 +10,7 @@ import {
   Tabs,
   Input,
   Select,
+  DatePicker,
   useToast,
 } from '@campusone/ui';
 import {
@@ -44,7 +45,7 @@ interface Student {
   department: string;
   programmeCode: string;
   programme: string;
-  level: '100 Level' | '200 Level' | '300 Level';
+  level: string;
   session: string;
   bloodGroup: 'O+' | 'A+' | 'B+' | 'AB+' | 'O-' | 'A-';
   genotype: 'AA' | 'AS' | 'AC';
@@ -61,15 +62,13 @@ interface Student {
 // Industry Standard Code 128 / Code 39 Linear Barcode (Strictly font-sans)
 const Barcode: React.FC<{ value: string; className?: string }> = ({ value, className = '' }) => {
   const bars = [
-    2, 1, 3, 1, 1, 2, 1, 3, 2, 1, 1, 2, 3, 1, 1, 2, 1, 2, 3, 1, 2, 1, 1, 3,
-    1, 2, 2, 1, 3, 1, 1, 2, 1, 1, 3, 2, 1, 2, 1, 3, 2, 1, 1, 2, 3, 1, 1, 2,
-    1, 3, 2, 1, 1, 2, 3, 1, 2, 1, 1, 3, 1, 2, 2, 1, 3, 1, 1, 2, 1, 3, 2, 2,
-    1, 2, 1, 3, 1, 1, 2, 1, 3, 2, 1, 1, 2, 3, 1, 1, 2, 1, 2, 3, 1, 2, 1, 1,
+    2, 1, 2, 1, 1, 2, 1, 2, 2, 1, 1, 2, 2, 1, 1, 2, 1, 2, 2, 1, 2, 1, 1, 2,
+    1, 2, 1, 1, 2, 1, 1, 2, 1, 1, 2, 2, 1, 2, 1, 2, 1, 1, 2, 1, 2, 1,
   ];
 
   return (
-    <div className={`flex flex-col items-center select-none ${className}`}>
-      <div className="flex items-end h-7 gap-[1.5px] bg-white px-2 py-0.5 rounded-[2px] border border-slate-200">
+    <div className={`flex flex-col items-start select-none ${className}`}>
+      <div className="flex items-end h-6 gap-[1px] bg-white px-1.5 py-0.5 rounded-[2px] border border-slate-200">
         {bars.map((width, idx) => (
           <span
             key={idx}
@@ -78,7 +77,7 @@ const Barcode: React.FC<{ value: string; className?: string }> = ({ value, class
           />
         ))}
       </div>
-      <span className="text-[9px] font-semibold tracking-widest text-slate-700 mt-0.5 font-sans">
+      <span className="text-[9px] font-semibold tracking-wider text-slate-700 mt-0.5 font-sans">
         *{value}*
       </span>
     </div>
@@ -86,7 +85,9 @@ const Barcode: React.FC<{ value: string; className?: string }> = ({ value, class
 };
 
 export const StudentsView: React.FC = () => {
-  const { isDense, recordAudit } = useApp();
+  const { isDense, recordAudit, schoolProfile, departments, session, persona, isSuperAdmin, impersonateUser } = useApp();
+  const isStudent = session.activeRole === 'STU' || session.activeRole === 'SPON';
+  const studentMatric = persona?.matricNumber || 'CHE/2026/0014';
   const { showToast } = useToast();
   const { tab: routeTab } = useParams();
   const navigate = useNavigate();
@@ -116,6 +117,60 @@ export const StudentsView: React.FC = () => {
   const [statusStudent, setStatusStudent] = useState<Student | null>(null);
   const [isNewStudentOpen, setIsNewStudentOpen] = useState(false);
 
+  // Edit & Delete Student State
+  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [isEditStudentOpen, setIsEditStudentOpen] = useState(false);
+  const [deletingStudent, setDeletingStudent] = useState<Student | null>(null);
+  const [isDeleteStudentOpen, setIsDeleteStudentOpen] = useState(false);
+
+  const handleSaveEditStudent = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingStudent) return;
+
+    setStudents((prev) =>
+      prev.map((s) => (s.id === editingStudent.id ? editingStudent : s))
+    );
+
+    if (selectedStudent && selectedStudent.id === editingStudent.id) {
+      setSelectedStudent(editingStudent);
+    }
+
+    recordAudit('STUDENT_UPDATED', 'STUDENT_RECORD', editingStudent.matricNumber, {
+      fullName: editingStudent.fullName,
+      level: editingStudent.level,
+      programme: editingStudent.programme,
+    });
+
+    setIsEditStudentOpen(false);
+    setEditingStudent(null);
+    showToast({
+      type: 'success',
+      title: 'Trainee Record Saved',
+      message: `${editingStudent.fullName} (${editingStudent.matricNumber}) profile has been updated.`,
+    });
+  };
+
+  const handleConfirmDeleteStudent = () => {
+    if (!deletingStudent) return;
+
+    setStudents((prev) => prev.filter((s) => s.id !== deletingStudent.id));
+    if (selectedStudent?.id === deletingStudent.id) {
+      setSelectedStudent(null);
+    }
+
+    recordAudit('STUDENT_ARCHIVED', 'STUDENT_RECORD', deletingStudent.matricNumber, {
+      fullName: deletingStudent.fullName,
+    });
+
+    setIsDeleteStudentOpen(false);
+    setDeletingStudent(null);
+    showToast({
+      type: 'success',
+      title: 'Trainee Archived',
+      message: `${deletingStudent.fullName} has been archived from active records.`,
+    });
+  };
+
   // Status Mutation Form State
   const [statusForm, setStatusForm] = useState({
     newStatus: 'PROBATION',
@@ -144,13 +199,13 @@ export const StudentsView: React.FC = () => {
       id: 'stu-001',
       matricNumber: 'CHE/2026/0014',
       fullName: 'Blessing Adeyemi',
-      email: 'blessing.adeyemi@bethsaida.edu.ng',
+      email: 'blessing.adeyemi@becohtech.edu.ng',
       phone: '+234 803 124 5510',
       gender: 'Female',
       stateOfOrigin: 'Oyo',
       lga: 'Ibadan North',
-      departmentCode: 'CHE',
-      department: 'Department of Community Health',
+      departmentCode: 'CHD',
+      department: 'Community Health Department',
       programmeCode: 'CHEW',
       programme: 'Community Health Extension Worker (CHEW)',
       level: '200 Level',
@@ -167,17 +222,17 @@ export const StudentsView: React.FC = () => {
     },
     {
       id: 'stu-002',
-      matricNumber: 'MLT/2026/0029',
+      matricNumber: 'DHT/2026/0029',
       fullName: 'Emmanuel Chukwuma',
-      email: 'emmanuel.chukwuma@bethsaida.edu.ng',
+      email: 'emmanuel.chukwuma@becohtech.edu.ng',
       phone: '+234 802 771 9044',
       gender: 'Male',
       stateOfOrigin: 'Delta',
       lga: 'Aniocha North',
-      departmentCode: 'MLT',
-      department: 'Department of Medical Laboratory Technology',
-      programmeCode: 'MLT',
-      programme: 'Medical Laboratory Technician (MLT)',
+      departmentCode: 'DHD',
+      department: 'Dental Health Department',
+      programmeCode: 'DHT',
+      programme: 'Dental Health Technician (DHT)',
       level: '100 Level',
       session: '2026/2027',
       bloodGroup: 'A+',
@@ -194,13 +249,13 @@ export const StudentsView: React.FC = () => {
       id: 'stu-003',
       matricNumber: 'PHT/2026/0009',
       fullName: 'Khadijat Sani',
-      email: 'khadijat.sani@bethsaida.edu.ng',
+      email: 'khadijat.sani@becohtech.edu.ng',
       phone: '+234 805 443 1899',
       gender: 'Female',
       stateOfOrigin: 'Kwara',
       lga: 'Ilorin West',
       departmentCode: 'PHT',
-      department: 'Department of Pharmacy Technician Studies',
+      department: 'Pharmacy Technician Department',
       programmeCode: 'PHT',
       programme: 'Pharmacy Technician',
       level: '100 Level',
@@ -219,15 +274,15 @@ export const StudentsView: React.FC = () => {
       id: 'stu-004',
       matricNumber: 'HIM/2026/0004',
       fullName: 'David Adeleke',
-      email: 'david.adeleke@bethsaida.edu.ng',
+      email: 'david.adeleke@becohtech.edu.ng',
       phone: '+234 809 332 7655',
       gender: 'Male',
       stateOfOrigin: 'Osun',
       lga: 'Ede South',
       departmentCode: 'HIM',
-      department: 'Department of Health Information Management',
-      programmeCode: 'HIM',
-      programme: 'Health Information Management (HIM)',
+      department: 'Health Information Management Department',
+      programmeCode: 'HIM-ND',
+      programme: 'National Diploma in Health Information Management',
       level: '200 Level',
       session: '2026/2027',
       bloodGroup: 'O+',
@@ -244,15 +299,15 @@ export const StudentsView: React.FC = () => {
       id: 'stu-005',
       matricNumber: 'EHT/2026/0002',
       fullName: 'Fatima Ibrahim',
-      email: 'fatima.ibrahim@bethsaida.edu.ng',
+      email: 'fatima.ibrahim@becohtech.edu.ng',
       phone: '+234 807 551 2244',
       gender: 'Female',
       stateOfOrigin: 'Kogi',
       lga: 'Lokoja',
-      departmentCode: 'EHT',
-      department: 'Department of Environmental Health Sciences',
+      departmentCode: 'EHD',
+      department: 'Environmental Health Department',
       programmeCode: 'EHT',
-      programme: 'Environmental Health Technology (EHT)',
+      programme: 'Environmental Health Technician (EHT)',
       level: '300 Level',
       session: '2026/2027',
       bloodGroup: 'A+',
@@ -269,13 +324,13 @@ export const StudentsView: React.FC = () => {
       id: 'stu-006',
       matricNumber: 'CHE/2026/0088',
       fullName: 'Sunday Okon',
-      email: 'sunday.okon@bethsaida.edu.ng',
+      email: 'sunday.okon@becohtech.edu.ng',
       phone: '+234 812 334 9911',
       gender: 'Male',
       stateOfOrigin: 'Akwa Ibom',
       lga: 'Uyo',
-      departmentCode: 'CHE',
-      department: 'Department of Community Health',
+      departmentCode: 'CHD',
+      department: 'Community Health Department',
       programmeCode: 'CHEW',
       programme: 'Community Health Extension Worker (CHEW)',
       level: '100 Level',
@@ -293,17 +348,17 @@ export const StudentsView: React.FC = () => {
     },
     {
       id: 'stu-007',
-      matricNumber: 'MLT/2026/0061',
+      matricNumber: 'HTD/2026/0061',
       fullName: 'Zainab Bello',
-      email: 'zainab.bello@bethsaida.edu.ng',
+      email: 'zainab.bello@becohtech.edu.ng',
       phone: '+234 816 772 3300',
       gender: 'Female',
       stateOfOrigin: 'Oyo',
       lga: 'Oyo West',
-      departmentCode: 'MLT',
-      department: 'Department of Medical Laboratory Technology',
-      programmeCode: 'MLT',
-      programme: 'Medical Laboratory Technician (MLT)',
+      departmentCode: 'HTD',
+      department: 'Health Technician Department',
+      programmeCode: 'HT',
+      programme: 'Health Technician (HT)',
       level: '200 Level',
       session: '2026/2027',
       bloodGroup: 'AB+',
@@ -357,7 +412,7 @@ export const StudentsView: React.FC = () => {
       showToast({
         type: 'danger',
         title: 'Missing Required Fields',
-        message: 'Please provide student name, institutional email, and phone.',
+        message: 'Please provide student name, official college email, and phone.',
       });
       return;
     }
@@ -412,8 +467,12 @@ export const StudentsView: React.FC = () => {
     });
   };
 
-  // Filtered Students List
-  const filteredStudents = students.filter((s) => {
+  // Filtered Students List (Role-Scoped: Students see strictly their own record)
+  const scopedStudents = isStudent
+    ? students.filter((s) => s.matricNumber === studentMatric)
+    : students;
+
+  const filteredStudents = scopedStudents.filter((s) => {
     const matchesSearch =
       s.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       s.matricNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -531,21 +590,59 @@ export const StudentsView: React.FC = () => {
           >
             ID
           </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              setStatusStudent(s);
-              setStatusForm({
-                newStatus: s.status === 'ACTIVE' ? 'PROBATION' : 'ACTIVE',
-                senateMemo: 'SENATE/2026/M04',
-                effectiveDate: new Date().toISOString().split('T')[0],
-                reason: s.statusReason || 'Administrative lifecycle adjustment',
-              });
-            }}
-          >
-            Status
-          </Button>
+          {!isStudent && (
+            <>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setStatusStudent(s);
+                  setStatusForm({
+                    newStatus: s.status === 'ACTIVE' ? 'PROBATION' : 'ACTIVE',
+                    senateMemo: 'SENATE/2026/M04',
+                    effectiveDate: new Date().toISOString().split('T')[0],
+                    reason: s.statusReason || 'Administrative lifecycle adjustment',
+                  });
+                }}
+              >
+                Status
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  setEditingStudent({ ...s });
+                  setIsEditStudentOpen(true);
+                }}
+              >
+                Edit
+              </Button>
+              {isSuperAdmin && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    impersonateUser('STU', {
+                      id: s.id,
+                      name: s.fullName,
+                      email: s.email,
+                      matricNumber: s.matricNumber,
+                    });
+                    showToast({
+                      type: 'info',
+                      title: 'Student Impersonation Active',
+                      message: `Now accessing portal as ${s.fullName} (${s.matricNumber}).`,
+                    });
+                    navigate('/');
+                  }}
+                  leftIcon={<UserCheck className="w-3.5 h-3.5 text-[#0F7640]" />}
+                  className="text-[#0F7640] border-emerald-200 hover:bg-emerald-50 whitespace-nowrap"
+                >
+                  Impersonate
+                </Button>
+              )}
+            </>
+          )}
         </div>
       ),
     },
@@ -562,23 +659,38 @@ export const StudentsView: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="secondary"
-            leftIcon={<Printer className="w-3.5 h-3.5" />}
-            onClick={() => {
-              setSelectedIdCard(students[0]);
-            }}
-          >
-            Print ID Card
-          </Button>
-          <Button
-            size="sm"
-            leftIcon={<Plus className="w-3.5 h-3.5" />}
-            onClick={() => setIsNewStudentOpen(true)}
-          >
-            Enroll Student
-          </Button>
+          {!isStudent ? (
+            <>
+              <Button
+                size="sm"
+                variant="secondary"
+                leftIcon={<Printer className="w-3.5 h-3.5" />}
+                onClick={() => {
+                  setSelectedIdCard(students[0]);
+                }}
+              >
+                Print ID Card
+              </Button>
+              <Button
+                size="sm"
+                leftIcon={<Plus className="w-3.5 h-3.5" />}
+                onClick={() => setIsNewStudentOpen(true)}
+              >
+                Enroll Student
+              </Button>
+            </>
+          ) : (
+            <Button
+              size="sm"
+              variant="secondary"
+              leftIcon={<Printer className="w-3.5 h-3.5" />}
+              onClick={() => {
+                setSelectedIdCard(scopedStudents[0] || students[0]);
+              }}
+            >
+              Print My ID Card
+            </Button>
+          )}
         </div>
       </div>
 
@@ -587,18 +699,20 @@ export const StudentsView: React.FC = () => {
         <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Total Enrolled
+              {isStudent ? 'Enrolled Programme' : 'Total Enrolled'}
             </span>
             <div className="w-8 h-8 rounded-[4px] bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
               <GraduationCap className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">1,248</div>
+            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">
+              {isStudent ? 'CHEW 200L' : '1,248'}
+            </div>
             <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
-              <span className="text-slate-600 font-semibold">5 Health depts</span>
+              <span className="text-slate-600 font-semibold">{isStudent ? 'Community Health' : '5 Health depts'}</span>
               <span className="text-slate-300">•</span>
-              <span className="text-[11px] text-slate-400">Harmattan session active</span>
+              <span className="text-[11px] text-slate-400">{isStudent ? 'Matric CHE/2026/0014' : 'Harmattan session active'}</span>
             </div>
           </div>
         </Card>
@@ -606,18 +720,20 @@ export const StudentsView: React.FC = () => {
         <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Active Good Standing
+              {isStudent ? 'Current Standing' : 'Active Good Standing'}
             </span>
             <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center shrink-0">
               <CheckCircle2 className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold text-[#0F7640] font-sans tracking-tight">1,192</div>
+            <div className="text-2xl font-bold text-[#0F7640] font-sans tracking-tight">
+              {isStudent ? '3.82 CGPA' : '1,192'}
+            </div>
             <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
-              <span className="text-[#13A348] font-semibold">95.5% benchmarks met</span>
+              <span className="text-[#13A348] font-semibold">{isStudent ? 'Distinction Track' : '95.5% benchmarks met'}</span>
               <span className="text-slate-300">•</span>
-              <span className="text-[11px] text-slate-400">CGPA &ge; 2.00</span>
+              <span className="text-[11px] text-slate-400">{isStudent ? 'Top 5% Class Rank' : 'CGPA ≥ 2.00'}</span>
             </div>
           </div>
         </Card>
@@ -625,18 +741,20 @@ export const StudentsView: React.FC = () => {
         <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Clinical Cleared
+              {isStudent ? 'Clinical Serology' : 'Clinical Cleared'}
             </span>
-            <div className="w-8 h-8 rounded-[4px] bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center shrink-0">
               <Activity className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold text-blue-600 font-sans tracking-tight">1,140</div>
+            <div className="text-2xl font-bold text-[#0F7640] font-sans tracking-tight">
+              {isStudent ? 'CLEARED' : '1,140'}
+            </div>
             <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
-              <span className="text-blue-700 font-semibold">Hepatitis B vaccinated</span>
+              <span className="text-[#0F7640] font-semibold">{isStudent ? 'Hep B Vaccinated' : 'Hepatitis B vaccinated'}</span>
               <span className="text-slate-300">•</span>
-              <span className="text-[11px] text-slate-400">Serology verified</span>
+              <span className="text-[11px] text-slate-400">{isStudent ? '3 Doses Complete' : 'Serology verified'}</span>
             </div>
           </div>
         </Card>
@@ -644,33 +762,42 @@ export const StudentsView: React.FC = () => {
         <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Probation / Review
+              {isStudent ? 'Tuition Clearance' : 'Probation / Review'}
             </span>
-            <div className="w-8 h-8 rounded-[4px] bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
-              <AlertTriangle className="w-4 h-4" />
+            <div className={`w-8 h-8 rounded-[4px] flex items-center justify-center shrink-0 ${isStudent ? 'bg-emerald-50 text-[#13A348]' : 'bg-amber-50 text-amber-700'}`}>
+              {isStudent ? <CheckCircle2 className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold text-amber-600 font-sans tracking-tight">
-              {students.filter((s) => s.status === 'PROBATION').length}
+            <div className={`text-2xl font-bold font-sans tracking-tight ${isStudent ? 'text-[#13A348]' : 'text-amber-600'}`}>
+              {isStudent ? '100% PAID' : students.filter((s) => s.status === 'PROBATION').length}
             </div>
             <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
-              <span className="text-amber-700 font-semibold">Remediation track</span>
+              <span className={`${isStudent ? 'text-[#13A348]' : 'text-amber-700'} font-semibold`}>
+                {isStudent ? 'Exam Docket Issued' : 'Remediation track'}
+              </span>
               <span className="text-slate-300">•</span>
-              <span className="text-[11px] text-slate-400">Academic advisory queue</span>
+              <span className="text-[11px] text-slate-400">{isStudent ? 'Gate Pass Active' : 'Academic advisory queue'}</span>
             </div>
           </div>
         </Card>
       </div>
 
-      {/* Institutional Nav Tabs */}
+      {/* Nav Tabs */}
       <Tabs
-        tabs={[
-          { id: 'directory', label: 'Student Directory' },
-          { id: 'lifecycle', label: 'Status Lifecycle' },
-          { id: 'id_cards', label: 'Student ID Cards' },
-          { id: 'clinical', label: 'Clinical Clearance' },
-        ]}
+        tabs={
+          isStudent
+            ? [
+                { id: 'directory', label: 'My Academic Dossier' },
+                { id: 'id_cards', label: 'My Student ID Card' },
+              ]
+            : [
+                { id: 'directory', label: 'Student Directory' },
+                { id: 'lifecycle', label: 'Status Lifecycle' },
+                { id: 'id_cards', label: 'Student ID Cards' },
+                { id: 'clinical', label: 'Clinical Clearance' },
+              ]
+        }
         activeTab={activeTab}
         onChange={handleTabChange}
       />
@@ -754,7 +881,7 @@ export const StudentsView: React.FC = () => {
       )}
 
       {/* ─── TAB 2: Status Lifecycle Management ─── */}
-      {activeTab === 'lifecycle' && (
+      {!isStudent && activeTab === 'lifecycle' && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-white p-4 rounded-[4px] border border-slate-200 shadow-sm space-y-1">
@@ -873,7 +1000,7 @@ export const StudentsView: React.FC = () => {
             <div>
               <h3 className="font-bold text-slate-900 text-sm">Print-Ready Student PVC ID Cards</h3>
               <p className="text-xs text-slate-500">
-                Institutional credential conforming to clinical hospital posting and examination verification protocols.
+                College credential conforming to clinical hospital posting and examination verification protocols.
               </p>
             </div>
             <Button
@@ -896,14 +1023,26 @@ export const StudentsView: React.FC = () => {
                 {/* ID Card Visual Representation */}
                 <div className="bg-slate-50 border border-slate-200 rounded-[4px] overflow-hidden text-slate-900 shadow-sm">
                   {/* Card Green Header */}
-                  <div className="bg-[#0F7640] text-white p-2.5 flex items-center justify-between">
-                    <div>
-                      <span className="font-extrabold text-[11px] uppercase tracking-wider block">
-                        Bethsaida College
-                      </span>
-                      <span className="text-[9px] text-emerald-100 block">Health Technology</span>
+                  <div className="bg-[#0F7640] text-white p-2.5 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <img
+                        src={schoolProfile?.logoUrl || '/BeonTech-Logo.png'}
+                        alt="Logo"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = '/BeonTech-Logo.png';
+                        }}
+                        className="w-6 h-6 rounded-[2px] bg-white object-contain p-0.5 shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <span className="font-extrabold text-[11px] uppercase tracking-wider block truncate">
+                          {schoolProfile?.institutionName?.replace(' Ltd', '') || 'Bethsaida College'}
+                        </span>
+                        <span className="text-[9px] text-emerald-100 block truncate">
+                          {schoolProfile?.institutionalSector || 'Health Technology'}
+                        </span>
+                      </div>
                     </div>
-                    <span className="text-[9px] font-bold bg-white text-[#0F7640] px-1.5 py-0.5 rounded-[2px] uppercase">
+                    <span className="text-[9px] font-bold bg-white text-[#0F7640] px-1.5 py-0.5 rounded-[2px] uppercase shrink-0">
                       Student
                     </span>
                   </div>
@@ -914,21 +1053,25 @@ export const StudentsView: React.FC = () => {
                       <div className="w-12 h-14 bg-slate-200 rounded-[2px] border border-slate-300 flex items-center justify-center text-[10px] text-slate-500 font-bold uppercase shrink-0">
                         Photo
                       </div>
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <p className="font-bold text-xs text-slate-900 truncate font-sans">{s.fullName}</p>
-                        <p className="font-bold text-[11px] text-[#0F7640] font-sans">{s.matricNumber}</p>
+                        <p className="font-bold text-[11px] text-[#0F7640] font-sans mt-0.5">{s.matricNumber}</p>
                         <p className="text-[10px] text-slate-500 truncate mt-0.5">{s.programme}</p>
-                        <p className="text-[10px] text-slate-600 font-semibold">
-                          Blood: {s.bloodGroup} | Genotype: {s.genotype}
+                        <p className="text-[10px] text-slate-600 font-medium mt-0.5">
+                          {s.level} • Session {schoolProfile?.activeSession || '2026/2027'}
                         </p>
                       </div>
                     </div>
 
-                    <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
+                    <div className="pt-2 border-t border-slate-200 flex items-center justify-between gap-2">
                       <Barcode value={s.matricNumber} className="scale-90 origin-left" />
-                      <div className="text-right">
-                        <span className="text-[8px] text-slate-400 block uppercase">Valid Until</span>
-                        <span className="text-[10px] font-bold text-slate-700">Nov 2028</span>
+                      <div className="text-right shrink-0">
+                        <span className="text-[8px] text-slate-400 block uppercase font-bold tracking-wider">
+                          Expiration
+                        </span>
+                        <span className="text-[10px] font-extrabold text-slate-800 whitespace-nowrap">
+                          31 Dec 2028
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -953,7 +1096,7 @@ export const StudentsView: React.FC = () => {
       )}
 
       {/* ─── TAB 4: Clinical Clearance ─── */}
-      {activeTab === 'clinical' && (
+      {!isStudent && activeTab === 'clinical' && (
         <Card
           header={
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-2">
@@ -1061,7 +1204,7 @@ export const StudentsView: React.FC = () => {
         isOpen={Boolean(selectedStudent)}
         onClose={() => setSelectedStudent(null)}
         title={selectedStudent ? `${selectedStudent.fullName} (${selectedStudent.matricNumber})` : 'Student Profile'}
-        description="Official institutional student dossier, academic standing, and serology profile."
+        description="Official student dossier, academic standing, and health profile."
         size="lg"
         footer={
           <div className="flex flex-col sm:flex-row items-center justify-between w-full gap-2">
@@ -1069,6 +1212,32 @@ export const StudentsView: React.FC = () => {
               Enrolled: {selectedStudent?.dateEnrolled} • Session: {selectedStudent?.session}
             </span>
             <div className="flex items-center gap-2">
+              {!isStudent && (
+                <>
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    onClick={() => {
+                      setDeletingStudent(selectedStudent);
+                      setIsDeleteStudentOpen(true);
+                    }}
+                  >
+                    Archive
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="bg-[#0F7640] hover:bg-[#093322]"
+                    onClick={() => {
+                      if (selectedStudent) {
+                        setEditingStudent(selectedStudent);
+                        setIsEditStudentOpen(true);
+                      }
+                    }}
+                  >
+                    Edit Details
+                  </Button>
+                </>
+              )}
               <Button
                 size="sm"
                 variant="secondary"
@@ -1184,12 +1353,174 @@ export const StudentsView: React.FC = () => {
         )}
       </Modal>
 
+      {/* ─── MODAL 5: Edit Student Details ─── */}
+      {editingStudent && (
+        <Modal
+          isOpen={isEditStudentOpen}
+          onClose={() => {
+            setIsEditStudentOpen(false);
+            setEditingStudent(null);
+          }}
+          title={`Edit Student: ${editingStudent.fullName}`}
+          description={`Matric Number: ${editingStudent.matricNumber} • Manage official student records.`}
+          size="lg"
+        >
+          <form onSubmit={handleSaveEditStudent} className="space-y-4 text-xs font-sans">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                label="Full Legal Name"
+                value={editingStudent.fullName}
+                onChange={(e) => setEditingStudent({ ...editingStudent, fullName: e.target.value })}
+                required
+              />
+              <Input
+                label="Phone Number"
+                value={editingStudent.phone}
+                onChange={(e) => setEditingStudent({ ...editingStudent, phone: e.target.value })}
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <Select
+                label="Academic Level"
+                options={(schoolProfile?.academicLevels || ['100 Level', '200 Level', '300 Level']).map((lvl) => ({
+                  value: lvl,
+                  label: lvl,
+                }))}
+                value={editingStudent.level}
+                onChange={(val) => setEditingStudent({ ...editingStudent, level: val as any })}
+              />
+
+              <Select
+                label="Fees Settlement Status"
+                options={[
+                  { value: 'CLEARED', label: 'Cleared (Full Payment)' },
+                  { value: 'PARTIAL', label: 'Partial Payment (Part Paid)' },
+                  { value: 'OWING', label: 'Owing Arrears' },
+                ]}
+                value={editingStudent.feesStatus}
+                onChange={(val) => setEditingStudent({ ...editingStudent, feesStatus: val as any })}
+              />
+
+              <Select
+                label="Clinical Clearance"
+                options={[
+                  { value: 'CLEARED', label: 'Cleared for Hospital Rotation' },
+                  { value: 'PENDING', label: 'Pending Serology Screening' },
+                  { value: 'DEFERRED', label: 'Deferred / Retest Required' },
+                ]}
+                value={editingStudent.clinicalClearance}
+                onChange={(val) => setEditingStudent({ ...editingStudent, clinicalClearance: val as any })}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <Select
+                label="Blood Group"
+                options={[
+                  { value: 'O+', label: 'O+' },
+                  { value: 'A+', label: 'A+' },
+                  { value: 'B+', label: 'B+' },
+                  { value: 'AB+', label: 'AB+' },
+                  { value: 'O-', label: 'O-' },
+                  { value: 'A-', label: 'A-' },
+                  { value: 'B-', label: 'B-' },
+                  { value: 'AB-', label: 'AB-' },
+                ]}
+                value={editingStudent.bloodGroup}
+                onChange={(val) => setEditingStudent({ ...editingStudent, bloodGroup: val as any })}
+              />
+
+              <Select
+                label="Genotype"
+                options={[
+                  { value: 'AA', label: 'AA' },
+                  { value: 'AS', label: 'AS' },
+                  { value: 'SS', label: 'SS' },
+                  { value: 'AC', label: 'AC' },
+                ]}
+                value={editingStudent.genotype}
+                onChange={(val) => setEditingStudent({ ...editingStudent, genotype: val as any })}
+              />
+
+              <Select
+                label="Hepatitis B Vaccination"
+                options={[
+                  { value: 'VACCINATED', label: 'Vaccinated (HBsAg Negative)' },
+                  { value: 'PENDING', label: 'Pending Vaccination' },
+                ]}
+                value={editingStudent.hepatitisBStatus}
+                onChange={(val) => setEditingStudent({ ...editingStudent, hepatitisBStatus: val as any })}
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+              <Button
+                variant="secondary"
+                type="button"
+                onClick={() => {
+                  setIsEditStudentOpen(false);
+                  setEditingStudent(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" className="bg-[#0F7640] hover:bg-[#093322]">
+                Save Changes
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* ─── MODAL 6: Archive / Delete Student Confirmation ─── */}
+      {deletingStudent && (
+        <Modal
+          isOpen={isDeleteStudentOpen}
+          onClose={() => {
+            setIsDeleteStudentOpen(false);
+            setDeletingStudent(null);
+          }}
+          title="Archive Student Record"
+          size="sm"
+        >
+          <div className="space-y-3 text-xs text-slate-700 font-sans">
+            <p>
+              Are you sure you want to archive <strong>{deletingStudent.fullName}</strong> ({deletingStudent.matricNumber})?
+            </p>
+            <p className="text-[11px] text-slate-500">
+              This trainee will be removed from the active register and archived in compliance with academic record guidelines.
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+              <Button
+                variant="secondary"
+                type="button"
+                onClick={() => {
+                  setIsDeleteStudentOpen(false);
+                  setDeletingStudent(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                type="button"
+                onClick={handleConfirmDeleteStudent}
+              >
+                Confirm Archive
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
       {/* ─── MODAL 2: Print-Ready Plastic ID Card Preview ─── */}
       <Modal
         isOpen={Boolean(selectedIdCard)}
         onClose={() => setSelectedIdCard(null)}
         title="Print-Ready Student ID Card"
-        description="Institutional credential compliant with clinical posting verification requirements."
+        description="College credential compliant with clinical posting verification requirements."
         size="md"
         footer={
           <div className="flex items-center justify-end gap-2 w-full">
@@ -1205,15 +1536,27 @@ export const StudentsView: React.FC = () => {
         {selectedIdCard && (
           <div className="flex flex-col items-center py-3">
             <div className="w-full max-w-sm bg-white border border-slate-300 rounded-[4px] shadow-md overflow-hidden text-slate-900 font-sans">
-              {/* Card Green Top Header */}
-              <div className="bg-[#0F7640] text-white p-3 flex items-center justify-between">
-                <div>
-                  <h3 className="font-extrabold text-xs uppercase tracking-wider">
-                    Bethsaida College
-                  </h3>
-                  <p className="text-[10px] text-emerald-100">College of Health Technology</p>
+              {/* Card Green Top Header with Official Logo */}
+              <div className="bg-[#0F7640] text-white p-3 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <img
+                    src={schoolProfile?.logoUrl || '/BeonTech-Logo.png'}
+                    alt="College Crest"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = '/BeonTech-Logo.png';
+                    }}
+                    className="w-8 h-8 rounded-[2px] bg-white object-contain p-0.5 shrink-0 shadow-xs"
+                  />
+                  <div className="min-w-0">
+                    <h3 className="font-extrabold text-xs uppercase tracking-wider truncate font-sans">
+                      {schoolProfile?.institutionName?.replace(' Ltd', '') || 'Bethsaida College'}
+                    </h3>
+                    <p className="text-[10px] text-emerald-100 truncate font-sans">
+                      {schoolProfile?.institutionalSector || 'College of Health Technology'}
+                    </p>
+                  </div>
                 </div>
-                <span className="text-[10px] font-bold bg-white text-[#0F7640] px-2 py-0.5 rounded-[2px] uppercase">
+                <span className="text-[10px] font-bold bg-white text-[#0F7640] px-2 py-0.5 rounded-[2px] uppercase shrink-0">
                   Student
                 </span>
               </div>
@@ -1224,21 +1567,27 @@ export const StudentsView: React.FC = () => {
                   <div className="w-16 h-20 bg-slate-100 border border-slate-300 rounded-[2px] flex items-center justify-center text-xs text-slate-400 font-bold uppercase shrink-0">
                     Photo
                   </div>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="font-bold text-sm text-slate-900 truncate font-sans">{selectedIdCard.fullName}</p>
                     <p className="font-extrabold text-xs text-[#0F7640] font-sans mt-0.5">{selectedIdCard.matricNumber}</p>
                     <p className="text-[11px] text-slate-600 truncate mt-0.5">{selectedIdCard.programme}</p>
-                    <p className="text-[11px] text-slate-700 font-semibold mt-1">
-                      Blood: {selectedIdCard.bloodGroup} | Genotype: {selectedIdCard.genotype}
+                    <p className="text-[11px] text-slate-600 font-semibold mt-1">
+                      {selectedIdCard.level} • Academic Session {schoolProfile?.activeSession || '2026/2027'}
                     </p>
                   </div>
                 </div>
 
-                <div className="pt-3 border-t border-slate-200 flex items-center justify-between">
-                  <Barcode value={selectedIdCard.matricNumber} />
-                  <div className="text-right">
-                    <span className="text-[9px] text-slate-400 block uppercase">Expiration</span>
-                    <span className="text-[11px] font-bold text-slate-800">2026 - 2028</span>
+                <div className="pt-3 border-t border-slate-200 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <Barcode value={selectedIdCard.matricNumber} />
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="text-[9px] text-slate-400 block uppercase font-bold tracking-wider">
+                      Expiration
+                    </span>
+                    <span className="text-xs font-extrabold text-slate-800 block mt-0.5 whitespace-nowrap">
+                      31 Dec 2028
+                    </span>
                   </div>
                 </div>
               </div>
@@ -1280,11 +1629,10 @@ export const StudentsView: React.FC = () => {
           />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Input
+            <DatePicker
               label="Effective Date"
-              type="date"
               value={statusForm.effectiveDate}
-              onChange={(e) => setStatusForm({ ...statusForm, effectiveDate: e.target.value })}
+              onChange={(val) => setStatusForm({ ...statusForm, effectiveDate: val })}
             />
             <Input
               label="Senate / Committee Reference"
@@ -1309,7 +1657,7 @@ export const StudentsView: React.FC = () => {
         isOpen={isNewStudentOpen}
         onClose={() => setIsNewStudentOpen(false)}
         title="Enroll Health Trainee"
-        description="Register a newly matriculated student into the institutional SIS database."
+        description="Register an admitted or matriculated student into the college student records."
         size="md"
         footer={
           <div className="flex items-center justify-end gap-2 w-full">
@@ -1333,9 +1681,9 @@ export const StudentsView: React.FC = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
-              label="Institutional Email"
+              label="College Email"
               type="email"
-              placeholder="v.olusola@bethsaida.edu.ng"
+              placeholder="v.olusola@becohtech.edu.ng"
               value={newStudentForm.email}
               onChange={(e) => setNewStudentForm({ ...newStudentForm, email: e.target.value })}
               required
@@ -1352,24 +1700,23 @@ export const StudentsView: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Select
               label="Academic Programme"
-              options={[
-                { value: 'CHEW', label: 'Community Health (CHEW)' },
-                { value: 'JCHEW', label: 'Community Health (JCHEW)' },
-                { value: 'MLT', label: 'Medical Laboratory (MLT)' },
-                { value: 'PHT', label: 'Pharmacy Technician (PHT)' },
-                { value: 'HIM', label: 'Health Information (HIM)' },
-                { value: 'EHT', label: 'Environmental Health (EHT)' },
-              ]}
+              options={
+                departments && departments.length > 0
+                  ? departments.map((d) => ({ value: d.code, label: `${d.name} (${d.code})` }))
+                  : [
+                      { value: 'CHEW', label: 'Community Health (CHEW)' },
+                      { value: 'MLT', label: 'Medical Laboratory (MLT)' },
+                    ]
+              }
               value={newStudentForm.programmeCode}
               onChange={(val) => setNewStudentForm({ ...newStudentForm, programmeCode: val })}
             />
             <Select
               label="Level"
-              options={[
-                { value: '100 Level', label: '100 Level' },
-                { value: '200 Level', label: '200 Level' },
-                { value: '300 Level', label: '300 Level' },
-              ]}
+              options={(schoolProfile?.academicLevels || ['100 Level', '200 Level', '300 Level']).map((lvl) => ({
+                value: lvl,
+                label: lvl,
+              }))}
               value={newStudentForm.level}
               onChange={(val) => setNewStudentForm({ ...newStudentForm, level: val })}
             />

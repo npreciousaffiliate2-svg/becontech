@@ -11,6 +11,7 @@ import {
   Tabs,
   Modal,
   Select,
+  Input,
 } from '@campusone/ui';
 import {
   Calendar,
@@ -101,7 +102,7 @@ export interface FacultyLoadItem {
 export const TimetableView: React.FC = () => {
   const { tab } = useParams<{ tab?: string }>();
   const navigate = useNavigate();
-  const { isDense, recordAudit, session } = useApp();
+  const { isDense, recordAudit, session, schoolProfile, departments } = useApp();
   const { showToast } = useToast();
 
   const currentPersona = PERSONA_PROFILES[session?.activeRole || 'PROVOST'] || PERSONA_PROFILES.STU;
@@ -510,6 +511,61 @@ export const TimetableView: React.FC = () => {
   const [isPrintTimetableModalOpen, setIsPrintTimetableModalOpen] = useState(false);
   const [selectedScheduleForDossier, setSelectedScheduleForDossier] = useState<ClassScheduleItem | null>(null);
 
+  // Edit & Delete Schedule Slot State
+  const [editingSchedule, setEditingSchedule] = useState<ClassScheduleItem | null>(null);
+  const [isEditScheduleOpen, setIsEditScheduleOpen] = useState(false);
+  const [deletingSchedule, setDeletingSchedule] = useState<ClassScheduleItem | null>(null);
+  const [isDeleteScheduleOpen, setIsDeleteScheduleOpen] = useState(false);
+
+  const handleSaveEditSchedule = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSchedule) return;
+
+    setSchedules((prev) =>
+      prev.map((sch) => (sch.id === editingSchedule.id ? editingSchedule : sch))
+    );
+
+    if (selectedScheduleForDossier?.id === editingSchedule.id) {
+      setSelectedScheduleForDossier(editingSchedule);
+    }
+
+    recordAudit('TIMETABLE_SLOT_UPDATED', 'CLASS_SCHEDULE', editingSchedule.courseCode, {
+      day: editingSchedule.day,
+      time: `${editingSchedule.startTime} - ${editingSchedule.endTime}`,
+      venue: editingSchedule.venueName,
+    });
+
+    setIsEditScheduleOpen(false);
+    setEditingSchedule(null);
+    showToast({
+      type: 'success',
+      title: 'Schedule Updated',
+      message: `${editingSchedule.courseCode} slot on ${editingSchedule.day} saved.`,
+    });
+  };
+
+  const handleConfirmDeleteSchedule = () => {
+    if (!deletingSchedule) return;
+
+    setSchedules((prev) => prev.filter((sch) => sch.id !== deletingSchedule.id));
+
+    if (selectedScheduleForDossier?.id === deletingSchedule.id) {
+      setSelectedScheduleForDossier(null);
+    }
+
+    recordAudit('TIMETABLE_SLOT_DELETED', 'CLASS_SCHEDULE', deletingSchedule.courseCode, {
+      day: deletingSchedule.day,
+    });
+
+    setIsDeleteScheduleOpen(false);
+    setDeletingSchedule(null);
+    showToast({
+      type: 'success',
+      title: 'Schedule Slot Removed',
+      message: `${deletingSchedule.courseCode} slot removed from the master timetable.`,
+    });
+  };
+
   /* ─── NEW SCHEDULE FORM STATES ─── */
   const [newCourseCode, setNewCourseCode] = useState('CHE 204');
   const [newCourseTitle, setNewCourseTitle] = useState('Reproductive Health & Family Planning');
@@ -762,15 +818,40 @@ export const TimetableView: React.FC = () => {
       align: 'right' as const,
       nowrap: true,
       render: (s: ClassScheduleItem) => (
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={() => setSelectedScheduleForDossier(s)}
-          leftIcon={<Eye className="w-3.5 h-3.5" />}
-          className="whitespace-nowrap"
-        >
-          Details
-        </Button>
+        <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setSelectedScheduleForDossier(s)}
+            leftIcon={<Eye className="w-3.5 h-3.5" />}
+          >
+            Details
+          </Button>
+          {!isStudent && (
+            <>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setEditingSchedule({ ...s });
+                  setIsEditScheduleOpen(true);
+                }}
+              >
+                Edit
+              </Button>
+              <Button
+                size="sm"
+                variant="danger"
+                onClick={() => {
+                  setDeletingSchedule(s);
+                  setIsDeleteScheduleOpen(true);
+                }}
+              >
+                Delete
+              </Button>
+            </>
+          )}
+        </div>
       ),
     },
   ];
@@ -1056,7 +1137,7 @@ export const TimetableView: React.FC = () => {
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Practical Labs
             </span>
-            <div className="w-8 h-8 rounded-[4px] bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center shrink-0">
               <Layers className="w-4 h-4" />
             </div>
           </div>
@@ -1065,7 +1146,7 @@ export const TimetableView: React.FC = () => {
               {practicals.length} Active Labs
             </div>
             <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
-              <span className="text-blue-700 font-semibold">Safety Certified</span>
+              <span className="text-[#0F7640] font-semibold">Safety Certified</span>
               <span className="text-slate-300">•</span>
               <span className="text-[11px] text-slate-400">Full PPE compliance</span>
             </div>
@@ -1139,9 +1220,10 @@ export const TimetableView: React.FC = () => {
                   onChange={(val) => setLevelFilter(val)}
                   options={[
                     { value: 'ALL', label: 'All Levels' },
-                    { value: '100L', label: '100 Level' },
-                    { value: '200L', label: '200 Level' },
-                    { value: '300L', label: '300 Level' },
+                    ...(schoolProfile?.academicLevels || ['100 Level', '200 Level', '300 Level']).map((lvl) => ({
+                      value: lvl,
+                      label: lvl,
+                    })),
                   ]}
                 />
               </div>
@@ -1405,11 +1487,10 @@ export const TimetableView: React.FC = () => {
               <Select
                 value={newLevel}
                 onChange={(val) => setNewLevel(val as any)}
-                options={[
-                  { value: '100L', label: '100 Level' },
-                  { value: '200L', label: '200 Level' },
-                  { value: '300L', label: '300 Level' },
-                ]}
+                options={(schoolProfile?.academicLevels || ['100 Level', '200 Level', '300 Level']).map((lvl) => ({
+                  value: lvl,
+                  label: lvl,
+                }))}
               />
             </div>
             <div className="space-y-1.5">
@@ -1512,14 +1593,19 @@ export const TimetableView: React.FC = () => {
           <div className="border border-slate-200 p-6 rounded-[4px] bg-white relative">
             {/* Header Letterhead */}
             <div className="text-center pb-4 border-b border-slate-200">
-              <div className="w-12 h-12 mx-auto mb-2 rounded-[4px] bg-[#0F7640] text-white flex items-center justify-center font-bold text-sm shadow-sm">
-                BCHT
-              </div>
+              <img
+                src={schoolProfile?.logoUrl || '/BeonTech-Logo.png'}
+                alt="College Crest"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '/BeonTech-Logo.png';
+                }}
+                className="w-12 h-12 mx-auto mb-2 object-contain"
+              />
               <h2 className="text-base font-bold text-slate-900 tracking-wide uppercase">
-                Bethsaida College of Health Technology
+                {schoolProfile?.institutionName || 'Bethsaida College of Health Technology'}
               </h2>
               <p className="text-[11px] text-slate-500">
-                Approved by Federal Ministry of Health • Moniya, Ibadan, Oyo State, Nigeria
+                Approved by Federal Ministry of Health • {schoolProfile?.campusAddress || 'Ogbomoso, Oyo State, Nigeria'}
               </p>
               <div className="mt-2 inline-block px-3 py-1 bg-emerald-50 rounded-[4px] text-xs font-bold text-[#0F7640] border border-emerald-200 uppercase">
                 OFFICIAL MASTER LECTURE TIMETABLE • HARMATTAN SEMESTER 2026/2027
@@ -1633,14 +1719,176 @@ export const TimetableView: React.FC = () => {
               <span className="font-bold text-emerald-800 font-sans">{selectedScheduleForDossier.enrolledStudents} Registered</span>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
-              <Button variant="secondary" onClick={() => setSelectedScheduleForDossier(null)}>
+            <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-200">
+              {!isStudent ? (
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    onClick={() => {
+                      setDeletingSchedule(selectedScheduleForDossier);
+                      setIsDeleteScheduleOpen(true);
+                    }}
+                  >
+                    Delete Slot
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="bg-[#0F7640] hover:bg-[#093322]"
+                    onClick={() => {
+                      setEditingSchedule({ ...selectedScheduleForDossier });
+                      setIsEditScheduleOpen(true);
+                    }}
+                  >
+                    Edit Slot
+                  </Button>
+                </div>
+              ) : <div />}
+              <Button variant="secondary" size="sm" onClick={() => setSelectedScheduleForDossier(null)}>
                 Close
               </Button>
             </div>
           </div>
         )}
       </Modal>
+
+      {/* ─── MODAL 4: EDIT CLASS SCHEDULE SLOT ─── */}
+      {editingSchedule && (
+        <Modal
+          isOpen={isEditScheduleOpen}
+          onClose={() => {
+            setIsEditScheduleOpen(false);
+            setEditingSchedule(null);
+          }}
+          title={`Edit Lecture Slot: ${editingSchedule.courseCode}`}
+          description="Adjust scheduled day, time band, venue, or lecturer."
+          size="md"
+        >
+          <form onSubmit={handleSaveEditSchedule} className="space-y-4 text-xs font-sans">
+            <div className="grid grid-cols-2 gap-3">
+              <Select
+                label="Lecture Day"
+                options={[
+                  { value: 'Monday', label: 'Monday' },
+                  { value: 'Tuesday', label: 'Tuesday' },
+                  { value: 'Wednesday', label: 'Wednesday' },
+                  { value: 'Thursday', label: 'Thursday' },
+                  { value: 'Friday', label: 'Friday' },
+                ]}
+                value={editingSchedule.day}
+                onChange={(val) => setEditingSchedule({ ...editingSchedule, day: val as DayOfWeek })}
+              />
+
+              <Select
+                label="Academic Level"
+                options={[
+                  { value: '100L', label: '100 Level' },
+                  { value: '200L', label: '200 Level' },
+                  { value: '300L', label: '300 Level' },
+                ]}
+                value={editingSchedule.level}
+                onChange={(val) => setEditingSchedule({ ...editingSchedule, level: val as any })}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                label="Start Time (24h)"
+                type="time"
+                value={editingSchedule.startTime}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setEditingSchedule({ ...editingSchedule, startTime: e.target.value })
+                }
+                required
+              />
+              <Input
+                label="End Time (24h)"
+                type="time"
+                value={editingSchedule.endTime}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setEditingSchedule({ ...editingSchedule, endTime: e.target.value })
+                }
+                required
+              />
+            </div>
+
+            <Input
+              label="Assigned Venue"
+              value={editingSchedule.venueName}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setEditingSchedule({ ...editingSchedule, venueName: e.target.value })
+              }
+              required
+            />
+
+            <Input
+              label="Assigned Lecturer"
+              value={editingSchedule.instructorName}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setEditingSchedule({ ...editingSchedule, instructorName: e.target.value })
+              }
+              required
+            />
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+              <Button
+                variant="secondary"
+                type="button"
+                onClick={() => {
+                  setIsEditScheduleOpen(false);
+                  setEditingSchedule(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" className="bg-[#0F7640] hover:bg-[#093322]">
+                Save Changes
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* ─── MODAL 5: DELETE SCHEDULE CONFIRMATION ─── */}
+      {deletingSchedule && (
+        <Modal
+          isOpen={isDeleteScheduleOpen}
+          onClose={() => {
+            setIsDeleteScheduleOpen(false);
+            setDeletingSchedule(null);
+          }}
+          title="Remove Lecture Slot"
+          size="sm"
+        >
+          <div className="space-y-3 text-xs text-slate-700 font-sans">
+            <p>
+              Are you sure you want to remove the <strong>{deletingSchedule.courseCode} ({deletingSchedule.day} {deletingSchedule.startTime}–{deletingSchedule.endTime})</strong> class slot?
+            </p>
+            <p className="text-[11px] text-slate-500">
+              This action will release the venue and remove the booking from cohort calendars.
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+              <Button
+                variant="secondary"
+                type="button"
+                onClick={() => {
+                  setIsDeleteScheduleOpen(false);
+                  setDeletingSchedule(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                type="button"
+                onClick={handleConfirmDeleteSchedule}
+              >
+                Confirm Removal
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };

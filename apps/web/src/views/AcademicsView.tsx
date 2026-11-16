@@ -56,7 +56,7 @@ interface CurriculumCourse {
   departmentCode: string;
   departmentName: string;
   level: string;
-  semester: 'Harmattan' | 'Rain';
+  semester: string;
   creditUnits: number;
   theoryHours: number;
   practicalHours: number;
@@ -64,7 +64,7 @@ interface CurriculumCourse {
 }
 
 export const AcademicsView: React.FC = () => {
-  const { session, persona, recordAudit, isDense } = useApp();
+  const { session, persona, recordAudit, isDense, courses, addCourse, updateCourse, deleteCourse, departments, schoolProfile } = useApp();
   const { showToast } = useToast();
   const { tab: routeTab } = useParams();
   const navigate = useNavigate();
@@ -201,6 +201,68 @@ export const AcademicsView: React.FC = () => {
     lecturer: 'Dr. K. Bello',
   });
 
+  // Edit & Delete Course States
+  const [editingCourse, setEditingCourse] = useState<CurriculumCourse | null>(null);
+  const [isEditCourseOpen, setIsEditCourseOpen] = useState(false);
+  const [deletingCourse, setDeletingCourse] = useState<CurriculumCourse | null>(null);
+  const [isDeleteCourseOpen, setIsDeleteCourseOpen] = useState(false);
+
+  const handleSaveEditCourse = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCourse) return;
+
+    setCurriculumCourses((prev) =>
+      prev.map((c) => (c.code === editingCourse.code ? editingCourse : c))
+    );
+
+    if (updateCourse) {
+      updateCourse(editingCourse.code, {
+        title: editingCourse.title,
+        creditUnits: editingCourse.creditUnits,
+        level: editingCourse.level,
+        semester: editingCourse.semester,
+        lecturer: editingCourse.lecturer,
+        theoryHours: editingCourse.theoryHours,
+        practicalHours: editingCourse.practicalHours,
+      });
+    }
+
+    recordAudit('COURSE_UPDATED', 'CURRICULUM_COURSE', editingCourse.code, {
+      title: editingCourse.title,
+      level: editingCourse.level,
+    });
+
+    setIsEditCourseOpen(false);
+    setEditingCourse(null);
+    showToast({
+      type: 'success',
+      title: 'Course Updated',
+      message: `${editingCourse.code} curriculum details updated successfully.`,
+    });
+  };
+
+  const handleConfirmDeleteCourse = () => {
+    if (!deletingCourse) return;
+
+    setCurriculumCourses((prev) => prev.filter((c) => c.code !== deletingCourse.code));
+
+    if (deleteCourse) {
+      deleteCourse(deletingCourse.code);
+    }
+
+    recordAudit('COURSE_DELETED', 'CURRICULUM_COURSE', deletingCourse.code, {
+      title: deletingCourse.title,
+    });
+
+    setIsDeleteCourseOpen(false);
+    setDeletingCourse(null);
+    showToast({
+      type: 'success',
+      title: 'Course Removed',
+      message: `${deletingCourse.code} removed from the active curriculum.`,
+    });
+  };
+
   // Handle Score Input
   const handleScoreChange = (index: number, field: 'caScore' | 'examScore', val: string) => {
     if (workflowStatus === 'PUBLISHED' && session.activeRole !== 'EXAM') {
@@ -260,27 +322,23 @@ export const AcademicsView: React.FC = () => {
       return;
     }
 
-    const deptMap: Record<string, string> = {
-      CHE: 'Community Health',
-      MLT: 'Medical Laboratory',
-      PHT: 'Pharmacy Technician',
-      HIM: 'Health Information',
-      EHT: 'Environmental Health',
-    };
+    const matchedDept = (departments || []).find((d) => d.code === newCourseForm.departmentCode);
+    const deptName = matchedDept ? matchedDept.name : 'Health Sciences';
 
     const createdCourse: CurriculumCourse = {
       code: newCourseForm.code.toUpperCase(),
       title: newCourseForm.title,
       departmentCode: newCourseForm.departmentCode,
-      departmentName: deptMap[newCourseForm.departmentCode] || 'Health Sciences',
+      departmentName: deptName,
       level: newCourseForm.level,
-      semester: newCourseForm.semester as any,
+      semester: newCourseForm.semester,
       creditUnits: parseInt(newCourseForm.creditUnits) || 3,
       theoryHours: parseInt(newCourseForm.theoryHours) || 2,
       practicalHours: parseInt(newCourseForm.practicalHours) || 3,
       lecturer: newCourseForm.lecturer,
     };
 
+    addCourse(createdCourse);
     setCurriculumCourses((prev) => [...prev, createdCourse]);
     setIsNewCourseOpen(false);
     showToast({
@@ -446,14 +504,14 @@ export const AcademicsView: React.FC = () => {
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Dean’s Honor List
             </span>
-            <div className="w-8 h-8 rounded-[4px] bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center shrink-0">
               <GraduationCap className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold text-blue-600 font-sans tracking-tight">142</div>
+            <div className="text-2xl font-bold text-[#0F7640] font-sans tracking-tight">142</div>
             <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
-              <span className="text-blue-700 font-semibold">Trainees CGPA &ge; 4.00</span>
+              <span className="text-[#0F7640] font-semibold">Trainees CGPA &ge; 4.00</span>
               <span className="text-slate-300">•</span>
               <span className="text-[11px] text-slate-400">Distinction standing</span>
             </div>
@@ -480,7 +538,7 @@ export const AcademicsView: React.FC = () => {
         </Card>
       </div>
 
-      {/* Institutional Nav Tabs (Scoped by Role) */}
+      {/* Nav Tabs (Scoped by Role) */}
       <Tabs
         tabs={
           isStudent
@@ -760,14 +818,19 @@ export const AcademicsView: React.FC = () => {
           <div className="bg-white p-6 sm:p-8 rounded-[4px] border border-slate-200 shadow-sm space-y-6 font-sans">
             {/* Official Letterhead */}
             <div className="border-b-2 border-[#0F7640] pb-4 flex flex-col items-center text-center">
-              <div className="w-12 h-12 bg-[#0F7640] text-white font-extrabold text-sm rounded-[4px] flex items-center justify-center mb-2">
-                BCHT
-              </div>
+              <img
+                src={schoolProfile?.logoUrl || '/BeonTech-Logo.png'}
+                alt="College Crest"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '/BeonTech-Logo.png';
+                }}
+                className="w-14 h-14 mx-auto mb-2 rounded-[4px] object-contain shadow-xs"
+              />
               <h2 className="text-base font-extrabold text-slate-900 uppercase tracking-wider">
                 Bethsaida College of Health Technology
               </h2>
               <p className="text-[11px] text-slate-600">
-                KM 4, Old Oyo Road, Moniya, Ibadan, Oyo State, Nigeria
+                {schoolProfile?.campusAddress || 'Ikolaba Aladan layout, off Ayegun Yemetu Road, along CAC grammar school, Ogbomoso, Oyo State'}
               </p>
               <p className="text-[10px] text-slate-500">
                 Official Statement of Academic Record & Transcript
@@ -797,7 +860,7 @@ export const AcademicsView: React.FC = () => {
             {/* Semester Course Table */}
             <div className="space-y-2">
               <span className="font-bold text-slate-900 text-xs uppercase tracking-wider block">
-                Harmattan Semester 2026/2027 Results
+                {broadsheetSemester} Semester {schoolProfile?.activeSession || "2026/2027"} Results
               </span>
               <div className="border border-slate-200 rounded-[4px] overflow-hidden">
                 <table className="w-full text-left text-xs">
@@ -825,7 +888,7 @@ export const AcademicsView: React.FC = () => {
                       <td className="px-3 py-2.5 text-slate-800">Community Diagnosis & Field Survey</td>
                       <td className="px-3 py-2.5 text-center font-semibold">3</td>
                       <td className="px-3 py-2.5 text-center font-bold">68%</td>
-                      <td className="px-3 py-2.5 text-center font-extrabold text-blue-600">B</td>
+                      <td className="px-3 py-2.5 text-center font-extrabold text-[#093322]">B</td>
                       <td className="px-3 py-2.5 text-right font-bold">12.0</td>
                     </tr>
                     <tr>
@@ -859,7 +922,7 @@ export const AcademicsView: React.FC = () => {
               </div>
               <div className="text-right">
                 <span className="inline-block px-3 py-1 border-2 border-dashed border-[#0F7640] rounded-[4px] font-bold text-[#0F7640] text-[10px] uppercase">
-                  OFFICIAL INSTITUTIONAL SEAL
+                  OFFICIAL {schoolProfile?.institutionAcronym || "COLLEGE"} SEAL
                 </span>
               </div>
             </div>
@@ -939,6 +1002,35 @@ export const AcademicsView: React.FC = () => {
                     <span className="font-medium text-slate-800 whitespace-nowrap">{c.lecturer}</span>
                   ),
                 },
+                ...(!isStudent ? [{
+                  key: 'actions',
+                  header: 'Actions',
+                  align: 'right' as const,
+                  render: (c: CurriculumCourse) => (
+                    <div className="flex items-center justify-end gap-1.5">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => {
+                          setEditingCourse({ ...c });
+                          setIsEditCourseOpen(true);
+                        }}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        onClick={() => {
+                          setDeletingCourse(c);
+                          setIsDeleteCourseOpen(true);
+                        }}
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  ),
+                }] : []),
               ]}
               data={curriculumCourses}
               keyExtractor={(c) => c.code}
@@ -953,7 +1045,7 @@ export const AcademicsView: React.FC = () => {
         isOpen={selectedTranscript}
         onClose={() => setSelectedTranscript(false)}
         title="Official Academic Transcript"
-        description="Sealed institutional statement of academic performance for professional certification."
+        description="Sealed official college statement of academic performance for statutory council certification."
         size="lg"
         footer={
           <div className="flex items-center justify-between w-full">
@@ -1024,7 +1116,7 @@ export const AcademicsView: React.FC = () => {
                   <td className="p-2">Community Diagnosis & Field Survey</td>
                   <td className="p-2 text-center">3</td>
                   <td className="p-2 text-center">68%</td>
-                  <td className="p-2 text-center font-bold text-blue-600">B</td>
+                  <td className="p-2 text-center font-bold text-[#093322]">B</td>
                 </tr>
                 <tr>
                   <td className="p-2 font-bold text-[#0F7640]">CHE 103</td>
@@ -1125,6 +1217,145 @@ export const AcademicsView: React.FC = () => {
           />
         </form>
       </Modal>
+
+      {/* ─── MODAL 3: Edit Course ─── */}
+      {editingCourse && (
+        <Modal
+          isOpen={isEditCourseOpen}
+          onClose={() => {
+            setIsEditCourseOpen(false);
+            setEditingCourse(null);
+          }}
+          title={`Edit Course: ${editingCourse.code}`}
+          description="Update course specification, assigned lecturer, and credit weighting."
+          size="md"
+        >
+          <form onSubmit={handleSaveEditCourse} className="space-y-3.5 text-xs font-sans">
+            <Input
+              label="Course Title"
+              value={editingCourse.title}
+              onChange={(e) => setEditingCourse({ ...editingCourse, title: e.target.value })}
+              required
+            />
+
+            <div className="grid grid-cols-2 gap-3">
+              <Select
+                label="Academic Level"
+                options={(schoolProfile?.academicLevels || ['100 Level', '200 Level', '300 Level']).map((lvl) => ({
+                  value: lvl,
+                  label: lvl,
+                }))}
+                value={editingCourse.level}
+                onChange={(val) => setEditingCourse({ ...editingCourse, level: val })}
+              />
+
+              <Select
+                label="Semester"
+                options={(schoolProfile?.academicSemesters || ['Harmattan', 'Rain']).map((sem) => ({
+                  value: sem,
+                  label: sem,
+                }))}
+                value={editingCourse.semester}
+                onChange={(val) => setEditingCourse({ ...editingCourse, semester: val })}
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <Input
+                label="Credit Units"
+                type="number"
+                min="1"
+                max="6"
+                value={String(editingCourse.creditUnits)}
+                onChange={(e) =>
+                  setEditingCourse({ ...editingCourse, creditUnits: parseInt(e.target.value) || 1 })
+                }
+                required
+              />
+              <Input
+                label="Theory Hours"
+                type="number"
+                value={String(editingCourse.theoryHours)}
+                onChange={(e) =>
+                  setEditingCourse({ ...editingCourse, theoryHours: parseInt(e.target.value) || 0 })
+                }
+              />
+              <Input
+                label="Practical Hours"
+                type="number"
+                value={String(editingCourse.practicalHours)}
+                onChange={(e) =>
+                  setEditingCourse({ ...editingCourse, practicalHours: parseInt(e.target.value) || 0 })
+                }
+              />
+            </div>
+
+            <Input
+              label="Assigned Lecturer"
+              value={editingCourse.lecturer}
+              onChange={(e) => setEditingCourse({ ...editingCourse, lecturer: e.target.value })}
+              required
+            />
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+              <Button
+                variant="secondary"
+                type="button"
+                onClick={() => {
+                  setIsEditCourseOpen(false);
+                  setEditingCourse(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" className="bg-[#0F7640] hover:bg-[#093322]">
+                Save Changes
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* ─── MODAL 4: Delete Course Confirmation ─── */}
+      {deletingCourse && (
+        <Modal
+          isOpen={isDeleteCourseOpen}
+          onClose={() => {
+            setIsDeleteCourseOpen(false);
+            setDeletingCourse(null);
+          }}
+          title="Remove Course from Curriculum"
+          size="sm"
+        >
+          <div className="space-y-3 text-xs text-slate-700">
+            <p>
+              Are you sure you want to remove <strong>{deletingCourse.code} — {deletingCourse.title}</strong> from the college curriculum?
+            </p>
+            <p className="text-[11px] text-slate-500">
+              This action will take effect across broadsheets and timetable offerings.
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+              <Button
+                variant="secondary"
+                type="button"
+                onClick={() => {
+                  setIsDeleteCourseOpen(false);
+                  setDeletingCourse(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                type="button"
+                onClick={handleConfirmDeleteCourse}
+              >
+                Confirm Removal
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };

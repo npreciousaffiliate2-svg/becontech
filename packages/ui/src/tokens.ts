@@ -1,6 +1,6 @@
 export const TOKENS = {
   colors: {
-    primary: '#0A77FE',
+    primary: '#0F7640',
     accent: '#FEC10A',
     success: '#13A348',
     danger: '#F83A20',
