@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext.tsx';
+import { useSharedRecords } from '../lib/sharedRecords.ts';
 import {
   Card,
   Button,
@@ -93,7 +94,7 @@ export const AcademicsView: React.FC = () => {
   const [workflowStatus, setWorkflowStatus] = useState<'DRAFT' | 'HOD_APPROVED' | 'DEAN_APPROVED' | 'PUBLISHED'>('DRAFT');
 
   // Interactive Scores State for CHE 101
-  const [scores, setScores] = useState<StudentScoreRecord[]>([
+  const [scores, setScores] = useSharedRecords<StudentScoreRecord>('academics.scores', [
     { matricNumber: 'CHE/2026/0014', studentName: 'Blessing Adeyemi', caScore: 26, examScore: 54 },
     { matricNumber: 'CHE/2026/0015', studentName: 'Oluwaseun Bakare', caScore: 22, examScore: 46 },
     { matricNumber: 'CHE/2026/0016', studentName: 'Fatima Ibrahim', caScore: 28, examScore: 60 },
@@ -173,7 +174,7 @@ export const AcademicsView: React.FC = () => {
   const [selectedTranscript, setSelectedTranscript] = useState<boolean>(false);
 
   // Curriculum State
-  const [curriculumCourses, setCurriculumCourses] = useState<CurriculumCourse[]>([
+  const [curriculumCourses, setCurriculumCourses] = useSharedRecords<CurriculumCourse>('academics.courses', [
     { code: 'CHE 101', title: 'Introduction to Primary Healthcare', departmentCode: 'CHE', departmentName: 'Community Health', level: '100 Level', semester: 'Harmattan', creditUnits: 3, theoryHours: 2, practicalHours: 3, lecturer: 'Dr. K. Bello' },
     { code: 'CHE 102', title: 'Community Diagnosis & Field Survey', departmentCode: 'CHE', departmentName: 'Community Health', level: '100 Level', semester: 'Harmattan', creditUnits: 3, theoryHours: 2, practicalHours: 3, lecturer: 'Mrs. R. Ajayi' },
     { code: 'CHE 201', title: 'Maternal & Child Health Clinicals', departmentCode: 'CHE', departmentName: 'Community Health', level: '200 Level', semester: 'Harmattan', creditUnits: 4, theoryHours: 2, practicalHours: 6, lecturer: 'Mr. D. Alabi' },

@@ -1,22 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar.tsx';
 import { Topbar } from './Topbar.tsx';
 import { useApp } from '../../context/AppContext.tsx';
+import { useToast } from '@campusone/ui';
+import { SAVE_ERROR_EVENT } from '../../lib/sharedRecords.ts';
 import { ShieldAlert, LogOut } from 'lucide-react';
 
 export const AppLayout: React.FC = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const { isImpersonating, stopImpersonating, session, persona, schoolProfile, authReady, isAuthenticated } = useApp();
-
-  if (!authReady) {
-    return <div className="min-h-screen bg-slate-50" />;
-  }
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
+  const { isImpersonating, stopImpersonating, session, persona, schoolProfile, authReady, isAuthenticated, signOut } = useApp();
 
   // Dynamic Browser Title Bar & Favicon Synchronization
   useEffect(() => {
@@ -40,6 +34,51 @@ export const AppLayout: React.FC = () => {
       document.title = `CampusOne — ${schoolProfile.institutionName}`;
     }
   }, [schoolProfile?.logoUrl, schoolProfile?.institutionName]);
+
+  const signOutRef = useRef(signOut);
+  signOutRef.current = signOut;
+
+  const { showToast } = useToast();
+  useEffect(() => {
+    const onSaveError = (e: Event) => {
+      const detail = (e as CustomEvent<{ kind: string; message: string }>).detail;
+      showToast({
+        type: 'danger',
+        title: 'Changes not saved',
+        message: `The database rejected the last change (${detail?.message || 'unknown error'}). It will be lost on refresh.`,
+      });
+    };
+    window.addEventListener(SAVE_ERROR_EVENT, onSaveError);
+    return () => window.removeEventListener(SAVE_ERROR_EVENT, onSaveError);
+  }, [showToast]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const minutes = Math.max(5, Number(schoolProfile?.sessionTimeoutMins) || 15);
+    let timer = 0;
+    const arm = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        void signOutRef.current();
+      }, minutes * 60 * 1000);
+    };
+    arm();
+    window.addEventListener('pointerdown', arm);
+    window.addEventListener('keydown', arm);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('pointerdown', arm);
+      window.removeEventListener('keydown', arm);
+    };
+  }, [isAuthenticated, schoolProfile?.sessionTimeoutMins]);
+
+  if (!authReady) {
+    return <div className="min-h-screen bg-slate-50" />;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans w-full max-w-full overflow-x-hidden">

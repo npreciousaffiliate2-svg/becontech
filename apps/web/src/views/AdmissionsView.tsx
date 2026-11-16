@@ -565,6 +565,7 @@ export const AdmissionsView: React.FC = () => {
             <Table
               columns={applicationColumns}
               data={filteredCandidates}
+              searchable={false}
               keyExtractor={(c) => c.id}
               isDense={isDense}
             />

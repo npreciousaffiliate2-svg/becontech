@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext.tsx';
+import { useSharedRecords } from '../lib/sharedRecords.ts';
 import {
   Card,
   Button,
@@ -109,7 +110,7 @@ export const ReportsView: React.FC = () => {
   const [isCustomReportGenerated, setIsCustomReportGenerated] = useState(false);
 
   /* ─── DATA: STATUTORY ACCREDITATION DOSSIERS ─── */
-  const [accreditations] = useState<CouncilAccreditationItem[]>([
+  const [accreditations] = useSharedRecords<CouncilAccreditationItem>('reports.accreditation', [
     {
       id: 'acc-01',
       councilCode: 'NBTE',
@@ -191,7 +192,7 @@ export const ReportsView: React.FC = () => {
   ]);
 
   /* ─── DATA: CANDIDATE NOMINAL ROSTER ─── */
-  const [rosterCandidates] = useState<CandidateRosterItem[]>([
+  const [rosterCandidates] = useSharedRecords<CandidateRosterItem>('reports.rosters', [
     {
       id: 'cnd-01',
       matricNo: 'CHE/2026/0014',
@@ -299,7 +300,7 @@ export const ReportsView: React.FC = () => {
   ]);
 
   /* ─── DATA: STANDARD REPORTS REPOSITORY ─── */
-  const [standardReports] = useState<StandardReportItem[]>([
+  const [standardReports] = useSharedRecords<StandardReportItem>('reports.standard', [
     {
       id: 'rpt-01',
       title: 'NBTE Monotechnic Accreditation & Staff-to-Student Ratio Audit',

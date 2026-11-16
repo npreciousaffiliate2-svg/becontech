@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext.tsx';
+import { useSharedRecords } from '../lib/sharedRecords.ts';
 import { PERSONA_PROFILES } from '../context/personas.ts';
 import {
   Card,
@@ -153,7 +154,7 @@ export const ClinicalPostingsView: React.FC = () => {
   const [newSitePhone, setNewSitePhone] = useState('');
 
   /* ─── DATA: TRAINING HOSPITALS ─── */
-  const [sites, setSites] = useState<PostingSite[]>([
+  const [sites, setSites] = useSharedRecords<PostingSite>('clinical.sites', [
     {
       id: 'site-01',
       name: 'University College Hospital (UCH) Ibadan',
@@ -229,7 +230,7 @@ export const ClinicalPostingsView: React.FC = () => {
   ]);
 
   /* ─── DATA: ALLOCATION ROSTER ─── */
-  const [allocations, setAllocations] = useState<AllocationRecord[]>([
+  const [allocations, setAllocations] = useSharedRecords<AllocationRecord>('clinical.allocations', [
     {
       id: 'alc-01',
       studentName: 'Blessing Adeyemi',
@@ -1195,6 +1196,7 @@ export const ClinicalPostingsView: React.FC = () => {
             <Table
               columns={allocationColumns}
               data={filteredAllocations}
+              searchable={false}
               keyExtractor={(a) => a.id}
               isDense={isDense}
             />
@@ -1232,6 +1234,7 @@ export const ClinicalPostingsView: React.FC = () => {
             <Table
               columns={logbookColumns}
               data={filteredAllocations}
+              searchable={false}
               keyExtractor={(a) => a.id}
               isDense={isDense}
             />
@@ -1253,6 +1256,7 @@ export const ClinicalPostingsView: React.FC = () => {
             <Table
               columns={clearanceColumns}
               data={filteredAllocations}
+              searchable={false}
               keyExtractor={(a) => a.id}
               isDense={isDense}
             />

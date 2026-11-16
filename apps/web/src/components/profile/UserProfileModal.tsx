@@ -114,7 +114,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const handleSaveProfile = async () => {
     setIsSaving(true);
     try {
-      let finalAvatarUrl = avatarPreview || undefined;
+      let finalAvatarUrl = avatarPreview || '';
 
       // If a new photo was staged, upload to Supabase Storage 'avatars'
       if (stagedFile) {
@@ -126,14 +126,12 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             upsert: true,
           });
 
-        if (!uploadErr && uploadData) {
-          const { data: publicUrlData } = supabase.storage
-            .from('avatars')
-            .getPublicUrl(filePath);
-          if (publicUrlData?.publicUrl) {
-            finalAvatarUrl = publicUrlData.publicUrl;
-          }
+        if (uploadErr || !uploadData) {
+          throw new Error(`Photo upload failed: ${uploadErr?.message || 'storage unavailable'}`);
         }
+        const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(filePath);
+        if (!publicUrlData?.publicUrl) throw new Error('Photo upload failed: no public address returned.');
+        finalAvatarUrl = publicUrlData.publicUrl;
       }
 
       if (updateProfile) {

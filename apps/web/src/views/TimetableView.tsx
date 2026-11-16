@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext.tsx';
+import { useSharedRecords } from '../lib/sharedRecords.ts';
 import { PERSONA_PROFILES } from '../context/personas.ts';
 import {
   Card,
@@ -123,7 +124,7 @@ export const TimetableView: React.FC = () => {
   const [scheduleViewMode, setScheduleViewMode] = useState<'grid' | 'list'>('grid');
 
   /* ─── DATA STATES ─── */
-  const [schedules, setSchedules] = useState<ClassScheduleItem[]>([
+  const [schedules, setSchedules] = useSharedRecords<ClassScheduleItem>('timetable.schedules', [
     {
       id: 'sch-01',
       courseCode: 'CHE 201',
@@ -316,7 +317,7 @@ export const TimetableView: React.FC = () => {
     },
   ]);
 
-  const [practicals, setPracticals] = useState<PracticalSession[]>([
+  const [practicals, setPracticals] = useSharedRecords<PracticalSession>('timetable.practicals', [
     {
       id: 'prc-01',
       labName: 'Community Health Demonstration Lab',
@@ -375,7 +376,7 @@ export const TimetableView: React.FC = () => {
     },
   ]);
 
-  const [venues, setVenues] = useState<VenueItem[]>([
+  const [venues, setVenues] = useSharedRecords<VenueItem>('timetable.venues', [
     {
       id: 'ven-01',
       venueCode: 'AUD-01',
@@ -438,7 +439,7 @@ export const TimetableView: React.FC = () => {
     },
   ]);
 
-  const [facultyLoad, setFacultyLoad] = useState<FacultyLoadItem[]>([
+  const [facultyLoad, setFacultyLoad] = useSharedRecords<FacultyLoadItem>('timetable.faculty', [
     {
       id: 'fac-01',
       staffId: 'BCHT/ACAD/001',

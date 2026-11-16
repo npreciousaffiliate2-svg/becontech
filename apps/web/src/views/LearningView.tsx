@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext.tsx';
 import { supabase } from '../lib/supabase.ts';
+import { useSharedRecords } from '../lib/sharedRecords.ts';
 import {
   Card,
   Button,
@@ -85,6 +86,7 @@ interface StudentAttempt {
   id: string;
   matricNumber: string;
   studentName: string;
+  studentEmail?: string;
   testId: string;
   testTitle: string;
   score: number;
@@ -506,7 +508,7 @@ export const LearningView: React.FC = () => {
   ]);
 
   /* ─── DATA: STUDENT RESULTS ─── */
-  const [studentAttempts] = useState<StudentAttempt[]>([
+  const [studentAttempts, setStudentAttempts] = useSharedRecords<StudentAttempt>('learning.attempts', [
     {
       id: 'att-01',
       matricNumber: 'CHE/2026/0014',
@@ -639,6 +641,23 @@ export const LearningView: React.FC = () => {
       passed,
     });
     setIsSubmitted(true);
+    setStudentAttempts((prev) => [
+      {
+        id: `att-${Date.now()}`,
+        matricNumber: persona?.matricNumber || session.email,
+        studentName: persona?.fullName || session.fullName,
+        studentEmail: session.email,
+        testId: activeTest?.id || activeTest?.courseCode || 'cbt',
+        testTitle: activeTest?.title || activeTest?.courseCode || 'Practice test',
+        score: correctCount,
+        totalQuestions: total,
+        percentage,
+        timeSpentMinutes: 0,
+        dateAttempted: new Date().toISOString().slice(0, 10),
+        passed,
+      },
+      ...prev,
+    ]);
 
     recordAudit('CBT_PRACTICE_EXAM_SUBMITTED', 'ONLINE_LEARNING', activeTest?.courseCode || 'CHE 201');
     showToast({

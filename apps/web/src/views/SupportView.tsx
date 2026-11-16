@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp, SupportTicketItem } from '../context/AppContext.tsx';
+import { useSharedRecords } from '../lib/sharedRecords.ts';
 import {
   Card,
   Button,
@@ -264,12 +265,7 @@ export const SupportView: React.FC = () => {
   ];
 
   /* ─── DYNAMIC KNOWLEDGE BASE FAQS STATE ─── */
-  const [faqs, setFaqs] = useState<KnowledgeBaseItem[]>(() => {
-    try {
-      const saved = localStorage.getItem('campusone_knowledge_base');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return [
+  const [faqs, setFaqs] = useSharedRecords<KnowledgeBaseItem>('support.faqs', [
       {
         id: 'faq-01',
         category: 'Tuition & Payment Receipts',
@@ -300,23 +296,10 @@ export const SupportView: React.FC = () => {
         question: 'I cannot sign in to my student or staff portal account. How do I regain access?',
         answer: 'Ensure you are using your official college email address (e.g., name@bethsaida.edu.ng) or matriculation number. If you forgot your password, click "Forgot Password" on the login screen to receive a secure password reset link. For locked accounts, contact the ICT Support Desk.',
       },
-    ];
-  });
+  ]);
 
   /* ─── DYNAMIC CONTACT DIRECTORY STATE ─── */
-  const [contactOffices, setContactOffices] = useState<ContactOfficeItem[]>(() => {
-    try {
-      const saved = localStorage.getItem('campusone_contact_directory_v2');
-      if (saved) return JSON.parse(saved);
-      const legacy = localStorage.getItem('campusone_contact_directory');
-      if (legacy) {
-        const parsed = JSON.parse(legacy);
-        if (parsed.some((o: any) => o.location?.includes('Ogbomoso'))) {
-          return parsed;
-        }
-      }
-    } catch (e) {}
-    return [
+  const [contactOffices, setContactOffices] = useSharedRecords<ContactOfficeItem>('support.contacts', [
       {
         id: 'off-01',
         name: 'Central Administration & Admissions Office',
@@ -350,23 +333,15 @@ export const SupportView: React.FC = () => {
         location: 'College Health Center, Ogbomoso Campus',
         isEmergency: true,
       },
-    ];
-  });
+  ]);
 
-  // Save changes to localStorage
+  // Save the edited record to Supabase.
   const saveFaqs = (updated: KnowledgeBaseItem[]) => {
     setFaqs(updated);
-    try {
-      localStorage.setItem('campusone_knowledge_base', JSON.stringify(updated));
-    } catch (e) {}
   };
 
   const saveContacts = (updated: ContactOfficeItem[]) => {
     setContactOffices(updated);
-    try {
-      localStorage.setItem('campusone_contact_directory_v2', JSON.stringify(updated));
-      localStorage.setItem('campusone_contact_directory', JSON.stringify(updated));
-    } catch (e) {}
   };
 
   // Modal and form states for FAQ

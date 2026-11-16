@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext.tsx';
+import { useSharedRecords } from '../lib/sharedRecords.ts';
 import { PERSONA_PROFILES } from '../context/personas.ts';
 import {
   Card,
@@ -143,7 +144,7 @@ export const HostelsView: React.FC = () => {
   };
 
   /* ─── INITIAL STATE DATA ─── */
-  const [rooms, setRooms] = useState<HostelRoom[]>([
+  const [rooms, setRooms] = useSharedRecords<HostelRoom>('hostels.rooms', [
     {
       id: 'rm-01',
       roomCode: 'FNH-101',
@@ -284,7 +285,7 @@ export const HostelsView: React.FC = () => {
     },
   ]);
 
-  const [allocations, setAllocations] = useState<BedAllocation[]>([
+  const [allocations, setAllocations] = useSharedRecords<BedAllocation>('hostels.allocations', [
     {
       id: 'alc-01',
       allocationRef: 'HST-2026-0014',
@@ -407,7 +408,7 @@ export const HostelsView: React.FC = () => {
     },
   ]);
 
-  const [checkIns, setCheckIns] = useState<CheckInRecord[]>([
+  const [checkIns, setCheckIns] = useSharedRecords<CheckInRecord>('hostels.checkins', [
     {
       id: 'chk-01',
       studentName: 'Blessing Adeyemi',
@@ -466,7 +467,7 @@ export const HostelsView: React.FC = () => {
     },
   ]);
 
-  const [maintenanceTickets, setMaintenanceTickets] = useState<MaintenanceTicket[]>([
+  const [maintenanceTickets, setMaintenanceTickets] = useSharedRecords<MaintenanceTicket>('hostels.maintenance', [
     {
       id: 'mnt-01',
       ticketNumber: 'MNT-2026-041',

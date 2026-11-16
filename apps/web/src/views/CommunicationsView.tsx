@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext.tsx';
+import { useSharedRecords } from '../lib/sharedRecords.ts';
 import {
   Card,
   Button,
@@ -125,7 +126,7 @@ export const CommunicationsView: React.FC = () => {
   };
 
   /* ─── DATA STATES ─── */
-  const [broadcasts, setBroadcasts] = useState<BroadcastBatch[]>([
+  const [broadcasts, setBroadcasts] = useSharedRecords<BroadcastBatch>('comms.broadcasts', [
     {
       id: 'bat-01',
       batchRef: 'BCST-2026-0089',
@@ -180,7 +181,7 @@ export const CommunicationsView: React.FC = () => {
     },
   ]);
 
-  const [notices, setNotices] = useState<OfficialNotice[]>([
+  const [notices, setNotices] = useSharedRecords<OfficialNotice>('comms.notices', [
     {
       id: 'not-01',
       memoRef: 'BCHT/CIR/2026/044',
@@ -235,7 +236,7 @@ export const CommunicationsView: React.FC = () => {
     },
   ]);
 
-  const [deliveryLogs, setDeliveryLogs] = useState<DeliveryLogItem[]>([
+  const [deliveryLogs, setDeliveryLogs] = useSharedRecords<DeliveryLogItem>('comms.logs', [
     {
       id: 'log-01',
       dispatchId: 'MSG-2026-9812',
@@ -310,7 +311,7 @@ export const CommunicationsView: React.FC = () => {
     },
   ]);
 
-  const [triggers, setTriggers] = useState<NotificationTrigger[]>([
+  const [triggers, setTriggers] = useSharedRecords<NotificationTrigger>('comms.triggers', [
     {
       id: 'trg-01',
       eventKey: 'BURSARY_PAYMENT_SETTLED',
@@ -477,22 +478,34 @@ export const CommunicationsView: React.FC = () => {
       recipientCount: audienceCount,
       messagePreview: messageText.trim(),
       dispatchedAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
-      dispatchedBy: 'Dr. Timothy Balogun (Provost)',
-      deliveryRate: '100.0%',
-      costKobo: estimatedCostKobo,
+      dispatchedBy: session.fullName || 'College officer',
+      deliveryRate: deliveryChannel === 'INAPP_ONLY' ? 'In-app notice saved' : 'Not sent',
+      costKobo: 0,
     };
 
     setBroadcasts((prev) => [newBatch, ...prev]);
+    if (deliveryChannel === 'INAPP_ONLY' || deliveryChannel === 'SMS_AND_INAPP') {
+      void addNotification({
+        collegeId: 'bethsaida',
+        title: newBatch.title,
+        desc: newBatch.messagePreview,
+        type: 'info',
+        link: '/messages',
+      });
+    }
     recordAudit('BROADCAST_DISPATCHED', 'COM_BROADCAST', newBatch.batchRef, {
       audience: targetAudience,
       count: audienceCount,
-      cost: estimatedCostKobo,
+      channel: deliveryChannel,
     });
 
+    const external = deliveryChannel !== 'INAPP_ONLY';
     showToast({
-      type: 'success',
-      title: 'Broadcast Dispatched',
-      message: `Dispatched to ${audienceCount} recipients via ${deliveryChannel.replace(/_/g, ' ')}. Delivery reports queued.`,
+      type: external ? 'warning' : 'success',
+      title: external ? 'Notice saved' : 'Notice published',
+      message: external
+        ? 'The notice is in the college register. Email and SMS were not sent because no live gateway is configured.'
+        : `In-app notice saved for ${audienceCount} recipients.`,
     });
   };
 

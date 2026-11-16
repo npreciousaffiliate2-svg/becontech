@@ -9,17 +9,12 @@ import {
   LogOut,
   CheckCircle2,
   Clock,
-  AlertCircle,
   FileCheck,
   Check,
-  ShieldCheck,
-  UserCheck,
   User,
-  UserCog,
 } from 'lucide-react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext.tsx';
-import { PERSONA_PROFILES } from '../../context/personas.ts';
 
 interface TopbarProps {
   onOpenMobile: () => void;
@@ -36,15 +31,168 @@ interface NotificationItem {
   link: string;
 }
 
+const ROUTE_MAP: Record<string, { module: string; tabs: Record<string, string> }> = {
+  '/departments': {
+    module: 'Departments',
+    tabs: {
+      directory: 'Department Directory',
+      programmes: 'Accredited Programmes',
+      hods: 'Heads of Department',
+      faculty: 'Faculty Roster',
+      courses: 'Curriculum & Courses',
+    },
+  },
+  '/admissions': {
+    module: 'Admissions',
+    tabs: {
+      applications: 'All Applications',
+      screening: 'Screening & Tests',
+      lists: 'Admission Lists',
+      admission_lists: 'Admission Lists',
+      enrolled: 'Accepted & Enrolled',
+    },
+  },
+  '/students': {
+    module: 'Students',
+    tabs: {
+      directory: 'Student Directory',
+      lifecycle: 'Status Lifecycle',
+      'id-cards': 'Student ID Cards',
+      id_cards: 'Student ID Cards',
+      clinical: 'Clinical Clearance',
+    },
+  },
+  '/academics': {
+    module: 'Academics & Exams',
+    tabs: {
+      scores: 'Score Entry',
+      broadsheet: 'Broadsheets',
+      transcript: 'Transcripts',
+      curriculum: 'Curriculum & Courses',
+    },
+  },
+  '/attendance': {
+    module: 'Attendance Register',
+    tabs: {
+      register: 'Daily Class Register',
+      courses: 'Course Summaries',
+      clearance: 'Exam Clearance',
+      eligibility: 'Exam Clearance',
+      waivers: 'Medical Appeals & Waivers',
+    },
+  },
+  '/postings': {
+    module: 'Clinical Postings',
+    tabs: {
+      allocations: 'Hospital Allocations',
+      sites: 'Training Hospitals',
+      logbooks: 'Logbook Grading',
+      clearance: 'Final Clearance',
+    },
+  },
+  '/learning': {
+    module: 'E-Learning',
+    tabs: {
+      materials: 'Course Materials',
+      cbt: 'Practice Tests',
+      questions: 'Question Bank',
+      results: 'Student Results',
+    },
+  },
+  '/bursary': {
+    module: 'Fees & Bursary',
+    tabs: {
+      ledger: 'Student Master Ledger',
+      receipts: 'Payment Receipts',
+      structure: 'Fee Schedules',
+      debtors: 'Debtors & Installments',
+      reconciliation: 'Bank Reconciliation',
+    },
+  },
+  '/staff': {
+    module: 'Staff & HR',
+    tabs: {
+      directory: 'Staff Directory',
+      payroll: 'Monthly Salaries',
+      leave: 'Staff Leaves',
+      licensing: 'Licensing Audits',
+    },
+  },
+  '/hostels': {
+    module: 'Hostel & Accommodation',
+    tabs: {
+      inventory: 'Room Inventory',
+      allocations: 'Bed Allocations',
+      checkin: 'Check-In & Clearance',
+      maintenance: 'Maintenance & Repairs',
+    },
+  },
+  '/timetable': {
+    module: 'Timetable & Class Schedules',
+    tabs: {
+      classes: 'Class Timetables',
+      practicals: 'Practical & Lab Sessions',
+      venues: 'Lecture Halls & Venues',
+      faculty: 'Faculty Teaching Load',
+    },
+  },
+  '/analytics': {
+    module: 'Analytics',
+    tabs: {
+      enrollment: 'Enrollment & Growth',
+      fees: 'Fee Recovery',
+      financial: 'Fee Recovery',
+      academic: 'Academic Pass Rates',
+      clinical: 'Clinical Compliance',
+    },
+  },
+  '/settings': {
+    module: 'Settings',
+    tabs: {
+      audit: 'Activity History',
+      permissions: 'User Permissions',
+      rbac: 'User Permissions',
+      school: 'School Settings',
+      tenant: 'School Settings',
+      security: 'Security & 2FA',
+    },
+  },
+  '/admin': {
+    module: 'Settings',
+    tabs: {
+      audit: 'Activity History',
+      permissions: 'User Permissions',
+      rbac: 'User Permissions',
+      school: 'School Settings',
+      tenant: 'School Settings',
+      security: 'Security & 2FA',
+    },
+  },
+  '/reports': {
+    module: 'Reports & Accreditation',
+    tabs: {
+      accreditation: 'Accreditation Dossiers',
+      rosters: 'Council Exam Rosters',
+      repository: 'Standard Reports',
+      builder: 'Custom Report Builder',
+    },
+  },
+  '/messages': {
+    module: 'Messages & Notices',
+    tabs: {
+      broadcasts: 'Broadcast Dispatch',
+      notices: 'Official Circulars',
+      logs: 'Delivery Logs',
+      triggers: 'Automated Triggers',
+    },
+  },
+};
+
 export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed }) => {
   const {
     session,
     persona,
-    switchRole,
-    isSuperAdmin,
     isImpersonating,
-    impersonateUser,
-    stopImpersonating,
     notifications,
     unreadNotificationsCount,
     markNotificationAsRead,
@@ -56,12 +204,10 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
 
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const [isRoleSwitcherOpen, setIsRoleSwitcherOpen] = useState(false);
   const [notificationTab, setNotificationTab] = useState<'all' | 'unread'>('all');
 
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
-  const roleSwitcherRef = useRef<HTMLDivElement>(null);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -72,15 +218,64 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
       if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
         setIsProfileOpen(false);
       }
-      if (roleSwitcherRef.current && !roleSwitcherRef.current.contains(e.target as Node)) {
-        setIsRoleSwitcherOpen(false);
-      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const unreadCount = unreadNotificationsCount;
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchIndex, setSearchIndex] = useState(0);
+  const searchRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setIsSearchOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, []);
+
+  const isStudentRole = session.activeRole === 'STU' || session.activeRole === 'SPON';
+  const searchResults = React.useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return [];
+    const studentModules = new Set([
+      '/academics', '/attendance', '/postings', '/learning', '/bursary',
+      '/hostels', '/timetable', '/messages',
+    ]);
+    const out: { label: string; module: string; path: string }[] = [];
+    Object.entries(ROUTE_MAP).forEach(([base, def]) => {
+      if (base === '/admin') return;
+      if (isStudentRole && !studentModules.has(base)) return;
+      out.push({ label: def.module, module: 'Module', path: base });
+      const seen = new Set<string>();
+      Object.entries(def.tabs).forEach(([key, label]) => {
+        if (seen.has(label)) return;
+        seen.add(label);
+        out.push({
+          label,
+          module: def.module,
+          path: ['directory', 'enrollment', 'applications'].includes(key)
+            ? base
+            : `${base}/${key.replace(/_/g, '-')}`,
+        });
+      });
+    });
+    return out
+      .filter((r) => `${r.label} ${r.module}`.toLowerCase().includes(q))
+      .slice(0, 8);
+  }, [searchTerm, isStudentRole]);
+
+  const goToResult = (r: { path: string }) => {
+    setIsSearchOpen(false);
+    setSearchTerm('');
+    navigate(r.path);
+  };
 
   const markAllAsRead = () => {
     markAllNotificationsAsRead();
@@ -107,164 +302,8 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
       return crumbs;
     }
 
-    const routeMap: Record<string, { module: string; tabs: Record<string, string> }> = {
-      '/departments': {
-        module: 'Departments',
-        tabs: {
-          directory: 'Department Directory',
-          programmes: 'Accredited Programmes',
-          hods: 'Heads of Department',
-          faculty: 'Faculty Roster',
-          courses: 'Curriculum & Courses',
-        },
-      },
-      '/admissions': {
-        module: 'Admissions',
-        tabs: {
-          applications: 'All Applications',
-          screening: 'Screening & Tests',
-          lists: 'Admission Lists',
-          admission_lists: 'Admission Lists',
-          enrolled: 'Accepted & Enrolled',
-        },
-      },
-      '/students': {
-        module: 'Students',
-        tabs: {
-          directory: 'Student Directory',
-          lifecycle: 'Status Lifecycle',
-          'id-cards': 'Student ID Cards',
-          id_cards: 'Student ID Cards',
-          clinical: 'Clinical Clearance',
-        },
-      },
-      '/academics': {
-        module: 'Academics & Exams',
-        tabs: {
-          scores: 'Score Entry',
-          broadsheet: 'Broadsheets',
-          transcript: 'Transcripts',
-          curriculum: 'Curriculum & Courses',
-        },
-      },
-      '/attendance': {
-        module: 'Attendance Register',
-        tabs: {
-          register: 'Daily Class Register',
-          courses: 'Course Summaries',
-          clearance: 'Exam Clearance',
-          eligibility: 'Exam Clearance',
-          waivers: 'Medical Appeals & Waivers',
-        },
-      },
-      '/postings': {
-        module: 'Clinical Postings',
-        tabs: {
-          allocations: 'Hospital Allocations',
-          sites: 'Training Hospitals',
-          logbooks: 'Logbook Grading',
-          clearance: 'Final Clearance',
-        },
-      },
-      '/learning': {
-        module: 'E-Learning',
-        tabs: {
-          materials: 'Course Materials',
-          cbt: 'Practice Tests',
-          questions: 'Question Bank',
-          results: 'Student Results',
-        },
-      },
-      '/bursary': {
-        module: 'Fees & Bursary',
-        tabs: {
-          ledger: 'Student Master Ledger',
-          receipts: 'Payment Receipts',
-          structure: 'Fee Schedules',
-          debtors: 'Debtors & Installments',
-          reconciliation: 'Bank Reconciliation',
-        },
-      },
-      '/staff': {
-        module: 'Staff & HR',
-        tabs: {
-          directory: 'Staff Directory',
-          payroll: 'Monthly Salaries',
-          leave: 'Staff Leaves',
-          licensing: 'Licensing Audits',
-        },
-      },
-      '/hostels': {
-        module: 'Hostel & Accommodation',
-        tabs: {
-          inventory: 'Room Inventory',
-          allocations: 'Bed Allocations',
-          checkin: 'Check-In & Clearance',
-          maintenance: 'Maintenance & Repairs',
-        },
-      },
-      '/timetable': {
-        module: 'Timetable & Class Schedules',
-        tabs: {
-          classes: 'Class Timetables',
-          practicals: 'Practical & Lab Sessions',
-          venues: 'Lecture Halls & Venues',
-          faculty: 'Faculty Teaching Load',
-        },
-      },
-      '/analytics': {
-        module: 'Analytics',
-        tabs: {
-          enrollment: 'Enrollment & Growth',
-          fees: 'Fee Recovery',
-          financial: 'Fee Recovery',
-          academic: 'Academic Pass Rates',
-          clinical: 'Clinical Compliance',
-        },
-      },
-      '/settings': {
-        module: 'Settings',
-        tabs: {
-          audit: 'Activity History',
-          permissions: 'User Permissions',
-          rbac: 'User Permissions',
-          school: 'School Settings',
-          tenant: 'School Settings',
-          security: 'Security & 2FA',
-        },
-      },
-      '/admin': {
-        module: 'Settings',
-        tabs: {
-          audit: 'Activity History',
-          permissions: 'User Permissions',
-          rbac: 'User Permissions',
-          school: 'School Settings',
-          tenant: 'School Settings',
-          security: 'Security & 2FA',
-        },
-      },
-      '/reports': {
-        module: 'Reports & Accreditation',
-        tabs: {
-          accreditation: 'Accreditation Dossiers',
-          rosters: 'Council Exam Rosters',
-          repository: 'Standard Reports',
-          builder: 'Custom Report Builder',
-        },
-      },
-      '/messages': {
-        module: 'Messages & Notices',
-        tabs: {
-          broadcasts: 'Broadcast Dispatch',
-          notices: 'Official Circulars',
-          logs: 'Delivery Logs',
-          triggers: 'Automated Triggers',
-        },
-      },
-    };
 
-    const currentRoute = routeMap[basePath];
+    const currentRoute = ROUTE_MAP[basePath];
     if (currentRoute) {
       crumbs.push({ label: currentRoute.module, path: tabKey ? basePath : undefined });
       if (tabKey && currentRoute.tabs[tabKey]) {
@@ -335,125 +374,60 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobile, isSidebarCollapsed
         </nav>
       </div>
 
-      {/* ─── Right Side: Search, Role Switcher, Notifications, Profile ─── */}
+      {/* ─── Right Side: Search, Role, Notifications, Profile ─── */}
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         {/* Desktop Search Bar (Hidden on Mobile for Zero Clutter) */}
-        <div className="relative w-40 lg:w-56 hidden md:block">
+        <div className="relative w-40 lg:w-64 hidden md:block" ref={searchRef}>
           <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder={
-              session.activeRole === 'STU' || session.activeRole === 'SPON'
-                ? 'Search my courses, results...'
-                : session.activeRole === 'INSTR'
-                ? 'Search teaching courses...'
-                : 'Search students, staff, ledger...'
-            }
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setIsSearchOpen(true);
+              setSearchIndex(0);
+            }}
+            onFocus={() => setIsSearchOpen(true)}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setSearchIndex((i) => Math.min(i + 1, searchResults.length - 1));
+              } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setSearchIndex((i) => Math.max(i - 1, 0));
+              } else if (e.key === 'Enter' && searchResults[searchIndex]) {
+                goToResult(searchResults[searchIndex]);
+              } else if (e.key === 'Escape') {
+                setIsSearchOpen(false);
+              }
+            }}
+            aria-label="Search pages and modules"
+            placeholder="Search pages and modules..."
             className="w-full h-8 pl-8 pr-3 text-xs bg-slate-50 border border-slate-200 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640] focus:bg-white transition-colors"
           />
+          {isSearchOpen && searchTerm.trim() && (
+            <div className="absolute left-0 right-0 mt-1.5 min-w-[260px] rounded-[4px] border border-slate-200 bg-white z-50 text-xs shadow-md max-h-80 overflow-y-auto">
+              {searchResults.length === 0 ? (
+                <p className="p-3 text-slate-400">No pages match "{searchTerm.trim()}"</p>
+              ) : (
+                searchResults.map((r, i) => (
+                  <button
+                    key={r.path + r.label}
+                    type="button"
+                    onMouseEnter={() => setSearchIndex(i)}
+                    onClick={() => goToResult(r)}
+                    className={`w-full text-left px-3 py-2 flex flex-col ${
+                      i === searchIndex ? 'bg-emerald-50' : 'hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="font-semibold text-slate-800">{r.label}</span>
+                    <span className="text-[10px] text-slate-400">{r.module}</span>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
         </div>
-
-        {/* ─── Role Display: Non-Super-Admins get clean read-only badge (Zero Switcher) ─── */}
-        {!isSuperAdmin ? (
-          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[4px] bg-slate-50 border border-slate-200 text-slate-800">
-            <ShieldCheck className="w-3.5 h-3.5 text-[#0F7640] shrink-0" />
-            <span className="text-xs font-bold whitespace-nowrap">
-              {persona?.scopeBadge || session.activeRole}
-            </span>
-          </div>
-        ) : (
-          /* ─── Administrative Impersonation Menu (Super Admin Only) ─── */
-          <div className="relative" ref={roleSwitcherRef}>
-            <button
-              onClick={() => setIsRoleSwitcherOpen(!isRoleSwitcherOpen)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[4px] bg-emerald-50 hover:bg-emerald-100/70 border border-emerald-200 text-[#0F7640] transition-colors"
-              title="Administrative Impersonation & Role Perspectives"
-            >
-              <UserCog className="w-3.5 h-3.5 shrink-0" />
-              <span className="text-xs font-bold whitespace-nowrap hidden sm:inline">
-                {isImpersonating ? `Viewing as ${session.activeRole}` : 'Super Admin'}
-              </span>
-              <ChevronDown className="w-3 h-3 text-[#0F7640] shrink-0" />
-            </button>
-
-            {isRoleSwitcherOpen && (
-              <div
-                className="absolute right-0 mt-2 w-72 sm:w-80 max-w-[calc(100vw-1rem)] rounded-[4px] border border-slate-200 bg-white py-1 z-50 text-xs animate-in fade-in duration-150 shadow-md overflow-x-hidden"
-              >
-                <div className="px-3.5 py-2.5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
-                  <div>
-                    <p className="font-bold text-slate-900 text-xs">Impersonate User Role</p>
-                    <p className="text-[11px] text-slate-500">Preview system scope & workflow permissions</p>
-                  </div>
-                  <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded-[4px]">
-                    Admin Privilege
-                  </span>
-                </div>
-
-                {isImpersonating && (
-                  <div className="p-2 border-b border-amber-100 bg-amber-50">
-                    <button
-                      onClick={() => {
-                        stopImpersonating();
-                        setIsRoleSwitcherOpen(false);
-                      }}
-                      className="w-full py-1.5 px-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-[4px] font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
-                    >
-                      <LogOut className="w-3.5 h-3.5" />
-                      Exit Impersonation (Return to Super Admin)
-                    </button>
-                  </div>
-                )}
-
-                <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
-                  {Object.values(PERSONA_PROFILES).map((p) => {
-                    const isActive = p.role === session.activeRole;
-                    return (
-                      <button
-                        key={p.role}
-                        onClick={() => {
-                          impersonateUser(p.role);
-                          setIsRoleSwitcherOpen(false);
-                        }}
-                        className={`w-full px-3.5 py-2.5 text-left flex items-start gap-2.5 hover:bg-slate-50 transition-colors ${
-                          isActive ? 'bg-emerald-50/70 font-semibold' : ''
-                        }`}
-                      >
-                        <div
-                          className={`w-7 h-7 rounded-[4px] text-xs font-extrabold flex items-center justify-center shrink-0 mt-0.5 shadow-sm ${
-                            isActive
-                              ? 'bg-[#107C41] text-white'
-                              : 'bg-slate-100 text-slate-700'
-                          }`}
-                        >
-                          {p.initials}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-1">
-                            <span
-                              className={`text-xs truncate ${
-                                isActive ? 'text-[#0F7640] font-bold' : 'text-slate-900 font-semibold'
-                              }`}
-                            >
-                              {p.fullName}
-                            </span>
-                            {isActive && <Check className="w-3.5 h-3.5 text-[#0F7640] shrink-0" />}
-                          </div>
-                          <span className="text-[11px] text-emerald-800 font-medium block truncate">
-                            {p.scopeBadge}
-                          </span>
-                          <span className="text-[10px] text-slate-400 block truncate mt-0.5">
-                            {p.description}
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
 
         {/* Notifications Flyout (UseOneID Style) */}
         <div className="relative" ref={notifRef}>

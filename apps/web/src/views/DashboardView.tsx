@@ -28,7 +28,7 @@ import { Button, Badge, Card } from '@campusone/ui';
 import { useNavigate } from 'react-router-dom';
 
 export const DashboardView: React.FC = () => {
-  const { session, receipts, schoolProfile, departments } = useApp();
+  const { session, receipts, ledgerEntries, schoolProfile, departments } = useApp();
   const navigate = useNavigate();
 
   const [timeframe, setTimeframe] = useState<'30D' | '90D' | 'Session'>('30D');
@@ -620,12 +620,34 @@ export const DashboardView: React.FC = () => {
   /* ──────────────────────────────────────────────────────────────────────────
    * 3. EXECUTIVE DASHBOARD (PROVOST, BURSAR, REG, EXAM, HOD, SADMIN)
    * ────────────────────────────────────────────────────────────────────────── */
+  const activeStudentCount = departments.reduce((sum, dept) => sum + (Number(dept.studentsCount) || 0), 0);
+  const collectedKobo = receipts.reduce((sum, receipt) => sum + (Number(receipt.amountKobo) || 0), 0);
+  const latestBalance = new Map<string, { at: string; balance: number }>();
+  ledgerEntries.forEach((entry) => {
+    const previous = latestBalance.get(entry.studentId);
+    if (!previous || String(entry.createdAt) >= previous.at) {
+      latestBalance.set(entry.studentId, {
+        at: String(entry.createdAt),
+        balance: Number(entry.balanceAfterKobo) || 0,
+      });
+    }
+  });
+  let outstandingKobo = 0;
+  latestBalance.forEach((entry) => {
+    if (entry.balance > 0) outstandingKobo += entry.balance;
+  });
+  const formatKobo = (kobo: number) => {
+    const naira = kobo / 100;
+    if (naira >= 1000000) return `₦${(naira / 1000000).toFixed(1)}M`;
+    return `₦${Math.round(naira).toLocaleString()}`;
+  };
+
   const kpis = useMemo(() => {
     if (timeframe === '30D') {
       return [
         {
           title: 'Active Students Enrolled',
-          value: '1,248',
+          value: activeStudentCount.toLocaleString(),
           trend: '98.2% attendance this month',
           subtext: 'Across 5 health departments',
           isPositive: true,
@@ -633,7 +655,7 @@ export const DashboardView: React.FC = () => {
         },
         {
           title: 'School Fees Collected',
-          value: '₦14.2M',
+          value: formatKobo(collectedKobo),
           trend: '88 verified payments (30D)',
           subtext: '+12.4% vs previous 30 days',
           isPositive: true,
@@ -649,7 +671,7 @@ export const DashboardView: React.FC = () => {
         },
         {
           title: 'Outstanding Fees',
-          value: '₦18.4M',
+          value: formatKobo(outstandingKobo),
           trend: '142 students pending',
           subtext: 'Current installment balances',
           isPositive: false,
@@ -661,7 +683,7 @@ export const DashboardView: React.FC = () => {
       return [
         {
           title: 'Active Students Enrolled',
-          value: '1,248',
+          value: activeStudentCount.toLocaleString(),
           trend: '+8.4% quarterly growth',
           subtext: 'Full-time trainees in session',
           isPositive: true,
@@ -669,7 +691,7 @@ export const DashboardView: React.FC = () => {
         },
         {
           title: 'School Fees Collected',
-          value: '₦48.6M',
+          value: formatKobo(collectedKobo),
           trend: '312 verified payments (90D)',
           subtext: 'Quarterly bursary target reached',
           isPositive: true,
@@ -685,7 +707,7 @@ export const DashboardView: React.FC = () => {
         },
         {
           title: 'Outstanding Fees',
-          value: '₦18.4M',
+          value: formatKobo(outstandingKobo),
           trend: '142 students with balances',
           subtext: 'Pre-exam docket clearance',
           isPositive: false,
@@ -697,7 +719,7 @@ export const DashboardView: React.FC = () => {
     return [
       {
         title: 'Active Students Enrolled',
-        value: '1,248',
+        value: activeStudentCount.toLocaleString(),
         trend: '+8.4% this session',
         subtext: 'Capacity: 1,400 across 5 depts',
         isPositive: true,
@@ -705,7 +727,7 @@ export const DashboardView: React.FC = () => {
       },
       {
         title: 'School Fees Collected',
-        value: '₦84.2M',
+          value: formatKobo(collectedKobo),
         trend: '74% of session target',
         subtext: 'Target: ₦114M for session',
         isPositive: true,
@@ -721,30 +743,37 @@ export const DashboardView: React.FC = () => {
       },
       {
         title: 'Outstanding Fees',
-        value: '₦18.4M',
+        value: formatKobo(outstandingKobo),
         trend: '142 students in arrears',
         subtext: 'Session uncollected receivables',
         isPositive: false,
         icon: <AlertCircle className="w-5 h-5 text-slate-400" />,
       },
     ];
-  }, [timeframe, schoolProfile]);
+  }, [timeframe, schoolProfile, activeStudentCount, collectedKobo, outstandingKobo]);
 
-  const monthlyRevenue = [
-    { month: 'Jan', amount: 6.2, label: '₦6.2M', color: '#0F7640', fullName: 'January 2026', focus: 'Harmattan Tuition Installment' },
-    { month: 'Feb', amount: 7.8, label: '₦7.8M', color: '#13A348', fullName: 'February 2026', focus: 'Acceptance & Matriculation Dockets' },
-    { month: 'Mar', amount: 9.1, label: '₦9.1M', color: '#10B981', fullName: 'March 2026', focus: 'Course Registration & Lab Levy' },
-    { month: 'Apr', amount: 5.4, label: '₦5.4M', color: '#0D9488', fullName: 'April 2026', focus: 'Mid-Session Continuous Assessment' },
-    { month: 'May', amount: 8.0, label: '₦8.0M', color: '#0F7640', fullName: 'May 2026', focus: 'Clinical Hospital Posting Fees' },
-    { month: 'Jun', amount: 8.5, label: '₦8.5M', color: '#093322', fullName: 'June 2026', focus: 'Hospital Logbook Clearance' },
-    { month: 'Jul', amount: 14.2, label: '₦14.2M', color: '#0F7640', fullName: 'July 2026', focus: 'Rain Semester Examination Fees' },
-    { month: 'Aug', amount: 11.0, label: '₦11.0M', color: '#13A348', fullName: 'August 2026', focus: 'Regulatory Council Board Clearance' },
-    { month: 'Sep', amount: 22.4, label: '₦22.4M', color: '#FEC10A', fullName: 'September 2026', focus: 'Freshman Admissions & Influx' },
-    { month: 'Oct', amount: 18.1, label: '₦18.1M', color: '#F59E0B', fullName: 'October 2026', focus: 'Hostels & Clinical Practical Kits' },
-    { month: 'Nov', amount: 10.0, label: '₦10.0M', color: '#13A348', fullName: 'November 2026', focus: 'Returning Students Fee Clearance' },
-    { month: 'Dec', amount: 7.5, label: '₦7.5M', color: '#093322', fullName: 'December 2026', focus: 'Final Installment & Clearances' },
-  ];
-  const maxRevenue = 25;
+  const monthlyRevenue = useMemo(() => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const colors = ['#0F7640', '#13A348', '#093322'];
+    const totals = months.map(() => 0);
+    receipts.forEach((receipt) => {
+      const date = new Date(receipt.paidAt);
+      if (Number.isNaN(date.getTime())) return;
+      totals[date.getMonth()] += Number(receipt.amountKobo) || 0;
+    });
+    return months.map((month, index) => {
+      const naira = totals[index] / 100;
+      return {
+        month,
+        amount: naira / 1000000,
+        label: naira >= 1000000 ? `₦${(naira / 1000000).toFixed(1)}M` : `₦${Math.round(naira).toLocaleString()}`,
+        color: colors[index % colors.length],
+        fullName: month,
+        focus: 'Recorded receipts',
+      };
+    });
+  }, [receipts]);
+  const maxRevenue = Math.max(1, ...monthlyRevenue.map((bar) => bar.amount));
 
   const departmentEnrollment = useMemo(() => {
     if (departments && departments.length > 0) {
@@ -1019,7 +1048,7 @@ export const DashboardView: React.FC = () => {
 
           <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
             <span className="text-slate-500">Total Enrollment</span>
-            <span className="font-bold text-slate-900 text-sm">1,248 Students</span>
+            <span className="font-bold text-slate-900 text-sm">{activeStudentCount.toLocaleString()} Students</span>
           </div>
         </div>
       </div>

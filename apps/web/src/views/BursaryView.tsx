@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext.tsx';
+import { supabase } from '../lib/supabase.ts';
+import { useSharedRecords } from '../lib/sharedRecords.ts';
 import {
   Card,
   Button,
@@ -166,7 +168,7 @@ export const BursaryView: React.FC = () => {
   };
 
   /* ─── DATA: DEBTORS REGISTRY ─── */
-  const [debtors, setDebtors] = useState<DebtorRecord[]>([
+  const [debtors, setDebtors] = useSharedRecords<DebtorRecord>('bursary.debtors', [
     {
       id: 'dbt-01',
       studentId: 'stu-001',
@@ -293,22 +295,10 @@ export const BursaryView: React.FC = () => {
     },
   ];
 
-  const [feeStructures, setFeeStructuresState] = useState<FeeStructureItem[]>(() => {
-    try {
-      const s = localStorage.getItem('campusone_fee_structures');
-      if (s) return JSON.parse(s);
-    } catch (e) {}
-    return initialFeeStructures;
-  });
+  const [feeStructures, setFeeStructuresState] = useSharedRecords<FeeStructureItem>('bursary.fees', initialFeeStructures);
 
   const setFeeStructures = (updater: (prev: FeeStructureItem[]) => FeeStructureItem[]) => {
-    setFeeStructuresState((prev) => {
-      const next = updater(prev);
-      try {
-        localStorage.setItem('campusone_fee_structures', JSON.stringify(next));
-      } catch (e) {}
-      return next;
-    });
+    setFeeStructuresState(updater);
   };
 
   const [isAddFeeOpen, setIsAddFeeOpen] = useState(false);
@@ -507,7 +497,7 @@ export const BursaryView: React.FC = () => {
     });
   };
 
-  const handleOnlinePaymentSubmit = (e: React.FormEvent) => {
+  const handleOnlinePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const amountKobo = nairaToKobo(Number(String(onlinePaymentAmount || '0').replace(/,/g, '')));
     if (!amountKobo || amountKobo <= 0) {
@@ -532,7 +522,12 @@ export const BursaryView: React.FC = () => {
       return;
     }
 
-    const paystackKey = localStorage.getItem('campusone_paystack_public_key') || '';
+    const { data: gateway } = await supabase
+      .from('integration_settings')
+      .select('public_key, is_enabled')
+      .eq('gateway_type', 'payment_paystack')
+      .maybeSingle();
+    const paystackKey = gateway?.is_enabled ? gateway.public_key || '' : '';
     if (!paystackKey) {
       showToast({
         type: 'danger',

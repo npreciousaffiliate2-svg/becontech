@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext.tsx';
+import { useSharedRecords } from '../lib/sharedRecords.ts';
 import {
   Card,
   Button,
@@ -89,7 +90,7 @@ interface LeaveRecord {
 }
 
 export const StaffView: React.FC = () => {
-  const { isDense, recordAudit, schoolProfile, departments, isSuperAdmin, impersonateUser } = useApp();
+  const { isDense, recordAudit, schoolProfile, departments } = useApp();
   const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -152,7 +153,7 @@ export const StaffView: React.FC = () => {
   const [newStaffPhone, setNewStaffPhone] = useState('');
 
   /* ─── DATA: STAFF MEMBERS ─── */
-  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([
+  const [staffMembers, setStaffMembers] = useSharedRecords<StaffMember>('staff.members', [
     {
       id: 'stf-01',
       staffId: 'BCHT/ACAD/001',
@@ -294,7 +295,7 @@ export const StaffView: React.FC = () => {
   ]);
 
   /* ─── DATA: LEAVE REQUESTS ─── */
-  const [leaves, setLeaves] = useState<LeaveRecord[]>([
+  const [leaves, setLeaves] = useSharedRecords<LeaveRecord>('staff.leaves', [
     {
       id: 'lev-01',
       staffId: 'BCHT/ACAD/003',
@@ -550,39 +551,6 @@ export const StaffView: React.FC = () => {
       nowrap: true,
       render: (s: StaffMember) => (
         <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
-          {isSuperAdmin && (
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => {
-                const des = (s.designation || '').toLowerCase();
-                const targetRole = des.includes('provost')
-                  ? 'PROVOST'
-                  : des.includes('registrar')
-                  ? 'REG'
-                  : des.includes('bursar')
-                  ? 'BURSAR'
-                  : des.includes('hod') || des.includes('head')
-                  ? 'HOD'
-                  : 'INSTR';
-                impersonateUser(targetRole, {
-                  id: s.id,
-                  name: s.fullName,
-                  email: s.email,
-                });
-                showToast({
-                  type: 'info',
-                  title: 'Impersonation Mode Active',
-                  message: `Now accessing system as ${s.fullName} (${s.designation}).`,
-                });
-                navigate('/');
-              }}
-              leftIcon={<UserCheck className="w-3.5 h-3.5 text-[#0F7640]" />}
-              className="text-[#0F7640] border-emerald-200 hover:bg-emerald-50"
-            >
-              Impersonate
-            </Button>
-          )}
           <Button
             size="sm"
             variant="secondary"

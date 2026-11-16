@@ -9,6 +9,7 @@ import {
 import { PERSONA_PROFILES, PersonaProfile } from './personas.ts';
 import { supabase } from '../lib/supabase.ts';
 import { sha256Hex } from '../lib/sha256.ts';
+import { loadRecords, persistRecords, SAVE_ERROR_EVENT } from '../lib/sharedRecords.ts';
 
 export { PERSONA_PROFILES };
 export type { PersonaProfile };
@@ -821,116 +822,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const isImpersonating = isSuperAdmin && impersonatedRole !== null;
 
   const [isDense, setIsDense] = useState(false);
-  const [ledgerEntries, setLedgerEntries] = useState<StudentLedgerEntry[]>(INITIAL_LEDGER_ENTRIES);
-  const [receipts, setReceipts] = useState<OfficialReceipt[]>(INITIAL_RECEIPTS);
-  const [auditLogs, setAuditLogs] = useState<AuditEventRecord[]>(INITIAL_AUDIT_LOGS);
-  const auditLogsRef = useRef<AuditEventRecord[]>(INITIAL_AUDIT_LOGS);
-  const [customProfiles, setCustomProfiles] = useState<Record<string, Partial<PersonaProfile>>>(() => {
-    try {
-      const saved = localStorage.getItem('campusone_custom_profiles');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return {};
-  });
+  const [ledgerEntries, setLedgerEntries] = useState<StudentLedgerEntry[]>([]);
+  const [receipts, setReceipts] = useState<OfficialReceipt[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditEventRecord[]>([]);
+  const auditLogsRef = useRef<AuditEventRecord[]>([]);
+  const [customProfiles, setCustomProfiles] = useState<Record<string, Partial<PersonaProfile>>>({});
+  const [supportTickets, setSupportTickets] = useState<SupportTicketItem[]>([]);
+  const [notifications, setNotifications] = useState<RealNotificationItem[]>([]);
+  const [schoolProfile, setSchoolProfileState] = useState<SchoolProfile>(DEFAULT_SCHOOL_PROFILE);
+  const [departments, setDepartmentsState] = useState<DepartmentItem[]>([]);
+  const [courses, setCoursesState] = useState<CurriculumCourseItem[]>([]);
+  const [candidates, setCandidatesState] = useState<AdmissionCandidateItem[]>([]);
 
-  const [supportTickets, setSupportTickets] = useState<SupportTicketItem[]>(() => {
-    try {
-      const saved = localStorage.getItem('campusone_support_tickets');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return INITIAL_SUPPORT_TICKETS;
-  });
-
-  const [notifications, setNotifications] = useState<RealNotificationItem[]>(() => {
-    try {
-      const saved = localStorage.getItem('campusone_notifications');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return [];
-  });
-
-  // ─── DYNAMIC SCHOOL PROFILE & FRAMEWORK ───
-  const [schoolProfile, setSchoolProfileState] = useState<SchoolProfile>(() => {
-    try {
-      const saved = localStorage.getItem('campusone_school_profile');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        const isOldAddress = !parsed.campusAddress || parsed.campusAddress.includes('Moniya') || parsed.campusAddress.includes('Ibadan');
-        const isOldEmail = !parsed.officialEmail || parsed.officialEmail.includes('bethsaida.edu.ng');
-        const isOldPhone = !parsed.officialPhone || parsed.officialPhone.includes('803 124 5590');
-        const isOldWebsite = !parsed.websiteUrl || parsed.websiteUrl.includes('bethsaida.edu.ng');
-
-        return {
-          ...DEFAULT_SCHOOL_PROFILE,
-          ...parsed,
-          logoUrl: parsed.logoUrl || '/BeonTech-Logo.png',
-          campusAddress: isOldAddress ? DEFAULT_SCHOOL_PROFILE.campusAddress : parsed.campusAddress,
-          officialEmail: isOldEmail ? DEFAULT_SCHOOL_PROFILE.officialEmail : parsed.officialEmail,
-          officialPhone: isOldPhone ? DEFAULT_SCHOOL_PROFILE.officialPhone : parsed.officialPhone,
-          websiteUrl: isOldWebsite ? DEFAULT_SCHOOL_PROFILE.websiteUrl : parsed.websiteUrl,
-        };
-      }
-    } catch (e) {
-      // fallback
-    }
-    return DEFAULT_SCHOOL_PROFILE;
-  });
-
-  const [departments, setDepartmentsState] = useState<DepartmentItem[]>(() => {
-    try {
-      const saved = localStorage.getItem('campusone_departments_v3');
-      if (saved) return JSON.parse(saved);
-
-      const legacy = localStorage.getItem('campusone_departments');
-      if (legacy) {
-        const parsed = JSON.parse(legacy);
-        if (parsed.length >= 7 && parsed.some((d: any) => d.code === 'DHD')) {
-          return parsed;
-        }
-      }
-    } catch (e) {}
-
-    try {
-      localStorage.setItem('campusone_departments_v3', JSON.stringify(DEFAULT_DEPARTMENTS));
-      localStorage.setItem('campusone_departments', JSON.stringify(DEFAULT_DEPARTMENTS));
-    } catch (e) {}
-    return DEFAULT_DEPARTMENTS;
-  });
-
-  const [courses, setCoursesState] = useState<CurriculumCourseItem[]>(() => {
-    try {
-      const saved = localStorage.getItem('campusone_courses');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return DEFAULT_COURSES;
-  });
-
-  const [candidates, setCandidatesState] = useState<AdmissionCandidateItem[]>(() => {
-    try {
-      const saved = localStorage.getItem('campusone_candidates');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return DEFAULT_CANDIDATES;
-  });
-
-  // Keep local storage synchronized
   const setSchoolProfile = (updater: (prev: SchoolProfile) => SchoolProfile) => {
-    setSchoolProfileState((prev) => {
-      const next = updater(prev);
-      try {
-        localStorage.setItem('campusone_school_profile', JSON.stringify(next));
-      } catch (e) {}
-      return next;
-    });
+    setSchoolProfileState((prev) => updater(prev));
   };
 
   const setDepartments = (updater: (prev: DepartmentItem[]) => DepartmentItem[]) => {
     setDepartmentsState((prev) => {
       const next = updater(prev);
-      try {
-        localStorage.setItem('campusone_departments_v3', JSON.stringify(next));
-        localStorage.setItem('campusone_departments', JSON.stringify(next));
-      } catch (e) {}
+      void persistRecords('registry.departments', next);
       return next;
     });
   };
@@ -938,9 +849,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const setCourses = (updater: (prev: CurriculumCourseItem[]) => CurriculumCourseItem[]) => {
     setCoursesState((prev) => {
       const next = updater(prev);
-      try {
-        localStorage.setItem('campusone_courses', JSON.stringify(next));
-      } catch (e) {}
+      void persistRecords('registry.courses', next);
       return next;
     });
   };
@@ -948,9 +857,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const setCandidates = (updater: (prev: AdmissionCandidateItem[]) => AdmissionCandidateItem[]) => {
     setCandidatesState((prev) => {
       const next = updater(prev);
-      try {
-        localStorage.setItem('campusone_candidates', JSON.stringify(next));
-      } catch (e) {}
+      void persistRecords('admissions.candidates', next);
       return next;
     });
   };
@@ -994,9 +901,60 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     permissions: persona.permissions,
   };
 
+  const applyTenantRow = (t: any) => {
+      setSchoolProfile((prev) => ({
+        ...prev,
+        institutionName: t.institution_name || prev.institutionName,
+        institutionAcronym: t.institution_acronym || prev.institutionAcronym,
+        institutionCode: t.institution_code || prev.institutionCode,
+        campusAddress: t.campus_address || prev.campusAddress,
+        officialEmail: t.official_email || prev.officialEmail,
+        officialPhone: t.official_phone || prev.officialPhone,
+        websiteUrl: t.website_url || prev.websiteUrl,
+        accreditationRegNo: t.accreditation_reg_no || prev.accreditationRegNo,
+        regulatoryCouncils: t.regulatory_councils && t.regulatory_councils.length > 0 ? t.regulatory_councils : prev.regulatoryCouncils,
+        academicLevels: t.academic_levels && t.academic_levels.length > 0 ? t.academic_levels : prev.academicLevels,
+        academicSemesters: t.academic_semesters && t.academic_semesters.length > 0 ? t.academic_semesters : prev.academicSemesters,
+        academicSessions: t.academic_sessions && t.academic_sessions.length > 0 ? t.academic_sessions : prev.academicSessions,
+        activeSession: t.active_session || prev.activeSession,
+        activeSemester: t.active_semester || prev.activeSemester,
+        attendanceCutoffPct: t.attendance_cutoff_pct ?? prev.attendanceCutoffPct,
+        caWeightPct: t.ca_weight_pct ?? prev.caWeightPct,
+        examWeightPct: t.exam_weight_pct ?? prev.examWeightPct,
+        twoFactorEnforced: t.two_factor_enforced ?? prev.twoFactorEnforced,
+        sessionTimeoutMins: t.session_timeout_mins ?? prev.sessionTimeoutMins,
+        admissionsOpen: t.admissions_open ?? prev.admissionsOpen,
+        admissionBatch: t.admission_batch || prev.admissionBatch,
+        applicationFeeKobo: Number(t.application_fee_kobo || prev.applicationFeeKobo),
+        acceptanceFeeKobo: Number(t.acceptance_fee_kobo || prev.acceptanceFeeKobo),
+        minimumCutoffScore: t.minimum_cutoff_score ?? prev.minimumCutoffScore,
+        logoUrl: t.logo_url || prev.logoUrl,
+      }));
+  };
+
+  const loadTenantSettings = async () => {
+    const { data } = await supabase.from('tenant_settings').select('*').limit(1).maybeSingle();
+    if (data) applyTenantRow(data);
+  };
+
   // ─── Live Hydration from Supabase Remote Database (Single Source of Truth) ───
   useEffect(() => {
     async function loadSupabaseData() {
+      // Public branding (school name and logo) is readable before sign-in.
+      try {
+        const { data: branding } = await supabase.rpc('get_public_branding');
+        const b = Array.isArray(branding) ? branding[0] : branding;
+        if (b) {
+          setSchoolProfile((prev) => ({
+            ...prev,
+            institutionName: b.institution_name || prev.institutionName,
+            institutionAcronym: b.institution_acronym || prev.institutionAcronym,
+            logoUrl: b.logo_url || prev.logoUrl,
+          }));
+        }
+      } catch (err) {
+        console.warn('[CampusOne] Public branding unavailable:', err);
+      }
       try {
         const [ledgersRes, receiptsRes, auditsRes, profilesRes, tenantRes, notifsRes, ticketsRes] = await Promise.all([
           supabase.from('student_ledgers').select('*').order('created_at', { ascending: false }),
@@ -1008,63 +966,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           supabase.from('support_tickets').select('*').order('created_at', { ascending: false }),
         ]);
 
-        if (tenantRes.data) {
-          const t = tenantRes.data;
-          setSchoolProfile((prev) => ({
-            ...prev,
-            institutionName: t.institution_name || prev.institutionName,
-            institutionAcronym: t.institution_acronym || prev.institutionAcronym,
-            institutionCode: t.institution_code || prev.institutionCode,
-            campusAddress: t.campus_address || prev.campusAddress,
-            officialEmail: t.official_email || prev.officialEmail,
-            officialPhone: t.official_phone || prev.officialPhone,
-            websiteUrl: t.website_url || prev.websiteUrl,
-            accreditationRegNo: t.accreditation_reg_no || prev.accreditationRegNo,
-            regulatoryCouncils: t.regulatory_councils && t.regulatory_councils.length > 0 ? t.regulatory_councils : prev.regulatoryCouncils,
-            academicLevels: t.academic_levels && t.academic_levels.length > 0 ? t.academic_levels : prev.academicLevels,
-            academicSemesters: t.academic_semesters && t.academic_semesters.length > 0 ? t.academic_semesters : prev.academicSemesters,
-            academicSessions: t.academic_sessions && t.academic_sessions.length > 0 ? t.academic_sessions : prev.academicSessions,
-            activeSession: t.active_session || prev.activeSession,
-            activeSemester: t.active_semester || prev.activeSemester,
-            attendanceCutoffPct: t.attendance_cutoff_pct ?? prev.attendanceCutoffPct,
-            caWeightPct: t.ca_weight_pct ?? prev.caWeightPct,
-            examWeightPct: t.exam_weight_pct ?? prev.examWeightPct,
-            twoFactorEnforced: t.two_factor_enforced ?? prev.twoFactorEnforced,
-            sessionTimeoutMins: t.session_timeout_mins ?? prev.sessionTimeoutMins,
-            admissionsOpen: t.admissions_open ?? prev.admissionsOpen,
-            admissionBatch: t.admission_batch || prev.admissionBatch,
-            applicationFeeKobo: Number(t.application_fee_kobo || prev.applicationFeeKobo),
-            acceptanceFeeKobo: Number(t.acceptance_fee_kobo || prev.acceptanceFeeKobo),
-            minimumCutoffScore: t.minimum_cutoff_score ?? prev.minimumCutoffScore,
-          }));
-        }
+        if (tenantRes.data) applyTenantRow(tenantRes.data);
 
-        if (profilesRes.data && profilesRes.data.length > 0) {
-          const loadedOverrides: Record<string, Partial<PersonaProfile>> = {};
-          profilesRes.data.forEach((p: any) => {
-            if (p.role) {
-              loadedOverrides[p.role] = {
-                fullName: p.full_name || undefined,
-                phone: p.phone || undefined,
-                address: p.address || undefined,
-                bio: p.bio || undefined,
-                emergencyContact: p.emergency_contact || undefined,
-                avatarUrl: p.avatar_url || undefined,
-                permissions: (p.permissions && p.permissions.length > 0) ? p.permissions : undefined,
-              };
-            }
-          });
-          setCustomProfiles((prev) => {
-            const merged = { ...prev, ...loadedOverrides };
-            try {
-              localStorage.setItem('campusone_custom_profiles', JSON.stringify(merged));
-            } catch (e) {}
-            return merged;
-          });
-        }
+        await hydrateProfiles();
 
         if (notifsRes.data && notifsRes.data.length > 0) {
-          const loadedNotifs: RealNotificationItem[] = notifsRes.data.map((row: any) => ({
+          const loadedNotifs: RealNotificationItem[] = notifsRes.data
+            .filter((row: any) => !['notif-01', 'notif-02', 'notif-03', 'notif-04'].includes(row.id))
+            .map((row: any) => ({
             id: row.id,
             collegeId: row.college_id || 'bethsaida',
             userId: row.user_id,
@@ -1078,72 +987,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             createdAt: row.created_at,
           }));
           setNotifications(loadedNotifs);
-          try {
-            localStorage.setItem('campusone_notifications', JSON.stringify(loadedNotifs));
-          } catch (e) {}
         } else {
-          const seedNotifs: RealNotificationItem[] = [
-            {
-              id: 'notif-01',
-              collegeId: 'bethsaida',
-              title: 'Official Tuition Receipt Confirmed',
-              desc: 'Blessing Adeyemi tuition payment of ₦120,000 for Community Health (CHEW) verified.',
-              time: '15 mins ago',
-              isRead: false,
-              type: 'success',
-              link: '/bursary?tab=receipts',
-              createdAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-            },
-            {
-              id: 'notif-02',
-              collegeId: 'bethsaida',
-              title: 'Harmattan Broadsheets Published',
-              desc: 'Approved academic broadsheets and semester exam scores published for college ratification.',
-              time: '1 hour ago',
-              isRead: false,
-              type: 'info',
-              link: '/academics?tab=broadsheet',
-              createdAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-            },
-            {
-              id: 'notif-03',
-              collegeId: 'bethsaida',
-              title: '2026/2027 Admission Screening Active',
-              desc: 'Admissions committee screening portal is live for Community Health and Lab Tech candidates.',
-              time: '2 hours ago',
-              isRead: false,
-              type: 'info',
-              link: '/admissions',
-              createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-            },
-            {
-              id: 'notif-04',
-              collegeId: 'bethsaida',
-              title: 'Clinical Rotation Postings Released',
-              desc: 'Trainee posting schedules verified for UCH Ibadan and General Hospital Oyo.',
-              time: 'Yesterday',
-              isRead: true,
-              type: 'info',
-              link: '/postings',
-              createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-            },
-          ];
-          setNotifications(seedNotifs);
-          try {
-            localStorage.setItem('campusone_notifications', JSON.stringify(seedNotifs));
-            supabase.from('notifications').insert(
-              seedNotifs.map((n) => ({
-                id: n.id,
-                college_id: n.collegeId,
-                title: n.title,
-                message: n.desc,
-                type: n.type,
-                link: n.link,
-                is_read: n.isRead,
-                created_at: n.createdAt,
-              }))
-            ).then(() => {});
-          } catch (e) {}
+          setNotifications([]);
         }
 
         if (ledgersRes.data && ledgersRes.data.length > 0) {
@@ -1232,20 +1077,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             updatedAt: row.updated_at,
           }));
           setSupportTickets(loadedTickets);
-          try {
-            localStorage.setItem('campusone_support_tickets', JSON.stringify(loadedTickets));
-          } catch (e) {}
         }
       } catch (err) {
         console.warn('[CampusOne] Supabase live hydration fallback active:', err);
       }
+
+      const [remoteDepartments, remoteCourses, remoteCandidates] = await Promise.all([
+        loadRecords<DepartmentItem>('registry.departments'),
+        loadRecords<CurriculumCourseItem>('registry.courses'),
+        loadRecords<AdmissionCandidateItem>('admissions.candidates'),
+      ]);
+      if (remoteDepartments) setDepartmentsState(remoteDepartments);
+      if (remoteCourses) setCoursesState(remoteCourses);
+      if (remoteCandidates) setCandidatesState(remoteCandidates);
     }
 
     loadSupabaseData();
-  }, []);
+  }, [authenticatedRole]);
 
   useEffect(() => {
     let active = true;
+    const timer = window.setTimeout(() => {
+      if (active) setAuthReady(true);
+    }, 6000);
     supabase.auth.getSession().then(async ({ data }) => {
       const email = data.session?.user?.email;
       if (!email) {
@@ -1264,9 +1118,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setAuthenticatedRole(null);
       }
       setAuthReady(true);
+    }).catch(() => {
+      if (active) {
+        setAuthenticatedRole(null);
+        setAuthReady(true);
+      }
     });
     return () => {
       active = false;
+      window.clearTimeout(timer);
     };
   }, []);
 
@@ -1370,45 +1230,64 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (updates.applicationFeeKobo !== undefined) payload.application_fee_kobo = updates.applicationFeeKobo;
       if (updates.acceptanceFeeKobo !== undefined) payload.acceptance_fee_kobo = updates.acceptanceFeeKobo;
       if (updates.minimumCutoffScore !== undefined) payload.minimum_cutoff_score = updates.minimumCutoffScore;
+      if (updates.logoUrl !== undefined) payload.logo_url = updates.logoUrl;
 
-      await supabase.from('tenant_settings').update(payload).eq('college_id', 'bethsaida');
+      const { data: savedRows, error } = await supabase
+        .from('tenant_settings')
+        .update(payload)
+        .eq('college_id', 'bethsaida')
+        .select('college_id');
+      if (error) throw new Error(error.message);
+      if (!savedRows || savedRows.length === 0) {
+        throw new Error(
+          'The database did not accept this change. Sign in as a Super Administrator or Provost and try again.'
+        );
+      }
     } catch (e) {
-      console.warn('[CampusOne] Supabase profile sync warning:', e);
+      console.error('[CampusOne] School settings were not saved:', e);
+      // Revert the optimistic update so the screen never shows data that is not stored.
+      await loadTenantSettings();
+      window.dispatchEvent(
+        new CustomEvent(SAVE_ERROR_EVENT, {
+          detail: { kind: 'school settings', message: e instanceof Error ? e.message : String(e) },
+        })
+      );
+      throw e;
     }
   };
 
   const addAcademicLevel = (levelName: string) => {
     if (!levelName || schoolProfile.academicLevels.includes(levelName)) return;
     const nextLevels = [...schoolProfile.academicLevels, levelName];
-    updateSchoolProfile({ academicLevels: nextLevels });
+    updateSchoolProfile({ academicLevels: nextLevels }).catch(() => undefined);
   };
 
   const removeAcademicLevel = (levelName: string) => {
     const nextLevels = schoolProfile.academicLevels.filter((l) => l !== levelName);
-    updateSchoolProfile({ academicLevels: nextLevels });
+    updateSchoolProfile({ academicLevels: nextLevels }).catch(() => undefined);
   };
 
   const addRegulatoryCouncil = (councilName: string) => {
     if (!councilName || schoolProfile.regulatoryCouncils.includes(councilName)) return;
     const nextCouncils = [...schoolProfile.regulatoryCouncils, councilName];
-    updateSchoolProfile({ regulatoryCouncils: nextCouncils });
+    updateSchoolProfile({ regulatoryCouncils: nextCouncils }).catch(() => undefined);
   };
 
   const removeRegulatoryCouncil = (councilName: string) => {
     const nextCouncils = schoolProfile.regulatoryCouncils.filter((c) => c !== councilName);
-    updateSchoolProfile({ regulatoryCouncils: nextCouncils });
+    updateSchoolProfile({ regulatoryCouncils: nextCouncils }).catch(() => undefined);
   };
 
   const addAcademicSemester = (semesterName: string) => {
     if (!semesterName || schoolProfile.academicSemesters.includes(semesterName)) return;
     const next = [...schoolProfile.academicSemesters, semesterName];
-    updateSchoolProfile({ academicSemesters: next });
+    updateSchoolProfile({ academicSemesters: next }).catch(() => undefined);
   };
 
   const addAcademicSession = (sessionName: string) => {
     if (!sessionName || schoolProfile.academicSessions.includes(sessionName)) return;
     const next = [...schoolProfile.academicSessions, sessionName];
-    updateSchoolProfile({ academicSessions: next });
+    updateSchoolProfile({ academicSessions: next }).catch(() => undefined);
   };
 
   // ─── DEPARTMENTS CRUD ───
@@ -1479,14 +1358,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const enrollCandidate = (id: string, matricNo?: string) => {
+    const current = candidates.find((c) => c.id === id);
+    const generatedMatric =
+      matricNo ||
+      (current
+        ? `${current.programmeCode}/${schoolProfile.activeSession.substring(0, 4)}/${String(
+            Math.floor(1000 + Math.random() * 9000)
+          )}`
+        : undefined);
     setCandidates((prev) =>
       prev.map((c) => {
         if (c.id !== id) return c;
-        const generatedMatric =
-          matricNo ||
-          `${c.programmeCode}/${schoolProfile.activeSession.substring(0, 4)}/${String(
-            Math.floor(1000 + Math.random() * 9000)
-          )}`;
         return {
           ...c,
           status: 'ENROLLED',
@@ -1495,7 +1377,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
       })
     );
-    recordAudit('CANDIDATE_MATRICULATED', 'ADMISSION_CANDIDATE', id, { matricNo });
+    if (current && generatedMatric) {
+      void supabase.from('students').upsert({
+        id: current.id,
+        college_id: 'bethsaida',
+        matric_number: generatedMatric,
+        full_name: current.fullName,
+        email: current.email,
+        phone: current.phone,
+        department_code: current.programmeCode,
+        programme: current.programme,
+        level: '100 Level',
+        cgpa: 0,
+        fees_status: current.acceptanceFeePaid ? 'CLEARED' : 'OWING',
+        clinical_clearance: 'PENDING',
+        status: 'ACTIVE',
+        details: { ...current, matricNumber: generatedMatric, status: 'ACTIVE', level: '100 Level' },
+      });
+    }
+    recordAudit('CANDIDATE_MATRICULATED', 'ADMISSION_CANDIDATE', id, { matricNo: generatedMatric });
   };
 
   const addLedgerPayment = (entry: {
@@ -1658,9 +1558,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ...updates,
         },
       };
-      try {
-        localStorage.setItem('campusone_custom_profiles', JSON.stringify(next));
-      } catch (e) {}
       return next;
     });
 
@@ -1678,16 +1575,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updated_at: new Date().toISOString(),
     };
 
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .upsert(profilePayload, { onConflict: 'id' });
-      if (error) {
-        console.warn('[CampusOne] Supabase profile sync warning:', error.message);
-      }
-    } catch (err) {
-      console.warn('[CampusOne] Supabase network error:', err);
+    // Write to the signed-in user's own profile row (matched by auth id, then email).
+    const { data: authData } = await supabase.auth.getUser();
+    const authUser = authData?.user;
+    const { id: _ignoredId, college_id: _c, role: _r, email: _e, ...editable } = profilePayload;
+    let query = supabase.from('profiles').update(editable);
+    if (impersonatedRole || !authUser) {
+      query = query.eq('id', session.userId);
+    } else {
+      query = query.or(`auth_user_id.eq.${authUser.id},email.eq.${authUser.email}`);
     }
+    const { data: savedRows, error } = await query.select('id');
+    if (error || !savedRows || savedRows.length === 0) {
+      const reason = error?.message || 'No profile row in the database matches this account.';
+      console.error('[CampusOne] Profile was not saved:', reason);
+      await hydrateProfiles();
+      throw new Error(reason);
+    }
+  };
+
+  const hydrateProfiles = async () => {
+    const { data } = await supabase.from('profiles').select('*');
+    if (!data || data.length === 0) return;
+    const { data: authData } = await supabase.auth.getUser();
+    const myEmail = authData?.user?.email;
+    const loaded: Record<string, Partial<PersonaProfile>> = {};
+    // Own row wins over other people who share the same role.
+    [...data].sort((a: any, b: any) => Number(a.email === myEmail) - Number(b.email === myEmail)).forEach((p: any) => {
+      if (!p.role) return;
+      loaded[p.role] = {
+        fullName: p.full_name || undefined,
+        phone: p.phone || undefined,
+        address: p.address || undefined,
+        bio: p.bio || undefined,
+        emergencyContact: p.emergency_contact || undefined,
+        avatarUrl: p.avatar_url || undefined,
+        permissions: p.permissions && p.permissions.length > 0 ? p.permissions : undefined,
+      };
+    });
+    setCustomProfiles((prev) => ({ ...prev, ...loaded }));
   };
 
   const addNotification = async (item: Omit<RealNotificationItem, 'id' | 'createdAt' | 'isRead' | 'time'>) => {
@@ -1707,9 +1633,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setNotifications((prev) => {
       const updated = [newNotif, ...prev];
-      try {
-        localStorage.setItem('campusone_notifications', JSON.stringify(updated));
-      } catch (e) {}
       return updated;
     });
 
@@ -1734,9 +1657,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const markNotificationAsRead = async (id: string) => {
     setNotifications((prev) => {
       const updated = prev.map((n) => (n.id === id ? { ...n, isRead: true } : n));
-      try {
-        localStorage.setItem('campusone_notifications', JSON.stringify(updated));
-      } catch (e) {}
       return updated;
     });
 
@@ -1753,9 +1673,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const markAllNotificationsAsRead = async () => {
     setNotifications((prev) => {
       const updated = prev.map((n) => ({ ...n, isRead: true }));
-      try {
-        localStorage.setItem('campusone_notifications', JSON.stringify(updated));
-      } catch (e) {}
       return updated;
     });
 
@@ -1889,9 +1806,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setSupportTickets((prev) => {
       const updated = [newTicket, ...prev];
-      try {
-        localStorage.setItem('campusone_support_tickets', JSON.stringify(updated));
-      } catch (e) {}
       return updated;
     });
 
@@ -1950,9 +1864,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         return t;
       });
-      try {
-        localStorage.setItem('campusone_support_tickets', JSON.stringify(updated));
-      } catch (e) {}
       return updated;
     });
 
@@ -1996,9 +1907,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         return t;
       });
-      try {
-        localStorage.setItem('campusone_support_tickets', JSON.stringify(updated));
-      } catch (e) {}
       return updated;
     });
 

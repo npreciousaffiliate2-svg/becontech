@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { ChevronDown, ChevronUp, ChevronsUpDown, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { TableSkeleton } from './Skeleton.tsx';
 import { EmptyState } from './EmptyState.tsx';
@@ -33,6 +33,8 @@ export interface TableProps<T> {
   searchPlaceholder?: string;
   toolbarFilters?: React.ReactNode;
   toolbarActions?: React.ReactNode;
+  /** Built-in client-side search when no external onSearchChange is supplied. Default true. */
+  searchable?: boolean;
 }
 
 export function Table<T>({
@@ -55,7 +57,61 @@ export function Table<T>({
   searchPlaceholder,
   toolbarFilters,
   toolbarActions,
+  searchable = true,
 }: TableProps<T>) {
+  const [internalSearch, setInternalSearch] = useState('');
+  const [internalSortKey, setInternalSortKey] = useState<string | undefined>(undefined);
+  const [internalSortDir, setInternalSortDir] = useState<'asc' | 'desc'>('asc');
+
+  const useInternalSearch = !onSearchChange && searchable;
+  const useInternalSort = !onSort;
+  const effectiveSearch = useInternalSearch ? internalSearch : searchValue || '';
+  const effectiveSortColumn = useInternalSort ? internalSortKey : sortColumn;
+  const effectiveSortDirection = useInternalSort ? internalSortDir : sortDirection;
+
+  const visibleData = useMemo(() => {
+    let rows = data;
+    const q = useInternalSearch ? internalSearch.trim().toLowerCase() : '';
+    if (q) {
+      const terms = q.split(/\s+/);
+      rows = rows.filter((item) => {
+        let haystack = '';
+        try {
+          haystack = JSON.stringify(item).toLowerCase();
+        } catch {
+          haystack = '';
+        }
+        return terms.every((term) => haystack.includes(term));
+      });
+    }
+    if (useInternalSort && internalSortKey) {
+      const dir = internalSortDir === 'asc' ? 1 : -1;
+      rows = [...rows].sort((a, b) => {
+        const av = (a as any)[internalSortKey];
+        const bv = (b as any)[internalSortKey];
+        if (av == null && bv == null) return 0;
+        if (av == null) return 1;
+        if (bv == null) return -1;
+        if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
+        return String(av).localeCompare(String(bv), undefined, { numeric: true }) * dir;
+      });
+    }
+    return rows;
+  }, [data, useInternalSearch, internalSearch, useInternalSort, internalSortKey, internalSortDir]);
+
+  const handleSort = (key: string) => {
+    if (!useInternalSort) {
+      onSort?.(key);
+      return;
+    }
+    if (internalSortKey === key) {
+      setInternalSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setInternalSortKey(key);
+      setInternalSortDir('asc');
+    }
+  };
+
   if (isLoading) {
     return <TableSkeleton rows={isDense ? 8 : 5} columns={columns.length} />;
   }
@@ -65,19 +121,22 @@ export function Table<T>({
   return (
     <div className="w-full border border-slate-200/90 rounded-[4px] bg-white overflow-hidden shadow-sm flex flex-col">
       {/* ─── Standardized Table Header Toolbar (Search, Filters & Actions) ─── */}
-      {(onSearchChange || toolbarFilters || toolbarActions) && (
+      {(onSearchChange || useInternalSearch || toolbarFilters || toolbarActions) && (
         <div className="p-3 border-b border-slate-200/80 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           <div className="flex flex-wrap items-center gap-2">
             {toolbarFilters}
           </div>
           <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-            {onSearchChange && (
+            {(onSearchChange || useInternalSearch) && (
               <div className="relative w-full sm:w-64">
                 <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
-                  value={searchValue || ''}
-                  onChange={(e) => onSearchChange(e.target.value)}
+                  value={effectiveSearch}
+                  onChange={(e) =>
+                    useInternalSearch ? setInternalSearch(e.target.value) : onSearchChange?.(e.target.value)
+                  }
+                  aria-label={searchPlaceholder || 'Search records'}
                   placeholder={searchPlaceholder || 'Search records...'}
                   className="w-full h-8 pl-8 pr-3 text-xs bg-slate-50/70 hover:bg-slate-50 focus:bg-white border border-slate-200 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640] transition-colors"
                 />
@@ -88,15 +147,22 @@ export function Table<T>({
         </div>
       )}
 
-      {data.length === 0 ? (
-        <EmptyState title={emptyTitle} description={emptyDescription} />
+      {visibleData.length === 0 ? (
+        <EmptyState
+          title={effectiveSearch && data.length > 0 ? 'No matching records' : emptyTitle}
+          description={
+            effectiveSearch && data.length > 0
+              ? 'No records match your search. Clear or change the search text.'
+              : emptyDescription
+          }
+        />
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left text-xs">
             <thead className="bg-slate-50/80 border-b border-slate-200/90 uppercase tracking-wider text-[11px] font-semibold text-slate-500 sticky top-0 backdrop-blur-sm">
               <tr>
                 {columns.map((col) => {
-                  const isSorted = sortColumn === col.key;
+                  const isSorted = effectiveSortColumn === col.key;
                   return (
                     <th
                       key={col.key}
@@ -109,7 +175,7 @@ export function Table<T>({
                           ? 'text-center'
                           : 'text-left'
                       } ${col.sortable ? 'cursor-pointer select-none hover:bg-slate-100/80' : ''}`}
-                      onClick={() => col.sortable && onSort?.(col.key)}
+                      onClick={() => col.sortable && handleSort(col.key)}
                     >
                       <div
                         className={`inline-flex items-center gap-1 ${
@@ -120,7 +186,7 @@ export function Table<T>({
                         {col.sortable && (
                           <span className="text-slate-400">
                             {isSorted ? (
-                              sortDirection === 'asc' ? (
+                              effectiveSortDirection === 'asc' ? (
                                 <ChevronUp className="w-3.5 h-3.5 text-[#0F7640]" />
                               ) : (
                                 <ChevronDown className="w-3.5 h-3.5 text-[#0F7640]" />
@@ -137,7 +203,7 @@ export function Table<T>({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100/90 font-normal text-slate-800">
-              {data.map((item, rowIndex) => (
+              {visibleData.map((item, rowIndex) => (
                 <tr
                   key={keyExtractor(item)}
                   className="hover:bg-slate-50/75 transition-colors duration-150"
@@ -171,7 +237,7 @@ export function Table<T>({
         <div className="border-t border-slate-200 bg-slate-50 px-4 py-2 flex items-center justify-between text-xs text-slate-600">
           <div>
             {totalCount !== undefined ? (
-              <span>Showing {data.length} of {totalCount} records</span>
+              <span>Showing {visibleData.length} of {totalCount} records</span>
             ) : (
               <span>Page {page} of {totalPages}</span>
             )}

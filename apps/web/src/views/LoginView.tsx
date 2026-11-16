@@ -1,20 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import {
-  ShieldCheck,
-  FileCheck,
-  LockKeyhole,
-  Eye,
-  EyeOff,
-  ArrowRight,
-  GraduationCap,
-  CreditCard,
-  UserCheck,
-  Building2,
-  BookOpen,
-  Stethoscope,
-  Briefcase,
-} from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
+import { AuthFrame, AUTH_SECURITY_LINE } from '../components/auth/AuthFrame.tsx';
 import { Button, Input, Checkbox, Select, useToast } from '@campusone/ui';
 import { useApp } from '../context/AppContext.tsx';
 import { supabase } from '../lib/supabase.ts';
@@ -144,99 +131,9 @@ export const LoginView: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen w-full flex bg-white font-sans">
-      {/* ─── LEFT: AUTH HERO SIDEBAR (UseOneID Style — Bethsaida Health Green) ─── */}
-      <div
-        style={{
-          background: 'linear-gradient(180deg, #093322 0%, #052015 100%)',
-        }}
-        className="hidden lg:flex w-1/2 relative items-center justify-center p-12 overflow-hidden select-none"
-      >
-        <div className="max-w-md flex flex-col justify-between h-full relative z-10 py-8">
-          {/* Brand Logo Header */}
-          <div className="flex items-center gap-3">
-            <img
-              src="/BeonTech-Logo.png"
-              alt="BeonTech Platform Crest"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = '/BeonTech-Logo.png';
-              }}
-              className="w-10 h-10 rounded-[4px] bg-white object-contain p-1 shadow-md shrink-0"
-            />
-            <div>
-              <span className="text-xl font-extrabold tracking-wider text-white uppercase block leading-none font-sans">
-                CampusOne
-              </span>
-              <span className="text-[11px] text-emerald-200 block mt-1 font-sans">
-                Bethsaida College of Health Tech
-              </span>
-            </div>
-          </div>
-
-          {/* Main Info Hero */}
-          <div className="flex flex-col gap-6 my-auto">
-            <div className="flex flex-col gap-2.5">
-              <h2 className="text-3xl font-extrabold tracking-tight text-white leading-tight">
-                College Academic & Management System.
-              </h2>
-              <p className="text-sm text-emerald-100/80 leading-relaxed font-normal">
-                Seamlessly unifies admissions, bursary fee settlements, examination broadsheets, and clinical hospital postings in one accredited single-tenant cloud environment.
-              </p>
-            </div>
-
-            {/* List of Key Pillars */}
-            <div className="flex flex-col gap-4 text-xs">
-              <div className="flex gap-3">
-                <div className="w-8 h-8 rounded-[4px] bg-white/10 border border-white/20 flex items-center justify-center text-white shrink-0">
-                  <ShieldCheck className="w-4 h-4 text-[#13A348]" />
-                </div>
-                <div className="flex flex-col gap-0.5">
-                  <span className="font-bold text-white">NDPA 2023 & Board Regulatory Security</span>
-                  <span className="text-emerald-100/70 leading-relaxed">
-                    Tamper-evident audit logging and role-based permissions verified by regulatory boards.
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <div className="w-8 h-8 rounded-[4px] bg-white/10 border border-white/20 flex items-center justify-center text-white shrink-0">
-                  <FileCheck className="w-4 h-4 text-[#FEC10A]" />
-                </div>
-                <div className="flex flex-col gap-0.5">
-                  <span className="font-bold text-white">Deterministic Broadsheet Calculations</span>
-                  <span className="text-emerald-100/70 leading-relaxed">
-                    Zero-error GPA/CGPA arithmetic tested against golden statutory grading standards.
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <div className="w-8 h-8 rounded-[4px] bg-white/10 border border-white/20 flex items-center justify-center text-white shrink-0">
-                  <LockKeyhole className="w-4 h-4 text-emerald-400" />
-                </div>
-                <div className="flex flex-col gap-0.5">
-                  <span className="font-bold text-white">Double-Entry Fee Ledger & E-Receipts</span>
-                  <span className="text-emerald-100/70 leading-relaxed">
-                    Instant QR-verifiable official receipts with Paystack & Remita bank settlement integration.
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Social Proof / Accreditation Badges */}
-          <div className="flex items-center justify-between border-t border-white/10 pt-4 text-xs text-emerald-100/70">
-            <span>Accredited: CHPRBN • MLSCN • PCN</span>
-            <span className="text-white font-medium">Session: 2026/2027</span>
-          </div>
-        </div>
-      </div>
-
-      {/* ─── RIGHT: AUTH FORM CONTAINER (UseOneID Style) ─── */}
-      <div className="flex-1 flex flex-col justify-center px-6 sm:px-12 lg:px-16 py-12 max-w-xl mx-auto w-full">
-        <div className="w-full">
+    <AuthFrame>
           {/* Platform Crest Logo */}
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex lg:hidden items-center gap-2 mb-4">
             <img
               src="/BeonTech-Logo.png"
               alt="BeonTech Platform Logo"
@@ -343,7 +240,7 @@ export const LoginView: React.FC = () => {
               </Button>
 
               <div className="pt-2 text-center text-xs text-slate-400">
-                Single-sign-on protected by NDPA 2023 & Board Regulatory Security.
+                {AUTH_SECURITY_LINE}
               </div>
             </form>
           ) : (
@@ -397,8 +294,6 @@ export const LoginView: React.FC = () => {
               </Button>
             </form>
           )}
-        </div>
-      </div>
-    </div>
+    </AuthFrame>
   );
 };

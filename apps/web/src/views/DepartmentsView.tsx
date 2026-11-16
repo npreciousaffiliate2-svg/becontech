@@ -34,6 +34,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext.tsx';
+import { useSharedRecords } from '../lib/sharedRecords.ts';
 
 interface FacultyMember {
   id: string;
@@ -298,34 +299,10 @@ export const DepartmentsView: React.FC = () => {
     },
   ];
 
-  const [programmesList, setProgrammesList] = useState<Programme[]>(() => {
-    try {
-      const saved = localStorage.getItem('campusone_programmes_v2');
-      if (saved) return JSON.parse(saved);
-      const legacy = localStorage.getItem('campusone_programmes');
-      if (legacy) {
-        const parsed = JSON.parse(legacy);
-        if (parsed.length >= 10 && parsed.some((p: any) => p.code === 'DHT')) {
-          return parsed;
-        }
-      }
-    } catch (e) {}
-    try {
-      localStorage.setItem('campusone_programmes_v2', JSON.stringify(initialProgrammes));
-      localStorage.setItem('campusone_programmes', JSON.stringify(initialProgrammes));
-    } catch (e) {}
-    return initialProgrammes;
-  });
+  const [programmesList, setProgrammesList] = useSharedRecords<Programme>('registry.programmes', initialProgrammes);
 
   const setProgrammes = (updater: (prev: Programme[]) => Programme[]) => {
-    setProgrammesList((prev) => {
-      const next = updater(prev);
-      try {
-        localStorage.setItem('campusone_programmes_v2', JSON.stringify(next));
-        localStorage.setItem('campusone_programmes', JSON.stringify(next));
-      } catch (e) {}
-      return next;
-    });
+    setProgrammesList(updater);
   };
 
   const [isAddProgOpen, setIsAddProgOpen] = useState(false);
@@ -359,22 +336,10 @@ export const DepartmentsView: React.FC = () => {
     { id: 'fac-08', name: 'Mrs. R. Ajayi', title: 'Senior Lecturer', departmentCode: 'CHD', email: 'r.ajayi@becohtech.edu.ng', phone: '+234 907 578 9045', coursesCount: 2, qualification: 'M.Sc Community Health' },
   ];
 
-  const [facultyList, setFacultyList] = useState<FacultyMember[]>(() => {
-    try {
-      const saved = localStorage.getItem('campusone_faculty');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return initialFaculty;
-  });
+  const [facultyList, setFacultyList] = useSharedRecords<FacultyMember>('registry.faculty', initialFaculty);
 
   const setFaculty = (updater: (prev: FacultyMember[]) => FacultyMember[]) => {
-    setFacultyList((prev) => {
-      const next = updater(prev);
-      try {
-        localStorage.setItem('campusone_faculty', JSON.stringify(next));
-      } catch (e) {}
-      return next;
-    });
+    setFacultyList(updater);
   };
 
   const [isAddFacultyOpen, setIsAddFacultyOpen] = useState(false);

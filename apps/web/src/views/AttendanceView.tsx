@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext.tsx';
+import { useSharedRecords } from '../lib/sharedRecords.ts';
 import { PERSONA_PROFILES } from '../context/personas.ts';
 import {
   Card,
@@ -135,7 +136,7 @@ export const AttendanceView: React.FC = () => {
   const [selectedWaiver, setSelectedWaiver] = useState<MedicalWaiver | null>(null);
 
   /* ─── ATTENDANCE ROSTER DATA ─── */
-  const [students, setStudents] = useState<AttendanceStudent[]>([
+  const [students, setStudents] = useSharedRecords<AttendanceStudent>('attendance.roster', [
     {
       id: 'att-01',
       matricNumber: 'CHE/2026/0014',
@@ -368,7 +369,7 @@ export const AttendanceView: React.FC = () => {
   ]);
 
   /* ─── MEDICAL WAIVERS DATA ─── */
-  const [waivers, setWaivers] = useState<MedicalWaiver[]>([
+  const [waivers, setWaivers] = useSharedRecords<MedicalWaiver>('attendance.waivers', [
     {
       id: 'wvr-01',
       matricNumber: 'MLT/2026/0010',
@@ -1126,6 +1127,7 @@ export const AttendanceView: React.FC = () => {
             <Table
               columns={registerColumns}
               data={filteredStudents}
+              searchable={false}
               keyExtractor={(s) => s.id}
               isDense={isDense}
             />
@@ -1202,6 +1204,7 @@ export const AttendanceView: React.FC = () => {
             <Table
               columns={clearanceColumns}
               data={filteredStudents}
+              searchable={false}
               keyExtractor={(s) => s.id}
               isDense={isDense}
             />

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext.tsx';
+import { useSharedRecords } from '../lib/sharedRecords.ts';
 import {
   Card,
   Button,
@@ -17,7 +18,6 @@ import {
   IdCard,
   QrCode,
   Printer,
-  UserCheck,
   Search,
   Plus,
   FileText,
@@ -85,7 +85,7 @@ const Barcode: React.FC<{ value: string; className?: string }> = ({ value, class
 };
 
 export const StudentsView: React.FC = () => {
-  const { isDense, recordAudit, schoolProfile, departments, session, persona, isSuperAdmin, impersonateUser } = useApp();
+  const { isDense, recordAudit, schoolProfile, departments, session, persona } = useApp();
   const isStudent = session.activeRole === 'STU' || session.activeRole === 'SPON';
   const studentMatric = persona?.matricNumber || 'CHE/2026/0014';
   const { showToast } = useToast();
@@ -194,7 +194,7 @@ export const StudentsView: React.FC = () => {
   });
 
   // Master Trainees Registry
-  const [students, setStudents] = useState<Student[]>([
+  const [students, setStudents] = useSharedRecords<Student>('sis.students', [
     {
       id: 'stu-001',
       matricNumber: 'CHE/2026/0014',
@@ -617,30 +617,6 @@ export const StudentsView: React.FC = () => {
               >
                 Edit
               </Button>
-              {isSuperAdmin && (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => {
-                    impersonateUser('STU', {
-                      id: s.id,
-                      name: s.fullName,
-                      email: s.email,
-                      matricNumber: s.matricNumber,
-                    });
-                    showToast({
-                      type: 'info',
-                      title: 'Student Impersonation Active',
-                      message: `Now accessing portal as ${s.fullName} (${s.matricNumber}).`,
-                    });
-                    navigate('/');
-                  }}
-                  leftIcon={<UserCheck className="w-3.5 h-3.5 text-[#0F7640]" />}
-                  className="text-[#0F7640] border-emerald-200 hover:bg-emerald-50 whitespace-nowrap"
-                >
-                  Impersonate
-                </Button>
-              )}
             </>
           )}
         </div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext.tsx';
+import { useSharedRecords } from '../lib/sharedRecords.ts';
 import {
   Card,
   Button,
@@ -41,6 +42,7 @@ import {
 } from 'lucide-react';
 import { AuditEventRecord } from '@campusone/contracts';
 import { supabase } from '../lib/supabase.ts';
+import { optimizeImage } from '../utils/imageOptimizer.ts';
 
 /* ─── TYPE DEFINITIONS ─── */
 export interface UserRoleItem {
@@ -88,8 +90,6 @@ export const AdminView: React.FC = () => {
     removeRegulatoryCouncil,
     addAcademicSemester,
     addAcademicSession,
-    isSuperAdmin,
-    impersonateUser,
   } = useApp();
   const { showToast } = useToast();
   const { tab: routeTab } = useParams();
@@ -137,13 +137,15 @@ export const AdminView: React.FC = () => {
   const [newSemesterInput, setNewSemesterInput] = useState('');
   const [newSessionInput, setNewSessionInput] = useState('');
   const [editSchoolForm, setEditSchoolForm] = useState(schoolProfile);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const logoInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setEditSchoolForm(schoolProfile);
   }, [schoolProfile]);
 
   /* ─── DATA: ROLES & PERMISSIONS ─── */
-  const [roles, setRoles] = useState<UserRoleItem[]>([
+  const [roles, setRoles] = useSharedRecords<UserRoleItem>('admin.roles', [
     {
       id: 'rol-01',
       roleCode: 'SUPER_ADMIN',
@@ -230,21 +232,21 @@ export const AdminView: React.FC = () => {
       college_id: 'bethsaida',
       gateway_type: 'payment_paystack',
       provider: 'Paystack Payments',
-      is_enabled: true,
+      is_enabled: false,
       environment: 'TEST',
-      public_key: 'pk_test_bcht_paystack_829104812398',
-      secret_key: 'sk_test_bcht_paystack_981234918234',
-      webhook_secret: 'wh_sec_bcht_81923812',
+      public_key: '',
+      secret_key: '',
+      webhook_secret: '',
     },
     {
       id: 'gw_remita_bethsaida',
       college_id: 'bethsaida',
       gateway_type: 'payment_remita',
       provider: 'Remita Gateway',
-      is_enabled: true,
+      is_enabled: false,
       environment: 'TEST',
-      public_key: 'remita_pub_key_bcht_29104',
-      secret_key: 'remita_sec_key_bcht_91823',
+      public_key: '',
+      secret_key: '',
     },
     {
       id: 'gw_flutterwave_bethsaida',
@@ -253,17 +255,17 @@ export const AdminView: React.FC = () => {
       provider: 'Flutterwave Gateway',
       is_enabled: false,
       environment: 'TEST',
-      public_key: 'FLWPUBK_TEST-91823719283-X',
-      secret_key: 'FLWSECK_TEST-91823719283-X',
+      public_key: '',
+      secret_key: '',
     },
     {
       id: 'gw_email_resend_bethsaida',
       college_id: 'bethsaida',
       gateway_type: 'email_resend',
       provider: 'Resend Transactional Email',
-      is_enabled: true,
+      is_enabled: false,
       environment: 'LIVE',
-      secret_key: 're_live_bcht_918237198231',
+      secret_key: '',
       sender_email: 'admissions@becohtech.edu.ng',
       sender_name: 'Bethsaida College Admissions',
     },
@@ -272,9 +274,9 @@ export const AdminView: React.FC = () => {
       college_id: 'bethsaida',
       gateway_type: 'sms_termii',
       provider: 'Termii Bulk SMS',
-      is_enabled: true,
+      is_enabled: false,
       environment: 'LIVE',
-      secret_key: 'termii_key_bcht_91823719',
+      secret_key: '',
       sender_name: 'BETHSAIDA',
     },
   ]);
@@ -365,12 +367,6 @@ export const AdminView: React.FC = () => {
         prev.map((g) => (g.id === editingGateway.id ? editingGateway : g))
       );
 
-      if (editingGateway.gateway_type === 'payment_paystack' && editingGateway.public_key) {
-        try {
-          localStorage.setItem('campusone_paystack_public_key', editingGateway.public_key);
-        } catch (e) {}
-      }
-
       recordAudit('GATEWAY_CREDENTIALS_UPDATED', 'INTEGRATION_GATEWAY', editingGateway.provider);
 
       showToast({
@@ -392,6 +388,49 @@ export const AdminView: React.FC = () => {
     }
   };
 
+  const handleLogoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      showToast({ type: 'danger', title: 'Invalid file', message: 'Choose an image file (PNG, JPG, WebP or SVG).' });
+      return;
+    }
+    setIsUploadingLogo(true);
+    try {
+      let body: Blob = file;
+      let contentType = file.type;
+      let ext = file.name.split('.').pop()?.toLowerCase() || 'png';
+      if (file.type !== 'image/svg+xml') {
+        const optimized = await optimizeImage(file, { maxWidth: 512, maxHeight: 512, quality: 0.9 });
+        body = optimized.file;
+        contentType = 'image/webp';
+        ext = 'webp';
+      }
+      const filePath = `school-logo-${Date.now()}.${ext}`;
+      const { error: uploadErr } = await supabase.storage
+        .from('branding')
+        .upload(filePath, body, { contentType, upsert: true });
+      if (uploadErr) throw new Error(uploadErr.message);
+      const { data } = supabase.storage.from('branding').getPublicUrl(filePath);
+      if (!data?.publicUrl) throw new Error('The storage service did not return a public address.');
+      setEditSchoolForm((prev) => ({ ...prev, logoUrl: data.publicUrl }));
+      showToast({
+        type: 'success',
+        title: 'Logo uploaded',
+        message: 'Press Save on the college profile form to apply it across the platform.',
+      });
+    } catch (err: any) {
+      showToast({
+        type: 'danger',
+        title: 'Logo upload failed',
+        message: err?.message || 'The logo could not be uploaded.',
+      });
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  };
+
   const handleSaveSchoolProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -402,12 +441,8 @@ export const AdminView: React.FC = () => {
         message: 'College profile, accreditation information, and calendar policies updated.',
       });
       setIsEditSchoolModalOpen(false);
-    } catch (err: any) {
-      showToast({
-        type: 'danger',
-        title: 'Save Error',
-        message: err.message || 'Could not update college settings.',
-      });
+    } catch {
+      // A "Changes not saved" notice is raised globally by updateSchoolProfile; keep the form open.
     }
   };
 
@@ -541,37 +576,6 @@ export const AdminView: React.FC = () => {
       nowrap: true,
       render: (r: UserRoleItem) => (
         <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
-          {isSuperAdmin && r.roleCode !== 'SUPER_ADMIN' && (
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => {
-                const roleMap: Record<string, any> = {
-                  SUPER_ADMIN: 'SADMIN',
-                  REGISTRAR: 'REG',
-                  BURSAR: 'BURSAR',
-                  HOD_DEAN: 'HOD',
-                  LECTURER: 'INSTR',
-                  EXAM_OFFICER: 'EXAM',
-                  CLINICAL_SUPERVISOR: 'CLINSUP',
-                  STUDENT: 'STU',
-                  HOSTEL_WARDEN: 'SADMIN',
-                };
-                const mappedRole = roleMap[r.roleCode] || 'INSTR';
-                impersonateUser(mappedRole);
-                showToast({
-                  type: 'info',
-                  title: 'Impersonation Mode Active',
-                  message: `Now accessing system as ${r.roleTitle}.`,
-                });
-                navigate('/');
-              }}
-              leftIcon={<UserCheck className="w-3.5 h-3.5 text-[#0F7640]" />}
-              className="text-[#0F7640] border-emerald-200 hover:bg-emerald-50"
-            >
-              Impersonate
-            </Button>
-          )}
           <Button
             size="sm"
             variant="secondary"
@@ -1563,14 +1567,36 @@ export const AdminView: React.FC = () => {
               />
               <div className="flex-1 min-w-0">
                 <input
-                  type="text"
-                  value={editSchoolForm.logoUrl || '/BeonTech-Logo.png'}
-                  onChange={(e) => setEditSchoolForm({ ...editSchoolForm, logoUrl: e.target.value })}
-                  className="w-full h-9 px-3 text-xs bg-white border border-slate-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640]"
-                  placeholder="/BeonTech-Logo.png or image path"
+                  ref={logoInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  className="hidden"
+                  onChange={handleLogoSelect}
                 />
-                <span className="text-[10px] text-slate-500 block mt-1">
-                  Default: BeonTech Platform Logo (<code className="text-slate-700">/BeonTech-Logo.png</code>). Rendered across receipts, broadsheets, clearances, topbar, and sidebar.
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    isLoading={isUploadingLogo}
+                    onClick={() => logoInputRef.current?.click()}
+                  >
+                    Choose logo from computer
+                  </Button>
+                  {editSchoolForm.logoUrl && editSchoolForm.logoUrl !== '/BeonTech-Logo.png' && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setEditSchoolForm({ ...editSchoolForm, logoUrl: '/BeonTech-Logo.png' })}
+                    >
+                      Reset to default
+                    </Button>
+                  )}
+                </div>
+                <span className="text-[10px] text-slate-500 block mt-1.5">
+                  PNG, JPG, WebP or SVG. The logo is stored in the database when you press Save and is used on the
+                  login page, sidebar, browser tab, receipts, broadsheets and clearances.
                 </span>
               </div>
             </div>

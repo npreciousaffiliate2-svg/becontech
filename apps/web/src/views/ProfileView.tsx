@@ -109,14 +109,13 @@ export const ProfileView: React.FC = () => {
           upsert: true,
         });
 
-      if (!uploadErr && uploadData) {
-        const { data: publicUrlData } = supabase.storage
-          .from('avatars')
-          .getPublicUrl(filePath);
-        if (publicUrlData?.publicUrl) {
-          finalUrl = publicUrlData.publicUrl;
-        }
+      if (uploadErr || !uploadData) {
+        setAvatarPreview(null);
+        throw new Error(`Photo upload failed: ${uploadErr?.message || 'storage unavailable'}`);
       }
+      const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(filePath);
+      if (!publicUrlData?.publicUrl) throw new Error('Photo upload failed: no public address returned.');
+      finalUrl = publicUrlData.publicUrl;
 
       // 3. Persist to profiles table (remote Supabase + local cache)
       await updateProfile({ avatarUrl: finalUrl });
