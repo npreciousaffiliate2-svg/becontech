@@ -44,6 +44,7 @@ import {
 import { formatNaira } from '@campusone/contracts';
 import { printInstitutionalDocument } from '../utils/documentExport.ts';
 import { PersonAvatar, PhotoUploadControl, pluralize } from '../components/common/PersonAvatar.tsx';
+import { StateLgaSelect } from '../components/common/StateLgaSelect.tsx';
 
 /* ─── TYPES ─── */
 type StaffTab = 'directory' | 'payroll' | 'leave' | 'licensing';
@@ -74,6 +75,8 @@ interface StaffMember {
   payeTaxKobo: number;
   pensionKobo: number;
   avatarUrl?: string;
+  stateOfOrigin?: string;
+  lga?: string;
 }
 
 interface LeaveRecord {
@@ -155,6 +158,8 @@ export const StaffView: React.FC = () => {
   const [newStaffEmail, setNewStaffEmail] = useState('');
   const [newStaffPhone, setNewStaffPhone] = useState('');
   const [newStaffAvatarUrl, setNewStaffAvatarUrl] = useState('');
+  const [newStaffState, setNewStaffState] = useState('Oyo');
+  const [newStaffLga, setNewStaffLga] = useState('Ibadan North');
 
   /* ─── DATA: STAFF MEMBERS ─── */
   const [staffMembers, setStaffMembers] = useSharedRecords<StaffMember>('staff.members', [
@@ -418,6 +423,8 @@ export const StaffView: React.FC = () => {
       payeTaxKobo: 2200000,
       pensionKobo: 2240000,
       avatarUrl: newStaffAvatarUrl || undefined,
+      stateOfOrigin: newStaffState,
+      lga: newStaffLga,
     };
 
     if (newStaff.avatarUrl) {
@@ -1136,6 +1143,12 @@ export const StaffView: React.FC = () => {
                 <span className="text-slate-400 block text-[11px]">Contact Phone</span>
                 <span className="font-semibold text-slate-800">{selectedStaff.phone}</span>
               </div>
+              <div className="col-span-2">
+                <span className="text-slate-400 block text-[11px]">State of Origin / LGA</span>
+                <span className="font-semibold text-slate-800">
+                  {selectedStaff.stateOfOrigin || 'Oyo'} State ({selectedStaff.lga || 'Ibadan North'} LGA)
+                </span>
+              </div>
             </div>
 
             <div className="p-3 bg-slate-50 border border-slate-200 rounded-[4px] space-y-1">
@@ -1540,6 +1553,13 @@ export const StaffView: React.FC = () => {
             </div>
           </div>
 
+          <StateLgaSelect
+            stateValue={newStaffState}
+            lgaValue={newStaffLga}
+            onStateChange={setNewStaffState}
+            onLgaChange={setNewStaffLga}
+          />
+
           <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-200">
             <Button variant="secondary" onClick={() => setIsAddStaffModalOpen(false)}>
               Cancel
@@ -1711,6 +1731,13 @@ export const StaffView: React.FC = () => {
                 required
               />
             </div>
+
+            <StateLgaSelect
+              stateValue={editingStaff.stateOfOrigin || 'Oyo'}
+              lgaValue={editingStaff.lga || 'Ibadan North'}
+              onStateChange={(state) => setEditingStaff({ ...editingStaff, stateOfOrigin: state })}
+              onLgaChange={(lga) => setEditingStaff({ ...editingStaff, lga })}
+            />
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <Input

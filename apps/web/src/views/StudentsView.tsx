@@ -34,6 +34,8 @@ import {
 } from 'lucide-react';
 import { escapeHtml, exportToCsv, printGraduationCertificate, printInstitutionalDocument, printStudentIdCards } from '../utils/documentExport.ts';
 import { PersonAvatar, PhotoUploadControl, pluralize } from '../components/common/PersonAvatar.tsx';
+import { StateLgaSelect } from '../components/common/StateLgaSelect.tsx';
+import { NIGERIAN_STATES } from '@campusone/contracts';
 
 interface Student {
   id: string;
@@ -111,6 +113,7 @@ export const StudentsView: React.FC = () => {
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('ALL');
   const [selectedLevelFilter, setSelectedLevelFilter] = useState('ALL');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('ALL');
+  const [selectedStateFilter, setSelectedStateFilter] = useState('ALL');
 
   // Modals State
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -241,6 +244,7 @@ export const StudentsView: React.FC = () => {
     programmeCode: 'CHEW',
     level: '100 Level',
     stateOfOrigin: 'Oyo',
+    lga: 'Ibadan North',
     bloodGroup: 'O+',
     genotype: 'AA',
     hepatitisBStatus: 'VACCINATED',
@@ -494,7 +498,7 @@ export const StudentsView: React.FC = () => {
       phone: newStudentForm.phone,
       gender: newStudentForm.gender as 'Female' | 'Male',
       stateOfOrigin: newStudentForm.stateOfOrigin,
-      lga: 'Capital LGA',
+      lga: newStudentForm.lga || 'Ibadan North',
       departmentCode: progInfo.dept,
       department: `Department of ${progInfo.name}`,
       programmeCode: newStudentForm.programmeCode,
@@ -546,7 +550,9 @@ export const StudentsView: React.FC = () => {
       selectedLevelFilter === 'ALL' || s.level === selectedLevelFilter;
     const matchesStatus =
       selectedStatusFilter === 'ALL' || s.status === selectedStatusFilter;
-    return matchesSearch && matchesDept && matchesLevel && matchesStatus;
+    const matchesState =
+      selectedStateFilter === 'ALL' || s.stateOfOrigin === selectedStateFilter;
+    return matchesSearch && matchesDept && matchesLevel && matchesStatus && matchesState;
   });
 
   // Table Columns for Student Directory
@@ -939,6 +945,21 @@ export const StudentsView: React.FC = () => {
                   ]}
                   value={selectedStatusFilter}
                   onChange={(val) => setSelectedStatusFilter(val)}
+                />
+              </div>
+              <div className="w-44">
+                <Select
+                  options={[
+                    { value: 'ALL', label: 'All States / FCT' },
+                    ...NIGERIAN_STATES.map((st) => ({
+                      value: st,
+                      label: st === 'FCT (Abuja)' ? 'FCT (Abuja)' : `${st} State`,
+                    })),
+                  ]}
+                  value={selectedStateFilter}
+                  onChange={(val) => setSelectedStateFilter(val)}
+                  searchable={true}
+                  placeholder="Filter State..."
                 />
               </div>
             </div>
@@ -1741,6 +1762,13 @@ export const StudentsView: React.FC = () => {
               />
             </div>
 
+            <StateLgaSelect
+              stateValue={editingStudent.stateOfOrigin || 'Oyo'}
+              lgaValue={editingStudent.lga || 'Ibadan North'}
+              onStateChange={(state) => setEditingStudent({ ...editingStudent, stateOfOrigin: state })}
+              onLgaChange={(lga) => setEditingStudent({ ...editingStudent, lga })}
+            />
+
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <Select
                 label="Academic Level"
@@ -2170,6 +2198,26 @@ export const StudentsView: React.FC = () => {
               onChange={(e) => setNewStudentForm({ ...newStudentForm, phone: e.target.value })}
               required
             />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <Select
+              label="Gender"
+              options={[
+                { value: 'Female', label: 'Female' },
+                { value: 'Male', label: 'Male' },
+              ]}
+              value={newStudentForm.gender}
+              onChange={(val) => setNewStudentForm({ ...newStudentForm, gender: val })}
+            />
+            <div className="sm:col-span-2">
+              <StateLgaSelect
+                stateValue={newStudentForm.stateOfOrigin}
+                lgaValue={newStudentForm.lga}
+                onStateChange={(state) => setNewStudentForm({ ...newStudentForm, stateOfOrigin: state })}
+                onLgaChange={(lga) => setNewStudentForm({ ...newStudentForm, lga })}
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

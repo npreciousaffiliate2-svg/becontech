@@ -34,6 +34,8 @@ import {
 } from 'lucide-react';
 import { escapeHtml, exportToCsv, printInstitutionalDocument } from '../utils/documentExport.ts';
 import { PersonAvatar, PhotoUploadControl, pluralize } from '../components/common/PersonAvatar.tsx';
+import { StateLgaSelect } from '../components/common/StateLgaSelect.tsx';
+import { NIGERIAN_STATES } from '@campusone/contracts';
 
 const ADMISSION_ENTRANCE_QUESTIONS = [
   {
@@ -137,6 +139,7 @@ export const AdmissionsView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProgrammeFilter, setSelectedProgrammeFilter] = useState('ALL');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('ALL');
+  const [selectedStateFilter, setSelectedStateFilter] = useState('ALL');
 
   // Modal State
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
@@ -227,6 +230,7 @@ export const AdmissionsView: React.FC = () => {
     phone: '',
     gender: 'Female',
     stateOfOrigin: 'Oyo',
+    lga: 'Ibadan North',
     programmeCode: 'CHEW',
     cbtScore: '75',
     olevelExamBody: 'WAEC',
@@ -301,7 +305,7 @@ export const AdmissionsView: React.FC = () => {
       phone: newAppForm.phone,
       gender: newAppForm.gender as 'Female' | 'Male',
       stateOfOrigin: newAppForm.stateOfOrigin,
-      lga: 'Central',
+      lga: newAppForm.lga || 'Ibadan North',
       programmeCode: matchedDept ? matchedDept.code : newAppForm.programmeCode,
       programme: progName,
       department: deptName,
@@ -341,7 +345,9 @@ export const AdmissionsView: React.FC = () => {
       selectedProgrammeFilter === 'ALL' || c.programmeCode === selectedProgrammeFilter;
     const matchesStatus =
       selectedStatusFilter === 'ALL' || c.status === selectedStatusFilter;
-    return matchesSearch && matchesProg && matchesStatus;
+    const matchesState =
+      selectedStateFilter === 'ALL' || c.stateOfOrigin === selectedStateFilter;
+    return matchesSearch && matchesProg && matchesStatus && matchesState;
   });
 
   // Table Columns for Applications Directory
@@ -648,6 +654,21 @@ export const AdmissionsView: React.FC = () => {
                   ]}
                   value={selectedStatusFilter}
                   onChange={(val) => setSelectedStatusFilter(val)}
+                />
+              </div>
+              <div className="w-48">
+                <Select
+                  options={[
+                    { value: 'ALL', label: 'All States / FCT' },
+                    ...NIGERIAN_STATES.map((st) => ({
+                      value: st,
+                      label: st === 'FCT (Abuja)' ? 'FCT (Abuja)' : `${st} State`,
+                    })),
+                  ]}
+                  value={selectedStateFilter}
+                  onChange={(val) => setSelectedStateFilter(val)}
+                  searchable={true}
+                  placeholder="Filter by State..."
                 />
               </div>
             </div>
@@ -1237,7 +1258,7 @@ export const AdmissionsView: React.FC = () => {
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Select
               label="Gender"
               options={[
@@ -1247,20 +1268,14 @@ export const AdmissionsView: React.FC = () => {
               value={newAppForm.gender}
               onChange={(val) => setNewAppForm({ ...newAppForm, gender: val })}
             />
-            <Select
-              label="State of Origin"
-              options={[
-                { value: 'Oyo', label: 'Oyo State' },
-                { value: 'Osun', label: 'Osun State' },
-                { value: 'Ogun', label: 'Ogun State' },
-                { value: 'Lagos', label: 'Lagos State' },
-                { value: 'Kwara', label: 'Kwara State' },
-                { value: 'Delta', label: 'Delta State' },
-                { value: 'Edo', label: 'Edo State' },
-              ]}
-              value={newAppForm.stateOfOrigin}
-              onChange={(val) => setNewAppForm({ ...newAppForm, stateOfOrigin: val })}
-            />
+            <div className="sm:col-span-2">
+              <StateLgaSelect
+                stateValue={newAppForm.stateOfOrigin}
+                lgaValue={newAppForm.lga}
+                onStateChange={(state) => setNewAppForm({ ...newAppForm, stateOfOrigin: state })}
+                onLgaChange={(lga) => setNewAppForm({ ...newAppForm, lga })}
+              />
+            </div>
           </div>
 
           <Select
@@ -1535,12 +1550,14 @@ export const AdmissionsView: React.FC = () => {
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Input
-                label="State of Origin"
-                value={editingCandidate.stateOfOrigin || ''}
-                onChange={(e) => setEditingCandidate({ ...editingCandidate, stateOfOrigin: e.target.value })}
-              />
+            <StateLgaSelect
+              stateValue={editingCandidate.stateOfOrigin || 'Oyo'}
+              lgaValue={editingCandidate.lga || 'Ibadan North'}
+              onStateChange={(state) => setEditingCandidate({ ...editingCandidate, stateOfOrigin: state })}
+              onLgaChange={(lga) => setEditingCandidate({ ...editingCandidate, lga })}
+            />
+
+            <div>
               <Select
                 label="Programme Department"
                 options={departments.map((d) => ({ value: d.name, label: d.name }))}

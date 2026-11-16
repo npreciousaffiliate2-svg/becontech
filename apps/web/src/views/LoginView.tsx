@@ -6,6 +6,7 @@ import { Button, Input, Checkbox, Select, Modal, Badge, useToast } from '@campus
 import { useApp, AdmissionCandidateItem } from '../context/AppContext.tsx';
 import { supabase } from '../lib/supabase.ts';
 import { PhotoUploadControl } from '../components/common/PersonAvatar.tsx';
+import { StateLgaSelect } from '../components/common/StateLgaSelect.tsx';
 import { printInstitutionalDocument } from '../utils/documentExport.ts';
 import type { RoleCode } from '@campusone/contracts';
 
@@ -38,6 +39,7 @@ export const LoginView: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [gender, setGender] = useState<'Female' | 'Male'>('Female');
   const [stateOfOrigin, setStateOfOrigin] = useState('Oyo');
+  const [lga, setLga] = useState('Ibadan North');
   const [olevelBody, setOlevelBody] = useState<'WAEC' | 'NECO' | 'NABTEB'>('WAEC');
   const [programme, setProgramme] = useState('CHEW');
   const [avatarUrl, setAvatarUrl] = useState('');
@@ -114,7 +116,7 @@ export const LoginView: React.FC = () => {
       phone: phone.trim(),
       gender,
       stateOfOrigin,
-      lga: 'Central',
+      lga: lga || 'Ibadan North',
       programmeCode: matchedDept ? matchedDept.code : programme,
       programme: progName,
       department: deptName,
@@ -311,7 +313,7 @@ export const LoginView: React.FC = () => {
                   required
                 />
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Select
                   label="Gender"
                   value={gender}
@@ -322,21 +324,7 @@ export const LoginView: React.FC = () => {
                   ]}
                 />
                 <Select
-                  label="State of Origin"
-                  value={stateOfOrigin}
-                  onChange={setStateOfOrigin}
-                  options={[
-                    { value: 'Oyo', label: 'Oyo State' },
-                    { value: 'Osun', label: 'Osun State' },
-                    { value: 'Ogun', label: 'Ogun State' },
-                    { value: 'Lagos', label: 'Lagos State' },
-                    { value: 'Kwara', label: 'Kwara State' },
-                    { value: 'Ekiti', label: 'Ekiti State' },
-                    { value: 'Ondo', label: 'Ondo State' },
-                  ]}
-                />
-                <Select
-                  label="O'Level Body"
+                  label="O'Level Examination Body"
                   value={olevelBody}
                   onChange={(v) => setOlevelBody(v as 'WAEC' | 'NECO' | 'NABTEB')}
                   options={[
@@ -346,6 +334,12 @@ export const LoginView: React.FC = () => {
                   ]}
                 />
               </div>
+              <StateLgaSelect
+                stateValue={stateOfOrigin}
+                lgaValue={lga}
+                onStateChange={setStateOfOrigin}
+                onLgaChange={setLga}
+              />
               <Select
                 label="Intended Health Programme"
                 value={programme}
