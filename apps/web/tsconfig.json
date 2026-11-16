@@ -14,7 +14,14 @@
     "strict": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "baseUrl": ".",
+    "paths": {
+      "@campusone/contracts": ["../../packages/contracts/src/index.ts"],
+      "@campusone/contracts/*": ["../../packages/contracts/src/*"],
+      "@campusone/ui": ["../../packages/ui/src/index.ts"],
+      "@campusone/ui/*": ["../../packages/ui/src/*"]
+    }
   },
   "include": ["src"]
 }
