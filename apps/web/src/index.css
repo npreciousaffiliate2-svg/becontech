@@ -32,6 +32,17 @@ html, body, #root, aside, header {
   border-radius: 0px !important;
 }
 
+/* Strictly prevent horizontal scrolling on sidebar */
+aside {
+  overflow-x: hidden !important;
+  max-width: 100vw !important;
+}
+
+aside nav {
+  overflow-x: hidden !important;
+  overscroll-behavior-x: none !important;
+}
+
 @layer utilities {
   .font-tabular {
     font-variant-numeric: tabular-nums;

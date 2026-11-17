@@ -360,15 +360,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
           boxShadow: 'none',
           borderRadius: '0px',
         }}
-        className={`fixed bottom-0 left-0 z-40 flex flex-col justify-between text-white transition-all duration-200 select-none rounded-none ${
+        className={`fixed bottom-0 left-0 z-40 flex flex-col justify-between text-white transition-all duration-200 select-none rounded-none overflow-x-hidden ${
           isMobileOpen
             ? 'translate-x-0 opacity-100 pointer-events-auto border-r border-white/10 visible'
             : '-translate-x-full opacity-0 pointer-events-none lg:opacity-100 lg:pointer-events-auto lg:translate-x-0 lg:border-r lg:border-white/10 lg:visible invisible'
         }`}
       >
-        <div className="flex flex-col flex-1 min-h-0">
+        <div className="flex flex-col flex-1 min-h-0 w-full overflow-x-hidden">
           {/* Brand Header */}
-          <div className="h-14 px-4 border-b border-white/10 flex items-center justify-between shrink-0">
+          <div className="h-14 px-4 border-b border-white/10 flex items-center justify-between shrink-0 w-full overflow-hidden">
             {!isCollapsed ? (
               <div className="flex items-center gap-2.5 min-w-0">
                 <img
@@ -408,11 +408,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           {/* Grouped Navigation Links with WordPress-style Submenus */}
-          <nav className="flex-1 overflow-y-auto px-2 py-3 pb-10 space-y-4">
+          <nav className="flex-1 overflow-y-auto overflow-x-hidden w-full px-2 py-3 pb-10 space-y-4">
             {filteredNavGroups.map((group) => (
-              <div key={group.group} className="space-y-1">
+              <div key={group.group} className="space-y-1 w-full min-w-0">
                 {!isCollapsed ? (
-                  <div className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-300/60 px-3.5 py-1 select-none">
+                  <div className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-300/60 px-3.5 py-1 select-none truncate">
                     {group.group}
                   </div>
                 ) : (
@@ -428,8 +428,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   const hasSubItems = item.subItems && item.subItems.length > 0;
 
                   return (
-                    <div key={item.path} className="space-y-0.5">
-                      <div className="flex items-center">
+                    <div key={item.path} className="space-y-0.5 w-full min-w-0">
+                      <div className="flex items-center w-full min-w-0">
                         <NavLink
                           to={item.path}
                           end={item.path === '/'}
@@ -443,7 +443,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           }}
                           className={({ isActive }) => {
                             const isCurrentActive = isActive || isBasePathActive;
-                            return `flex-1 flex items-center justify-between px-3.5 py-2.5 rounded-[4px] text-[14px] transition-all duration-150 ${
+                            return `flex-1 min-w-0 flex items-center justify-between px-3.5 py-2.5 rounded-[4px] text-[14px] transition-all duration-150 ${
                               isCurrentActive
                                 ? 'bg-white text-[#093322] font-bold shadow-sm'
                                 : 'text-white/85 hover:text-white hover:bg-white/10 font-medium'
@@ -454,11 +454,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           {({ isActive }) => {
                             const isCurrentActive = isActive || isBasePathActive;
                             return (
-                              <div className="flex items-center gap-3 min-w-0">
-                                <span className={isCurrentActive ? 'text-[#0F7640]' : 'text-white/90'}>
+                              <div className="flex items-center gap-3 min-w-0 flex-1">
+                                <span className={`${isCurrentActive ? 'text-[#0F7640]' : 'text-white/90'} shrink-0`}>
                                   {item.icon}
                                 </span>
-                                {!isCollapsed && <span className="truncate">{item.name}</span>}
+                                {!isCollapsed && <span className="truncate flex-1 min-w-0">{item.name}</span>}
                               </div>
                             );
                           }}
@@ -469,7 +469,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           <button
                             type="button"
                             onClick={(e) => toggleSubmenu(item.path, e)}
-                            className="p-2 text-emerald-200/70 hover:text-white hover:bg-white/10 rounded-[4px] ml-1 transition-colors"
+                            className="p-2 text-emerald-200/70 hover:text-white hover:bg-white/10 rounded-[4px] ml-1 transition-colors shrink-0"
                             aria-label={`Toggle ${item.name} sub-menu`}
                           >
                             {isMenuOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
@@ -479,7 +479,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                       {/* Clean Sub-Menu Items (Subtle Low-Opacity Background, No Left Line) */}
                       {!isCollapsed && hasSubItems && isMenuOpen && (
-                        <div className="py-1 space-y-0.5">
+                        <div className="py-1 space-y-0.5 w-full min-w-0 overflow-x-hidden">
                           {item.subItems!.map((sub) => {
                             const isSubActive =
                               location.pathname === sub.path ||
@@ -491,7 +491,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 key={sub.path}
                                 to={sub.path}
                                 onClick={onCloseMobile}
-                                className={`block pl-10 pr-3 py-2 text-[13px] rounded-[4px] transition-colors truncate ${
+                                className={`block w-full min-w-0 pl-10 pr-3 py-2 text-[13px] rounded-[4px] transition-colors truncate ${
                                   isSubActive
                                     ? 'text-white bg-white/[0.08] font-semibold'
                                     : 'text-white/70 hover:text-white hover:bg-white/[0.05] font-normal'
@@ -512,7 +512,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* User Profile Footer (Synchronized with Header Profile & Navigation to /profile) */}
-        <div className="border-t border-white/10 p-3 bg-black/20 shrink-0">
+        <div className="border-t border-white/10 p-3 bg-black/20 shrink-0 w-full overflow-x-hidden">
           <div className="flex items-center justify-between gap-2">
             <div
               onClick={() => {
