@@ -117,8 +117,8 @@ export const UseOneIDLookup: React.FC<UseOneIDLookupProps> = ({
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        gap: '7px',
-        padding: '5px 11px',
+        justifyContent: 'center',
+        padding: '5px 12px',
         borderRadius: '4px',
         border: '1px solid #a7f3d0',
         background: '#ecfdf5',
@@ -126,39 +126,17 @@ export const UseOneIDLookup: React.FC<UseOneIDLookupProps> = ({
         fontSize: '11.5px',
         fontWeight: 700,
         fontFamily: 'Inter, sans-serif',
+        whiteSpace: 'nowrap',
         cursor: loading ? 'not-allowed' : 'pointer',
         opacity: loading ? 0.75 : 1,
         transition: 'all 0.15s ease',
         boxSizing: 'border-box',
         userSelect: 'none',
+        flexShrink: 0,
         ...style,
       }}
     >
-      <div
-        style={{
-          width: '15px',
-          height: '15px',
-          borderRadius: '2px',
-          background: '#ffffff',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          overflow: 'hidden',
-          flexShrink: 0,
-        }}
-      >
-        <img
-          src="https://useoneid.com/favicon.png"
-          alt="UseOneID"
-          onError={(e) => {
-            const target = e.target as HTMLImageElement;
-            target.onerror = null;
-            target.style.display = 'none';
-          }}
-          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-        />
-      </div>
-      <span>{loading ? 'Waiting for sign-in...' : buttonText}</span>
+      <span>{loading ? 'Connecting...' : buttonText}</span>
     </button>
   );
 };

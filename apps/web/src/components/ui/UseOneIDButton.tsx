@@ -312,7 +312,7 @@ export const UseOneIDButton: React.FC<UseOneIDButtonProps> = ({
   const displayText = text || (accountFound ? reuseText : firstTimeText);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
       <button
         type="button"
         onClick={handleClick}
@@ -386,23 +386,6 @@ export const UseOneIDButton: React.FC<UseOneIDButtonProps> = ({
               : displayText}
         </span>
       </button>
-
-      {showBadge && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '4px',
-            fontSize: '10.5px',
-            color: '#64748b',
-            fontFamily: 'Inter, sans-serif',
-            userSelect: 'none',
-          }}
-        >
-          <span>Secured by UseOneID &bull; Encrypted &bull; NIMC Verified</span>
-        </div>
-      )}
     </div>
   );
 };

@@ -380,7 +380,7 @@ export const LoginView: React.FC = () => {
                 firstTimeText="Sign in with UseOneID"
                 reuseText="Authorize with 1-Click ID (Reuse)"
                 theme="brand"
-                showBadge={true}
+                showBadge={false}
               />
 
               <div className="pt-2 text-center text-xs text-slate-400">
@@ -390,17 +390,21 @@ export const LoginView: React.FC = () => {
           ) : (
             <form onSubmit={handleRegister} className="space-y-3.5">
               {/* UseOneID Official Fast-Track KYC & Auto-Fill */}
-              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-[4px] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-[4px] flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-8 h-8 rounded-[4px] bg-[#0F7640] text-white flex items-center justify-center shrink-0 shadow-xs">
-                    <ShieldCheck size={18} />
+                  <div className="w-8 h-8 rounded-[4px] bg-white border border-slate-200 flex items-center justify-center shrink-0 shadow-xs p-1">
+                    <img
+                      src="https://useoneid.com/favicon.png"
+                      alt="UseOneID"
+                      className="w-full h-full object-contain"
+                    />
                   </div>
                   <div className="min-w-0">
                     <span className="text-xs font-bold text-slate-900 block font-sans truncate">
-                      Fast-Track KYC with UseOneID
+                      Fast-Track with UseOneID
                     </span>
-                    <span className="text-[11px] text-slate-600 block truncate">
-                      Auto-fill verified legal name, NIN, state, LGA &amp; photo in 1-click
+                    <span className="text-[11px] text-slate-500 block truncate">
+                      Auto-fill verified details in 1-click
                     </span>
                   </div>
                 </div>
@@ -416,10 +420,10 @@ export const LoginView: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <CheckCircle2 size={16} className="text-[#0F7640]" />
                     <span>
-                      <strong>NIMC &bull; UseOneID Verified:</strong> {verifiedOneId.name} ({verifiedOneId.tier})
+                      <strong>UseOneID Verified:</strong> {verifiedOneId.name}
                     </span>
                   </div>
-                  <Badge variant="success" size="sm">KYC TIER 3</Badge>
+                  <Badge variant="success" size="sm">VERIFIED</Badge>
                 </div>
               )}
 

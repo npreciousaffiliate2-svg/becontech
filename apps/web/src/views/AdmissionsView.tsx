@@ -1291,15 +1291,21 @@ export const AdmissionsView: React.FC = () => {
       >
         <form onSubmit={handleAddNewApplication} className="space-y-3.5 text-xs">
           {/* Fast-Track with UseOneID */}
-          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-[4px] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-[4px] flex items-center justify-between gap-2.5">
             <div className="flex items-center gap-2 min-w-0">
-              <ShieldCheck size={18} className="text-[#0F7640] shrink-0" />
+              <div className="w-7 h-7 rounded-[4px] bg-white border border-slate-200 flex items-center justify-center shrink-0 shadow-xs p-1">
+                <img
+                  src="https://useoneid.com/favicon.png"
+                  alt="UseOneID"
+                  className="w-full h-full object-contain"
+                />
+              </div>
               <div className="min-w-0">
                 <span className="text-xs font-bold text-slate-900 block font-sans truncate">
-                  UseOneID Official Auto-Fill
+                  Fast-Track with UseOneID
                 </span>
-                <span className="text-[11px] text-slate-600 block truncate">
-                  Auto-fill candidate bio-data, state, LGA &amp; verified photo
+                <span className="text-[11px] text-slate-500 block truncate">
+                  Auto-fill verified details in 1-click
                 </span>
               </div>
             </div>
@@ -1314,10 +1320,10 @@ export const AdmissionsView: React.FC = () => {
               <div className="flex items-center gap-1.5">
                 <CheckCircle2 size={14} className="text-[#0F7640]" />
                 <span>
-                  <strong>NIMC &bull; UseOneID:</strong> {newAppForm.oneIdNumber} (Verified)
+                  <strong>UseOneID Verified:</strong> {newAppForm.fullName}
                 </span>
               </div>
-              <Badge variant="success" size="sm">NIMC KYC</Badge>
+              <Badge variant="success" size="sm">VERIFIED</Badge>
             </div>
           )}
 
