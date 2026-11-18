@@ -39,7 +39,7 @@ import { escapeHtml, exportToCsv, printInstitutionalDocument } from '../utils/do
 import { PersonAvatar, PhotoUploadControl, pluralize } from '../components/common/PersonAvatar.tsx';
 import { StateLgaSelect } from '../components/common/StateLgaSelect.tsx';
 import { UseOneIDLookup, UseOneIDButton } from '../components/ui/index.ts';
-import { NIGERIAN_STATES, ACCREDITED_HEALTH_PROGRAMMES } from '@campusone/contracts';
+import { NIGERIAN_STATES, ACCREDITED_HEALTH_PROGRAMMES, ACCREDITED_COLLEGE_DEPARTMENTS } from '@campusone/contracts';
 
 const ADMISSION_ENTRANCE_QUESTIONS = [
   {
@@ -141,6 +141,7 @@ export const AdmissionsView: React.FC = () => {
 
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedDeptFilter, setSelectedDeptFilter] = useState('ALL');
   const [selectedProgrammeFilter, setSelectedProgrammeFilter] = useState('ALL');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('ALL');
   const [selectedStateFilter, setSelectedStateFilter] = useState('ALL');
@@ -272,6 +273,7 @@ export const AdmissionsView: React.FC = () => {
     gender: 'Female',
     stateOfOrigin: 'Oyo',
     lga: 'Ibadan North',
+    departmentCode: 'CHD',
     programmeCode: 'CHEW',
     cbtScore: '75',
     olevelExamBody: 'WAEC',
@@ -394,13 +396,18 @@ export const AdmissionsView: React.FC = () => {
       c.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       c.applicationNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       c.phone.includes(searchQuery);
+    const matchesDept =
+      selectedDeptFilter === 'ALL' ||
+      c.department === selectedDeptFilter ||
+      ACCREDITED_HEALTH_PROGRAMMES.find((p) => p.code === c.programmeCode)?.departmentCode === selectedDeptFilter ||
+      ACCREDITED_HEALTH_PROGRAMMES.find((p) => p.code === c.programmeCode)?.departmentName === selectedDeptFilter;
     const matchesProg =
       selectedProgrammeFilter === 'ALL' || c.programmeCode === selectedProgrammeFilter;
     const matchesStatus =
       selectedStatusFilter === 'ALL' || c.status === selectedStatusFilter;
     const matchesState =
       selectedStateFilter === 'ALL' || c.stateOfOrigin === selectedStateFilter;
-    return matchesSearch && matchesProg && matchesStatus && matchesState;
+    return matchesSearch && matchesDept && matchesProg && matchesStatus && matchesState;
   });
 
   // Table Columns for Applications Directory
@@ -681,16 +688,26 @@ export const AdmissionsView: React.FC = () => {
               <div className="w-48">
                 <Select
                   options={[
+                    { value: 'ALL', label: 'All Departments' },
+                    ...ACCREDITED_COLLEGE_DEPARTMENTS.map((d) => ({ value: d.code, label: d.name })),
+                  ]}
+                  value={selectedDeptFilter}
+                  onChange={(val) => {
+                    setSelectedDeptFilter(val);
+                    if (val !== 'ALL') {
+                      setSelectedProgrammeFilter('ALL');
+                    }
+                  }}
+                />
+              </div>
+              <div className="w-48">
+                <Select
+                  options={[
                     { value: 'ALL', label: 'All Programmes' },
-                    ...(departments && departments.length > 0
-                      ? departments.map((d) => ({ value: d.code, label: `${d.code} - ${d.name}` }))
-                      : [
-                          { value: 'CHEW', label: 'CHEW (Community Health)' },
-                          { value: 'MLT', label: 'MLT (Medical Lab)' },
-                          { value: 'PHT', label: 'PHT (Pharmacy Tech)' },
-                          { value: 'HIM', label: 'HIM (Health Records)' },
-                          { value: 'EHT', label: 'EHT (Environmental)' },
-                        ]),
+                    ...ACCREDITED_HEALTH_PROGRAMMES.filter((p) => selectedDeptFilter === 'ALL' || p.departmentCode === selectedDeptFilter).map((p) => ({
+                      value: p.code,
+                      label: `${p.code} - ${p.name}`,
+                    })),
                   ]}
                   value={selectedProgrammeFilter}
                   onChange={(val) => setSelectedProgrammeFilter(val)}
@@ -1419,15 +1436,42 @@ export const AdmissionsView: React.FC = () => {
             </div>
           </div>
 
-          <Select
-            label="Applied Health Programme"
-            options={ACCREDITED_HEALTH_PROGRAMMES.map((p) => ({
-              value: p.code,
-              label: `${p.name} — [${p.regulatoryBody}] (${p.duration})`,
-            }))}
-            value={newAppForm.programmeCode}
-            onChange={(val) => setNewAppForm({ ...newAppForm, programmeCode: val })}
-          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Select
+              label="Academic Department"
+              options={ACCREDITED_COLLEGE_DEPARTMENTS.map((d) => ({
+                value: d.code,
+                label: d.name,
+              }))}
+              value={newAppForm.departmentCode || 'CHD'}
+              onChange={(val) => {
+                const matching = ACCREDITED_HEALTH_PROGRAMMES.filter((p) => p.departmentCode === val);
+                setNewAppForm({
+                  ...newAppForm,
+                  departmentCode: val,
+                  programmeCode: matching[0]?.code || 'CHEW',
+                });
+              }}
+            />
+            <Select
+              label="Applied Health Programme"
+              options={ACCREDITED_HEALTH_PROGRAMMES.filter(
+                (p) => p.departmentCode === (newAppForm.departmentCode || 'CHD')
+              ).map((p) => ({
+                value: p.code,
+                label: `${p.name} — [${p.regulatoryBody}] (${p.duration})`,
+              }))}
+              value={newAppForm.programmeCode}
+              onChange={(val) => {
+                const p = ACCREDITED_HEALTH_PROGRAMMES.find((item) => item.code === val);
+                setNewAppForm({
+                  ...newAppForm,
+                  programmeCode: val,
+                  departmentCode: p ? p.departmentCode : newAppForm.departmentCode,
+                });
+              }}
+            />
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Select
@@ -1733,10 +1777,39 @@ export const AdmissionsView: React.FC = () => {
               onLgaChange={(lga) => setEditingCandidate({ ...editingCandidate, lga })}
             />
 
-            <div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Select
+                label="Academic Department"
+                options={ACCREDITED_COLLEGE_DEPARTMENTS.map((d) => ({
+                  value: d.code,
+                  label: d.name,
+                }))}
+                value={
+                  ACCREDITED_HEALTH_PROGRAMMES.find((p) => p.code === editingCandidate.programmeCode)?.departmentCode ||
+                  ACCREDITED_COLLEGE_DEPARTMENTS.find((d) => d.name === editingCandidate.department)?.code ||
+                  'CHD'
+                }
+                onChange={(val) => {
+                  const matching = ACCREDITED_HEALTH_PROGRAMMES.filter((p) => p.departmentCode === val);
+                  const first = matching[0];
+                  setEditingCandidate({
+                    ...editingCandidate,
+                    programmeCode: first?.code || editingCandidate.programmeCode,
+                    programme: first?.name || editingCandidate.programme,
+                    department: first?.departmentName || editingCandidate.department,
+                    regulatoryBody: first?.regulatoryBody || editingCandidate.regulatoryBody,
+                  });
+                }}
+              />
               <Select
                 label="Applied Health Programme"
-                options={ACCREDITED_HEALTH_PROGRAMMES.map((p) => ({
+                options={ACCREDITED_HEALTH_PROGRAMMES.filter((p) => {
+                  const currentDeptCode =
+                    ACCREDITED_HEALTH_PROGRAMMES.find((item) => item.code === editingCandidate.programmeCode)?.departmentCode ||
+                    ACCREDITED_COLLEGE_DEPARTMENTS.find((d) => d.name === editingCandidate.department)?.code ||
+                    'CHD';
+                  return p.departmentCode === currentDeptCode;
+                }).map((p) => ({
                   value: p.code,
                   label: `${p.name} — [${p.regulatoryBody}] (${p.duration})`,
                 }))}

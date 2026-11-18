@@ -50,6 +50,23 @@ export interface SemesterGpaResult {
   onProbation: boolean; // CGPA < 1.50 threshold
 }
 
+export interface CollegeDepartmentItem {
+  code: string;
+  name: string;
+  regulatoryBody: string;
+}
+
+export const ACCREDITED_COLLEGE_DEPARTMENTS: CollegeDepartmentItem[] = [
+  { code: 'CHD', name: 'Community Health Department', regulatoryBody: 'CHPRBN' },
+  { code: 'DHD', name: 'Dental Health Department', regulatoryBody: 'DTRBN' },
+  { code: 'EHD', name: 'Environmental Health Department', regulatoryBody: 'EHORECON' },
+  { code: 'HIM', name: 'Health Information Management Department', regulatoryBody: 'HRORBN' },
+  { code: 'PHT', name: 'Pharmacy Technician Department', regulatoryBody: 'PCN' },
+  { code: 'HTD', name: 'Health Technician Department', regulatoryBody: 'FMOH' },
+  { code: 'HAD', name: 'Health Assistant Department', regulatoryBody: 'FMOH' },
+  { code: 'MLT', name: 'Medical Laboratory Science Department', regulatoryBody: 'MLSCN' },
+];
+
 export interface HealthProgrammeItem {
   code: string;
   name: string;
@@ -65,7 +82,7 @@ export const ACCREDITED_HEALTH_PROGRAMMES: HealthProgrammeItem[] = [
     code: 'CHEW',
     name: 'Community Health Extension Worker (CHEW)',
     departmentCode: 'CHD',
-    departmentName: 'Department of Community Health',
+    departmentName: 'Community Health Department',
     regulatoryBody: 'CHPRBN',
     duration: '3-Year National Diploma',
     credentialAwarded: 'Diploma in Community Health',
@@ -74,7 +91,7 @@ export const ACCREDITED_HEALTH_PROGRAMMES: HealthProgrammeItem[] = [
     code: 'JCHEW',
     name: 'Junior Community Health Extension Worker (JCHEW)',
     departmentCode: 'CHD',
-    departmentName: 'Department of Community Health',
+    departmentName: 'Community Health Department',
     regulatoryBody: 'CHPRBN',
     duration: '2-Year Certificate',
     credentialAwarded: 'Certificate in Community Health',
@@ -164,7 +181,7 @@ export const ACCREDITED_HEALTH_PROGRAMMES: HealthProgrammeItem[] = [
     code: 'MLT',
     name: 'Medical Laboratory Technician (MLT)',
     departmentCode: 'MLT',
-    departmentName: 'Department of Medical Laboratory Science',
+    departmentName: 'Medical Laboratory Science Department',
     regulatoryBody: 'MLSCN',
     duration: '3-Year Diploma',
     credentialAwarded: 'Diploma in Medical Laboratory Technology',

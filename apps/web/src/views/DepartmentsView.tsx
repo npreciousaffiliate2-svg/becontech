@@ -311,6 +311,19 @@ export const DepartmentsView: React.FC = () => {
       regulatoryBody: 'CHPRBN',
       status: 'Full Accreditation',
     },
+    {
+      id: 'prog-12',
+      name: 'Medical Laboratory Technician (MLT)',
+      code: 'MLT',
+      departmentCode: 'MLT',
+      departmentName: 'Medical Laboratory Science Department',
+      duration: '3 Years (6 Semesters)',
+      studentsCount: 165,
+      boardQuota: 180,
+      credentialAwarded: 'Professional Diploma in Medical Laboratory Technology',
+      regulatoryBody: 'MLSCN',
+      status: 'Full Accreditation',
+    },
   ];
 
   const [programmesList, setProgrammesList] = useSharedRecords<Programme>('registry.programmes', initialProgrammes);

@@ -540,6 +540,33 @@ const DEFAULT_DEPARTMENTS: DepartmentItem[] = [
       { code: 'CHE 301', title: 'Rural Healthcare Administration', units: 3, semester: 'Harmattan Semester', level: '300 Level', lecturer: 'Dr. K. Bello' },
     ],
   },
+  {
+    id: 'dept-mlt',
+    name: 'Medical Laboratory Science Department',
+    code: 'MLT',
+    hod: 'Dr. (Mrs) N. Okonkwo',
+    hodTitle: 'Chief Medical Laboratory Scientist & Head of Department',
+    hodEmail: 'hod.mlt@becohtech.edu.ng',
+    hodPhone: '+234 907 578 9045',
+    office: 'Diagnostics Wing, Pathology Lab 2',
+    approvedQuota: 180,
+    programmesCount: 1,
+    studentsCount: 165,
+    facultyCount: 8,
+    accreditationStatus: 'FULL',
+    accreditationValidUntil: 'December 2028',
+    regulatoryBody: 'MLSCN',
+    regulatoryBodyFull: 'Medical Laboratory Science Council of Nigeria',
+    programmes: [
+      { name: 'Medical Laboratory Technician (MLT)', duration: '3-Year Diploma', students: 165 },
+    ],
+    courses: [
+      { code: 'MLT 101', title: 'Clinical Chemistry & Chemical Pathology', units: 4, semester: 'Harmattan Semester', level: '100 Level', lecturer: 'Dr. (Mrs) N. Okonkwo' },
+      { code: 'MLT 102', title: 'Medical Microbiology & Parasitology', units: 4, semester: 'Harmattan Semester', level: '100 Level', lecturer: 'Mr. P. Nwachukwu' },
+      { code: 'MLT 201', title: 'Haematology & Blood Transfusion Science', units: 4, semester: 'Harmattan Semester', level: '200 Level', lecturer: 'Dr. (Mrs) N. Okonkwo' },
+      { code: 'MLT 301', title: 'Histopathology & Diagnostic Techniques', units: 4, semester: 'Harmattan Semester', level: '300 Level', lecturer: 'Mr. P. Nwachukwu' },
+    ],
+  },
 ];
 
 const DEFAULT_COURSES: CurriculumCourseItem[] = [

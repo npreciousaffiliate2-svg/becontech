@@ -9,7 +9,7 @@ import { PhotoUploadControl } from '../components/common/PersonAvatar.tsx';
 import { StateLgaSelect } from '../components/common/StateLgaSelect.tsx';
 import { printInstitutionalDocument } from '../utils/documentExport.ts';
 import { UseOneIDButton, UseOneIDLookup } from '../components/ui/index.ts';
-import { type RoleCode, ACCREDITED_HEALTH_PROGRAMMES } from '@campusone/contracts';
+import { type RoleCode, ACCREDITED_HEALTH_PROGRAMMES, ACCREDITED_COLLEGE_DEPARTMENTS } from '@campusone/contracts';
 
 export const LoginView: React.FC = () => {
   const navigate = useNavigate();
@@ -48,6 +48,7 @@ export const LoginView: React.FC = () => {
   const [biologyGrade, setBiologyGrade] = useState('B2');
   const [chemistryGrade, setChemistryGrade] = useState('C4');
   const [physicsGrade, setPhysicsGrade] = useState('C5');
+  const [selectedDeptCode, setSelectedDeptCode] = useState('CHD');
   const [programme, setProgramme] = useState('CHEW');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [regPassword, setRegPassword] = useState('');
@@ -500,15 +501,36 @@ export const LoginView: React.FC = () => {
                 onStateChange={setStateOfOrigin}
                 onLgaChange={setLga}
               />
-              <Select
-                label="Intended Health Programme"
-                value={programme}
-                onChange={setProgramme}
-                options={ACCREDITED_HEALTH_PROGRAMMES.map((p) => ({
-                  value: p.code,
-                  label: `${p.name} — [${p.regulatoryBody}]`,
-                }))}
-              />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Select
+                  label="Academic Department"
+                  value={selectedDeptCode}
+                  onChange={(val) => {
+                    setSelectedDeptCode(val);
+                    const matching = ACCREDITED_HEALTH_PROGRAMMES.filter((p) => p.departmentCode === val);
+                    if (matching.length > 0) {
+                      setProgramme(matching[0].code);
+                    }
+                  }}
+                  options={ACCREDITED_COLLEGE_DEPARTMENTS.map((d) => ({
+                    value: d.code,
+                    label: d.name,
+                  }))}
+                />
+                <Select
+                  label="Intended Health Programme"
+                  value={programme}
+                  onChange={(val) => {
+                    setProgramme(val);
+                    const p = ACCREDITED_HEALTH_PROGRAMMES.find((item) => item.code === val);
+                    if (p) setSelectedDeptCode(p.departmentCode);
+                  }}
+                  options={ACCREDITED_HEALTH_PROGRAMMES.filter((p) => p.departmentCode === selectedDeptCode).map((p) => ({
+                    value: p.code,
+                    label: `${p.name} — [${p.regulatoryBody}]`,
+                  }))}
+                />
+              </div>
 
               {/* O'Level Examination Results Upload */}
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-[4px] space-y-2">
