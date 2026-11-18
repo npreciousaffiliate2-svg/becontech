@@ -51,10 +51,49 @@ export const DashboardView: React.FC = () => {
       (c) => c.email && c.email.toLowerCase() === userEmail
     );
 
+    const isApplicant =
+      currentPersona.scopeBadge === 'Admission Applicant' ||
+      currentPersona.scopeBadge === 'Admitted Candidate' ||
+      Boolean(currentPersona.applicationNumber) ||
+      (matchingCandidate && matchingCandidate.status !== 'ENROLLED');
+
     // If logged in user is an Applicant (not yet matriculated/enrolled)
-    if (matchingCandidate && (matchingCandidate.status === 'APPLIED' || matchingCandidate.status === 'SCREENED' || matchingCandidate.status === 'ADMITTED')) {
-      const isAdmitted = matchingCandidate.status === 'ADMITTED';
-      const isScreened = matchingCandidate.status === 'SCREENED' || isAdmitted;
+    if (isApplicant) {
+      const candidateData = matchingCandidate || {
+        id: currentPersona.id || 'cand-current',
+        applicationNumber: currentPersona.applicationNumber || 'APP/2026/0145',
+        fullName: currentPersona.fullName || session?.fullName || 'Applicant',
+        email: currentPersona.email || session?.email || '',
+        phone: currentPersona.phone || '+234 800 000 0000',
+        gender: 'Female',
+        stateOfOrigin: 'Oyo State',
+        lga: 'Ibadan North',
+        programme: currentPersona.department || 'Community Health Extension Worker (CHEW)',
+        programmeCode: 'CHEW',
+        regulatoryBody: 'CHPRBN',
+        olevelExamBody: 'WAEC',
+        olevelExamYear: 2025,
+        olevelStatus: 'VERIFIED' as const,
+        olevelVerified: true,
+        olevelSubjects: [
+          { subject: 'English Language', grade: 'B3', verified: true },
+          { subject: 'Mathematics', grade: 'C4', verified: true },
+          { subject: 'Biology', grade: 'B2', verified: true },
+          { subject: 'Chemistry', grade: 'B3', verified: true },
+          { subject: 'Physics', grade: 'C5', verified: true },
+        ],
+        cbtScore: 78,
+        cbtDate: new Date().toISOString().slice(0, 10),
+        status: (currentPersona.scopeBadge === 'Admitted Candidate' ? 'ADMITTED' : 'SCREENED') as any,
+        applicationFeePaid: true,
+        acceptanceFeePaid: false,
+        verifiedByOneId: true,
+        registeredAt: new Date().toISOString(),
+        department: currentPersona.department || 'Community Health Extension (CHEW)',
+      };
+
+      const isAdmitted = candidateData.status === 'ADMITTED';
+      const isScreened = candidateData.status === 'SCREENED' || isAdmitted;
 
       return (
         <div className="flex flex-col gap-6 font-sans">
@@ -65,13 +104,13 @@ export const DashboardView: React.FC = () => {
                 {schoolProfile?.activeSession || '2026/2027'} Admission &amp; Screening Portal
               </span>
               <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-                Welcome, {matchingCandidate.fullName}
+                Welcome, {candidateData.fullName}
               </h1>
               <p className="text-xs sm:text-sm text-emerald-100/90 font-medium flex items-center gap-2 flex-wrap">
-                <span>Application No: <strong className="text-white font-bold">{matchingCandidate.applicationNumber}</strong></span>
-                <span>&bull; {matchingCandidate.programme}</span>
+                <span>Application No: <strong className="text-white font-bold">{candidateData.applicationNumber}</strong></span>
+                <span>&bull; {candidateData.programme}</span>
                 <span className="bg-emerald-800/80 px-2 py-0.5 rounded text-[11px] text-emerald-100">
-                  {matchingCandidate.regulatoryBody}
+                  {candidateData.regulatoryBody}
                 </span>
               </p>
             </div>
@@ -84,19 +123,19 @@ export const DashboardView: React.FC = () => {
                 leftIcon={<Printer className="w-3.5 h-3.5" />}
                 onClick={() => {
                   printInstitutionalDocument({
-                    title: `Admission Application Slip — ${matchingCandidate.fullName}`,
+                    title: `Admission Application Slip — ${candidateData.fullName}`,
                     badgeText: `OFFICIAL ONLINE APPLICATION & CBT SCREENING SLIP`,
-                    referenceNo: matchingCandidate.applicationNumber,
-                    issuedDate: matchingCandidate.cbtDate,
+                    referenceNo: candidateData.applicationNumber,
+                    issuedDate: candidateData.cbtDate,
                     schoolProfile,
                     officeSubtitle: 'Office of the Registrar • Admissions & Screening Division',
                     metaItems: [
-                      { label: 'Application Number', value: matchingCandidate.applicationNumber, highlight: true },
-                      { label: 'Applicant Full Name', value: matchingCandidate.fullName, highlight: true },
-                      { label: 'Chosen Programme', value: matchingCandidate.programme },
-                      { label: 'Regulatory Council', value: matchingCandidate.regulatoryBody },
-                      { label: "O'Level Examination", value: `${matchingCandidate.olevelExamBody} (${matchingCandidate.olevelExamYear})` },
-                      { label: 'Application Fee Status', value: matchingCandidate.applicationFeePaid ? 'PAID & VERIFIED' : 'PENDING' },
+                      { label: 'Application Number', value: candidateData.applicationNumber, highlight: true },
+                      { label: 'Applicant Full Name', value: candidateData.fullName, highlight: true },
+                      { label: 'Chosen Programme', value: candidateData.programme },
+                      { label: 'Regulatory Council', value: candidateData.regulatoryBody },
+                      { label: "O'Level Examination", value: `${candidateData.olevelExamBody} (${candidateData.olevelExamYear})` },
+                      { label: 'Application Fee Status', value: candidateData.applicationFeePaid ? 'PAID & VERIFIED' : 'PENDING' },
                     ],
                     summaryNoteHtml: `
                       <strong>Next Steps for Applicant:</strong><br/>
@@ -125,7 +164,7 @@ export const DashboardView: React.FC = () => {
                   {isAdmitted ? 'ADMITTED' : isScreened ? 'SCREENED' : 'SUBMITTED'}
                 </span>
                 <Badge variant={isAdmitted ? 'success' : isScreened ? 'success' : 'warning'} size="sm">
-                  {matchingCandidate.status}
+                  {candidateData.status}
                 </Badge>
               </div>
               <p className="text-[11px] text-slate-500 mt-1 font-sans">
@@ -140,12 +179,12 @@ export const DashboardView: React.FC = () => {
               </div>
               <div className="mt-2 flex items-baseline gap-2">
                 <span className="text-xl font-bold text-slate-900 font-sans">
-                  {matchingCandidate.olevelStatus}
+                  {candidateData.olevelStatus}
                 </span>
                 <Badge variant="success" size="sm">5 CREDITS</Badge>
               </div>
               <p className="text-[11px] text-slate-500 mt-1 font-sans">
-                {matchingCandidate.olevelExamBody} ({matchingCandidate.olevelExamYear}) Verified
+                {candidateData.olevelExamBody} ({candidateData.olevelExamYear}) Verified
               </p>
             </Card>
 
@@ -156,7 +195,7 @@ export const DashboardView: React.FC = () => {
               </div>
               <div className="mt-2 flex items-baseline gap-2">
                 <span className="text-2xl font-bold text-slate-900 font-sans">
-                  {matchingCandidate.cbtScore || 75}%
+                  {candidateData.cbtScore || 75}%
                 </span>
                 <span className="text-xs text-emerald-700 font-semibold font-sans">Pass Cut-off ≥ 50%</span>
               </div>
@@ -175,7 +214,7 @@ export const DashboardView: React.FC = () => {
                 <Badge variant="success" size="sm">PAID</Badge>
               </div>
               <p className="text-[11px] text-slate-500 mt-1 font-sans">
-                Ref: {matchingCandidate.applicationFeeRef || 'PAY-ONLINE-001'}
+                Ref: {(candidateData as any).applicationFeeRef || 'PAY-ONLINE-001'}
               </p>
             </Card>
           </div>
@@ -232,7 +271,7 @@ export const DashboardView: React.FC = () => {
             header={
               <div className="flex items-center justify-between">
                 <span className="font-bold text-slate-900 uppercase tracking-wider text-xs">
-                  Submitted O'Level Science Subjects ({matchingCandidate.olevelExamBody} {matchingCandidate.olevelExamYear})
+                  Submitted O'Level Science Subjects ({candidateData.olevelExamBody} {candidateData.olevelExamYear})
                 </span>
                 <Badge variant="success" size="sm">CREDITS VERIFIED</Badge>
               </div>
@@ -249,10 +288,10 @@ export const DashboardView: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {(matchingCandidate.olevelSubjects || []).map((s, idx) => (
+                  {(candidateData.olevelSubjects || []).map((s, idx) => (
                     <tr key={idx} className="hover:bg-slate-50/50">
                       <td className="px-4 py-2.5 font-medium text-slate-800">{s.subject}</td>
-                      <td className="px-4 py-2.5 text-slate-600">{matchingCandidate.olevelExamBody}</td>
+                      <td className="px-4 py-2.5 text-slate-600">{candidateData.olevelExamBody}</td>
                       <td className="px-4 py-2.5 font-bold text-slate-900">{s.grade}</td>
                       <td className="px-4 py-2.5 text-[#0F7640] font-semibold">Credit Pass</td>
                     </tr>
@@ -266,7 +305,7 @@ export const DashboardView: React.FC = () => {
           <div className="p-4 bg-emerald-50/40 border border-emerald-200/80 rounded-[4px] text-xs text-slate-700 space-y-1">
             <span className="font-bold text-[#0F7640] block">Official Academic Board Screening Notice:</span>
             <p className="text-[11px] text-slate-600 leading-relaxed">
-              Your application credentials have been validated for <strong>{matchingCandidate.programme}</strong> under the <strong>{matchingCandidate.department}</strong>.
+              Your application credentials have been validated for <strong>{candidateData.programme}</strong> under the <strong>{candidateData.department}</strong>.
               Upon Academic Board review and provisional offer ratification, your official Admission Letter and Bursary Acceptance Fee portal will unlock here.
             </p>
           </div>

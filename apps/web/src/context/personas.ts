@@ -1,6 +1,7 @@
 import type { RoleCode, PermissionCode } from '@campusone/contracts';
 
 export interface PersonaProfile {
+  id?: string;
   role: RoleCode;
   title: string;
   fullName: string;
@@ -13,6 +14,7 @@ export interface PersonaProfile {
   avatarUrl?: string;
   department?: string;
   matricNumber?: string;
+  applicationNumber?: string;
   scopeBadge: string;
   description: string;
   allowedModules: string[];

@@ -214,7 +214,7 @@ export interface AppContextType {
     targetUser?: { id: string; name: string; email: string; matricNumber?: string }
   ) => void;
   stopImpersonating: () => void;
-  loginAs: (role: RoleCode) => void;
+  loginAs: (role: RoleCode, userEmail?: string, userName?: string) => void;
   signOut: () => Promise<void>;
   authReady: boolean;
   isAuthenticated: boolean;
@@ -1016,37 +1016,70 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     (activeRole === 'STU' || activeRole === 'SPON'
       ? (() => {
           try {
-            return localStorage.getItem('campusone_current_user_email');
+            return (
+              localStorage.getItem('campusone_current_user_email') ||
+              localStorage.getItem('campusone_last_applicant_email')
+            );
           } catch (e) {
             return null;
           }
         })()
       : null);
 
+  // Look up in active candidates state or fallback to local registry
   const matchedCandidate = currentEmailToMatch
-    ? candidates.find(
+    ? (candidates.find(
         (c) => c.email && c.email.toLowerCase() === currentEmailToMatch.toLowerCase()
-      )
+      ) || (() => {
+        try {
+          const raw = localStorage.getItem('campusone_admissions_candidates');
+          if (raw) {
+            const list = JSON.parse(raw);
+            return list.find((c: any) => c.email && c.email.toLowerCase() === currentEmailToMatch.toLowerCase());
+          }
+        } catch (e) {}
+        return null;
+      })())
     : null;
+
+  const isApplicantRole =
+    (activeRole === 'STU' || activeRole === 'SPON') &&
+    (Boolean(matchedCandidate && matchedCandidate.status !== 'ENROLLED') ||
+     Boolean(currentEmailToMatch && !['che.2026.0014@becohtech.edu.ng', 'blessing.adeyemi@becohtech.edu.ng'].includes(currentEmailToMatch.toLowerCase())));
 
   const persona: PersonaProfile = {
     ...basePersona,
     ...personaOverrides,
     permissions: personaOverrides.permissions || basePersona.permissions,
-    ...(matchedCandidate && (activeRole === 'STU' || activeRole === 'SPON')
+    ...(isApplicantRole
+      ? {
+          fullName:
+            matchedCandidate?.fullName ||
+            (currentEmailToMatch ? currentEmailToMatch.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()) : basePersona.fullName),
+          email: matchedCandidate?.email || currentEmailToMatch || basePersona.email,
+          phone: matchedCandidate?.phone || basePersona.phone,
+          department: matchedCandidate?.department || matchedCandidate?.programme || 'Department of Community Health',
+          matricNumber: matchedCandidate?.matricNumber || matchedCandidate?.applicationNumber || 'APP/2026/0145',
+          scopeBadge:
+            matchedCandidate?.status === 'ADMITTED'
+              ? 'Admitted Candidate'
+              : 'Admission Applicant',
+          bio: matchedCandidate
+            ? `${matchedCandidate.programme} • Application: ${matchedCandidate.applicationNumber}`
+            : 'Candidate Admission & Entrance Screening Profile',
+          avatarUrl: matchedCandidate?.avatarUrl || basePersona.avatarUrl,
+          // Strict module confinement: applicants can ONLY see Admission Overview, Profile, and Help Support
+          allowedModules: ['/', '/profile', '/support'],
+        }
+      : matchedCandidate && (activeRole === 'STU' || activeRole === 'SPON')
       ? {
           fullName: matchedCandidate.fullName,
           email: matchedCandidate.email,
           phone: matchedCandidate.phone,
           department: matchedCandidate.department || matchedCandidate.programme,
           matricNumber: matchedCandidate.matricNumber || matchedCandidate.applicationNumber,
-          scopeBadge:
-            matchedCandidate.status === 'ENROLLED'
-              ? 'Enrolled Student'
-              : matchedCandidate.status === 'ADMITTED'
-              ? 'Admitted Candidate'
-              : 'Admission Applicant',
-          bio: `${matchedCandidate.programme} • App No: ${matchedCandidate.applicationNumber}`,
+          scopeBadge: 'Enrolled Student',
+          bio: `${matchedCandidate.programme} • Matric: ${matchedCandidate.matricNumber}`,
           avatarUrl: matchedCandidate.avatarUrl || basePersona.avatarUrl,
         }
       : {}),
@@ -1392,25 +1425,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const nextLogs = [newLog, ...prevList];
     auditLogsRef.current = nextLogs;
     setAuditLogs(nextLogs);
+    try {
+      localStorage.setItem('campusone_audit_logs', JSON.stringify(nextLogs.slice(0, 50)));
+    } catch (e) {}
 
-    supabase.from('audit_logs').insert({
-      id: newLog.id,
-      college_id: newLog.collegeId,
-      actor_id: newLog.actorId,
-      actor_role: newLog.actorRole,
-      action: newLog.action,
-      entity_type: newLog.entityType,
-      entity_id: newLog.entityId,
-      before_snapshot: newLog.beforeSnapshot,
-      after_snapshot: newLog.afterSnapshot,
-      ip_address: newLog.ipAddress,
-      user_agent: newLog.userAgent,
-      chain_hash: newLog.chainHash,
-      prev_hash: newLog.prevHash,
-      timestamp: newLog.timestamp,
-    }).then(({ error }) => {
-      if (error) console.warn('[CampusOne] Supabase audit sync:', error.message);
-    });
+    try {
+      Promise.resolve(
+        supabase.from('audit_logs').insert({
+          id: newLog.id,
+          college_id: newLog.collegeId,
+          actor_id: newLog.actorId,
+          actor_role: newLog.actorRole,
+          action: newLog.action,
+          entity_type: newLog.entityType,
+          entity_id: newLog.entityId,
+          before_snapshot: newLog.beforeSnapshot,
+          after_snapshot: newLog.afterSnapshot,
+          ip_address: newLog.ipAddress,
+          user_agent: newLog.userAgent,
+          chain_hash: newLog.chainHash,
+          prev_hash: newLog.prevHash,
+          timestamp: newLog.timestamp,
+        })
+      ).catch(() => {});
+    } catch (e) {}
   };
 
   const updateSchoolProfile = async (updates: Partial<SchoolProfile>) => {
@@ -1998,9 +2036,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const loginAs = (role: RoleCode) => {
+  const loginAs = (role: RoleCode, userEmail?: string, userName?: string) => {
     setAuthenticatedRole(role);
     setImpersonatedRole(null);
+    if (userEmail) {
+      setAuthUserEmail(userEmail);
+      try {
+        localStorage.setItem('campusone_current_user_email', userEmail);
+      } catch (e) {}
+    }
+    if (userName && (role === 'STU' || role === 'SPON')) {
+      setImpersonatedUserMeta({
+        id: `usr-${userEmail ? userEmail.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() : 'applicant'}`,
+        name: userName,
+        email: userEmail || '',
+      });
+    }
     try {
       sessionStorage.removeItem('campusone_impersonated_role');
       localStorage.removeItem('campusone_auth_role');

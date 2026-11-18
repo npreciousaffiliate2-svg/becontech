@@ -81,13 +81,16 @@ export const LoginView: React.FC = () => {
       });
       // If email matches student demo or admin, log them straight in
       if (user.email === 'blessing.adeyemi@becohtech.edu.ng') {
-        loginAs('STU');
+        loginAs('STU', user.email, name);
         navigate('/');
       } else if (user.email === 'admin@becohtech.edu.ng') {
-        loginAs('SADMIN');
+        loginAs('SADMIN', user.email, name);
         navigate('/');
       } else if (user.email === 'hod.chew@becohtech.edu.ng') {
-        loginAs('HOD');
+        loginAs('HOD', user.email, name);
+        navigate('/');
+      } else {
+        loginAs('STU', user.email, name);
         navigate('/');
       }
     } else {
@@ -171,7 +174,7 @@ export const LoginView: React.FC = () => {
       });
       return;
     }
-    loginAs(profile.role as RoleCode);
+    loginAs(profile.role as RoleCode, email.trim(), profile.full_name);
     setIsLoading(false);
     showToast({
       type: 'success',
@@ -642,12 +645,13 @@ export const LoginView: React.FC = () => {
                   size="sm"
                   onClick={() => {
                     const appEmail = submittedApplication?.email || regEmail;
+                    const appName = submittedApplication?.fullName || fullName;
                     setSubmittedApplication(null);
-                    setActiveTab('signin');
-                    setEmail(appEmail);
+                    loginAs('STU', appEmail, appName);
+                    navigate('/');
                   }}
                 >
-                  Proceed to Sign In
+                  Proceed to Applicant Portal
                 </Button>
               </div>
             }

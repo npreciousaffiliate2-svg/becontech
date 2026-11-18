@@ -93,7 +93,7 @@ export const BursaryView: React.FC = () => {
 
   // Role Scope Enforcer: Students & Sponsors only view their own records
   const isStudent = session.activeRole === 'STU' || session.activeRole === 'SPON';
-  const userMatric = persona?.matricNumber || 'CHE/2026/0014';
+  const userMatric = persona?.matricNumber || persona?.applicationNumber || 'CHE/2026/0014';
 
   // Tab synchronization
   const resolveTab = (tabStr?: string | null): BursaryTab => {
@@ -524,17 +524,41 @@ export const BursaryView: React.FC = () => {
       return;
     }
 
-    const { data: gateway } = await supabase
-      .from('integration_settings')
-      .select('public_key, is_enabled')
-      .eq('gateway_type', 'payment_paystack')
-      .maybeSingle();
-    const paystackKey = gateway?.is_enabled ? gateway.public_key || '' : '';
+    let paystackKey = '';
+    try {
+      const localPk = localStorage.getItem('campusone_paystack_public_key');
+      const localGwRaw = localStorage.getItem('campusone_gateway_payment_paystack');
+      const envKey = (import.meta as any).env?.VITE_PAYSTACK_PUBLIC_KEY;
+      if (localPk && !localPk.startsWith('sk_')) {
+        paystackKey = localPk;
+      } else if (localGwRaw) {
+        const gw = JSON.parse(localGwRaw);
+        if (gw.is_enabled && gw.public_key && !gw.public_key.startsWith('sk_')) {
+          paystackKey = gw.public_key;
+        }
+      } else if (envKey && !envKey.startsWith('sk_')) {
+        paystackKey = envKey;
+      }
+    } catch (e) {}
+
+    if (!paystackKey) {
+      try {
+        const { data: gateway } = await supabase
+          .from('integration_settings')
+          .select('public_key, is_enabled')
+          .eq('gateway_type', 'payment_paystack')
+          .maybeSingle();
+        if (gateway?.is_enabled && gateway.public_key && !gateway.public_key.startsWith('sk_')) {
+          paystackKey = gateway.public_key;
+        }
+      } catch (e) {}
+    }
+
     if (!paystackKey) {
       showToast({
         type: 'danger',
         title: 'Paystack Key Missing',
-        message: 'Save the Paystack public key in Administration before students can pay online.',
+        message: 'Save your Paystack Public Key (starts with pk_test_ or pk_live_) in Administration before students can pay online.',
       });
       return;
     }
@@ -1693,16 +1717,16 @@ export const BursaryView: React.FC = () => {
             {/* Trainee Identification Box */}
             <div className="p-3 bg-slate-50 border border-slate-200 rounded-[4px] space-y-1">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] text-slate-500 font-medium">Trainee Name:</span>
-                <span className="font-bold text-slate-900">{persona?.fullName || 'Blessing Adeyemi'}</span>
+                <span className="text-[11px] text-slate-500 font-medium">{persona?.matricNumber ? 'Trainee Name:' : 'Payer Name:'}</span>
+                <span className="font-bold text-slate-900">{persona?.fullName || 'Student Trainee'}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[11px] text-slate-500 font-medium">Matriculation No.:</span>
+                <span className="text-[11px] text-slate-500 font-medium">{persona?.matricNumber ? 'Matriculation No.:' : 'Application Ref.:'}</span>
                 <span className="font-bold text-[#0F7640] font-sans">{userMatric}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[11px] text-slate-500 font-medium">Department:</span>
-                <span className="text-slate-700">{persona?.department || 'Community Health Extension (CHEW)'}</span>
+                <span className="text-[11px] text-slate-500 font-medium">{persona?.matricNumber ? 'Department:' : 'Programme:'}</span>
+                <span className="text-slate-700">{persona?.department || 'Health Sciences'}</span>
               </div>
             </div>
 
