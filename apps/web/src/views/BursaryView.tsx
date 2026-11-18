@@ -584,7 +584,7 @@ export const BursaryView: React.FC = () => {
               showToast({
                 type: 'danger',
                 title: 'Payment Unconfirmed',
-                message: 'Paystack returned no transaction reference. The ledger was not credited.',
+                message: 'Paystack returned no transaction reference. The fee payment was not credited.',
               });
               return;
             }
@@ -1661,7 +1661,7 @@ export const BursaryView: React.FC = () => {
                       },
                     ],
                     summaryNoteHtml: `
-                      <strong>Verification &amp; Audit Notice:</strong> This receipt is cryptographically signed in the College double-entry ledger.
+                      <strong>Verification &amp; Audit Notice:</strong> This receipt is cryptographically signed and registered in the College bursary system.
                       Verification Hash: <strong>${selectedReceipt.qrVerificationHash || gatewayRef}</strong> &bull; Issuer: ${selectedReceipt.issuer || 'Bursary Department'}.
                     `,
                     stampText: 'OFFICIALLY PAID & CLEARED',
@@ -1789,7 +1789,7 @@ export const BursaryView: React.FC = () => {
                 Instant Automated Clearance
               </div>
               <p className="text-slate-600">
-                Payment is credited to your ledger immediately. An official numbered receipt is
+                Payment is credited to your student fee record immediately. An official numbered receipt is
                 generated with an encrypted QR code for examination docket clearance.
               </p>
               <div className="mt-2 pt-2 border-t border-emerald-200/60 flex items-center justify-between text-[11px] font-semibold text-slate-700">

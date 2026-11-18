@@ -118,15 +118,28 @@ export function triggerIframePrint(htmlDocument: string): void {
   iframe.style.position = 'fixed';
   iframe.style.right = '0';
   iframe.style.bottom = '0';
-  iframe.style.width = '0';
-  iframe.style.height = '0';
-  iframe.style.border = '0';
+  iframe.style.width = '1px';
+  iframe.style.height = '1px';
+  iframe.style.opacity = '0.01';
+  iframe.style.pointerEvents = 'none';
+  iframe.style.zIndex = '-999';
   iframe.setAttribute('aria-hidden', 'true');
   document.body.appendChild(iframe);
 
   const doc = iframe.contentWindow?.document;
   if (!doc || !iframe.contentWindow) {
     iframe.remove();
+    // Direct window fallback if iframes are restricted
+    const win = window.open('', '_blank');
+    if (win) {
+      win.document.open();
+      win.document.write(htmlDocument);
+      win.document.close();
+      win.focus();
+      setTimeout(() => {
+        try { win.print(); } catch (e) {}
+      }, 300);
+    }
     return;
   }
 
@@ -146,11 +159,23 @@ export function triggerIframePrint(htmlDocument: string): void {
       }
       iframe.contentWindow?.focus();
       iframe.contentWindow?.print();
+    } catch (err) {
+      console.warn('[CampusOne Print] Iframe print exception, using window fallback:', err);
+      const win = window.open('', '_blank');
+      if (win) {
+        win.document.open();
+        win.document.write(htmlDocument);
+        win.document.close();
+        win.focus();
+        setTimeout(() => {
+          try { win.print(); } catch (e) {}
+        }, 300);
+      }
     } finally {
       document.title = prevParentTitle;
       setTimeout(() => {
         iframe.remove();
-      }, 2000);
+      }, 2500);
     }
   };
 
@@ -173,7 +198,8 @@ export function triggerIframePrint(htmlDocument: string): void {
         img.addEventListener('error', checkDone, { once: true });
       }
     });
-    setTimeout(executePrint, 800);
+    // Safety fallback timer so print never hangs
+    setTimeout(executePrint, 500);
   }
 }
 

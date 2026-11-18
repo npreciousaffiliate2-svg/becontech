@@ -105,7 +105,7 @@ export interface FacultyLoadItem {
 export const TimetableView: React.FC = () => {
   const { tab } = useParams<{ tab?: string }>();
   const navigate = useNavigate();
-  const { isDense, recordAudit, session, schoolProfile, departments, courses } = useApp();
+  const { isDense, recordAudit, session, persona, schoolProfile, departments, courses } = useApp();
   const { showToast } = useToast();
 
   const currentPersona = PERSONA_PROFILES[session?.activeRole || 'PROVOST'] || PERSONA_PROFILES.STU;
@@ -1123,6 +1123,23 @@ export const TimetableView: React.FC = () => {
         </div>
       </div>
 
+      {isStudent && persona.scopeBadge === 'Admission Applicant' ? (
+        <Card className="p-8 text-center bg-white border border-slate-200 rounded-[4px] shadow-sm space-y-3 max-w-xl mx-auto my-8">
+          <div className="w-12 h-12 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center mx-auto">
+            <Clock className="w-6 h-6" />
+          </div>
+          <h2 className="text-base font-bold text-slate-900">Lecture Timetable Unlocks Upon Enrollment</h2>
+          <p className="text-xs text-slate-600 leading-relaxed">
+            Welcome, <strong>{persona.fullName}</strong>. You are currently in the <strong>Admission Screening Stage</strong> (Application: <strong>{persona.matricNumber}</strong>). Departmental lecture schedules and clinical rotation rosters will be assigned upon confirmation of your admission and matriculation enrollment.
+          </p>
+          <div className="pt-2">
+            <Button size="sm" onClick={() => navigate('/')} className="bg-[#0F7640] hover:bg-[#093322]">
+              Back to Admission Status
+            </Button>
+          </div>
+        </Card>
+      ) : (
+        <>
       {/* ─── TOP STAT CARDS (VERTICAL STACKING, STRICT 4PX BORDER RADIUS) ─── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
@@ -1453,6 +1470,8 @@ export const TimetableView: React.FC = () => {
             }
           />
         </Card>
+      )}
+        </>
       )}
 
       {/* ─── MODAL 1: ADD CLASS SLOT ─── */}

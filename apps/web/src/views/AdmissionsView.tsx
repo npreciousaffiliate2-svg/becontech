@@ -39,7 +39,7 @@ import { escapeHtml, exportToCsv, printInstitutionalDocument } from '../utils/do
 import { PersonAvatar, PhotoUploadControl, pluralize } from '../components/common/PersonAvatar.tsx';
 import { StateLgaSelect } from '../components/common/StateLgaSelect.tsx';
 import { UseOneIDLookup, UseOneIDButton } from '../components/ui/index.ts';
-import { NIGERIAN_STATES } from '@campusone/contracts';
+import { NIGERIAN_STATES, ACCREDITED_HEALTH_PROGRAMMES } from '@campusone/contracts';
 
 const ADMISSION_ENTRANCE_QUESTIONS = [
   {
@@ -202,7 +202,14 @@ export const AdmissionsView: React.FC = () => {
       email: editingCandidate.email,
       phone: editingCandidate.phone,
       stateOfOrigin: editingCandidate.stateOfOrigin,
+      lga: editingCandidate.lga,
       department: editingCandidate.department,
+      programme: editingCandidate.programme,
+      regulatoryBody: editingCandidate.regulatoryBody,
+      olevelExamBody: editingCandidate.olevelExamBody,
+      olevelExamYear: editingCandidate.olevelExamYear,
+      olevelStatus: editingCandidate.olevelStatus,
+      olevelSubjects: editingCandidate.olevelSubjects,
       utmeScore: Number(editingCandidate.utmeScore) || 0,
       cbtScore: Number(editingCandidate.cbtScore) || 0,
       status: editingCandidate.status,
@@ -269,6 +276,12 @@ export const AdmissionsView: React.FC = () => {
     cbtScore: '75',
     olevelExamBody: 'WAEC',
     olevelExamYear: '2025',
+    olevelStatus: 'VERIFIED' as 'VERIFIED' | 'PENDING' | 'DEFICIENT',
+    englishGrade: 'B3',
+    mathsGrade: 'C4',
+    biologyGrade: 'B2',
+    chemistryGrade: 'C4',
+    physicsGrade: 'C5',
     avatarUrl: '',
     oneIdNumber: '',
     oneIdVerified: false,
@@ -327,10 +340,10 @@ export const AdmissionsView: React.FC = () => {
     const nextSerial = candidates.length + 142;
     const appNumber = `APP/2026/0${nextSerial}`;
 
-    const matchedDept = departments.find((d) => d.code === newAppForm.programmeCode) || departments[0];
-    const deptName = matchedDept ? matchedDept.name : 'Department of Health Sciences';
-    const regBoard = matchedDept ? matchedDept.regulatoryBody : (schoolProfile?.regulatoryCouncils?.[0] || 'NBTE');
-    const progName = matchedDept ? `${matchedDept.name} (${matchedDept.code})` : newAppForm.programmeCode;
+    const matchedProg = ACCREDITED_HEALTH_PROGRAMMES.find((p) => p.code === newAppForm.programmeCode) || ACCREDITED_HEALTH_PROGRAMMES[0];
+    const deptName = matchedProg.departmentName;
+    const regBoard = matchedProg.regulatoryBody;
+    const progName = matchedProg.name;
     const score = parseInt(newAppForm.cbtScore) || (schoolProfile?.minimumCutoffScore || 70);
 
     const newCandidate = addCandidate({
@@ -343,19 +356,19 @@ export const AdmissionsView: React.FC = () => {
       gender: newAppForm.gender as 'Female' | 'Male',
       stateOfOrigin: newAppForm.stateOfOrigin,
       lga: newAppForm.lga || 'Ibadan North',
-      programmeCode: matchedDept ? matchedDept.code : newAppForm.programmeCode,
+      programmeCode: matchedProg.code,
       programme: progName,
       department: deptName,
       regulatoryBody: regBoard,
       olevelExamBody: newAppForm.olevelExamBody as any,
       olevelExamYear: newAppForm.olevelExamYear,
-      olevelStatus: 'VERIFIED',
+      olevelStatus: newAppForm.olevelStatus || 'VERIFIED',
       olevelSubjects: [
-        { subject: 'English Language', grade: 'B3' },
-        { subject: 'Mathematics', grade: 'C4' },
-        { subject: 'Biology', grade: 'B2' },
-        { subject: 'Chemistry', grade: 'C5' },
-        { subject: 'Physics', grade: 'C5' },
+        { subject: 'English Language', grade: newAppForm.englishGrade || 'B3' },
+        { subject: 'Mathematics', grade: newAppForm.mathsGrade || 'C4' },
+        { subject: 'Biology', grade: newAppForm.biologyGrade || 'B2' },
+        { subject: 'Chemistry', grade: newAppForm.chemistryGrade || 'C4' },
+        { subject: 'Physics', grade: newAppForm.physicsGrade || 'C5' },
       ],
       cbtScore: score,
       status: score >= (schoolProfile?.minimumCutoffScore || 50) ? 'SCREENED' : 'APPLIED',
@@ -1219,9 +1232,22 @@ export const AdmissionsView: React.FC = () => {
 
             {/* O'Level Results Breakdown */}
             <div className="space-y-2">
-              <span className="font-bold text-slate-900 text-xs uppercase tracking-wider block">
-                Verified O'Level Subjects ({selectedCandidate.olevelExamBody} {selectedCandidate.olevelExamYear})
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-900 text-xs uppercase tracking-wider block">
+                  Verified O'Level Subjects ({selectedCandidate.olevelExamBody} {selectedCandidate.olevelExamYear})
+                </span>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  leftIcon={<Edit2 className="w-3 h-3" />}
+                  onClick={() => {
+                    handleOpenEditCandidate(selectedCandidate);
+                    setSelectedCandidate(null);
+                  }}
+                >
+                  Upload / Edit Results
+                </Button>
+              </div>
               <div className="border border-slate-200 rounded-[4px] overflow-hidden">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold">
@@ -1291,13 +1317,13 @@ export const AdmissionsView: React.FC = () => {
         onClose={() => setIsNewAppOpen(false)}
         title="Register Candidate Application"
         description="Enroll a walk-in or offline candidate into the 2026/2027 admission screening pool."
-        size="md"
+        size="lg"
         footer={
           <div className="flex items-center justify-end gap-2 w-full">
             <Button variant="secondary" size="sm" onClick={() => setIsNewAppOpen(false)}>
               Cancel
             </Button>
-            <Button size="sm" onClick={handleAddNewApplication}>
+            <Button size="sm" onClick={handleAddNewApplication} className="bg-[#0F7640] hover:bg-[#093322]">
               Submit Application
             </Button>
           </div>
@@ -1395,14 +1421,10 @@ export const AdmissionsView: React.FC = () => {
 
           <Select
             label="Applied Health Programme"
-            options={
-              departments && departments.length > 0
-                ? departments.map((d) => ({ value: d.code, label: `${d.name} (${d.code})` }))
-                : [
-                    { value: 'CHEW', label: 'Community Health Extension Worker (CHEW)' },
-                    { value: 'MLT', label: 'Medical Laboratory Technician (MLT)' },
-                  ]
-            }
+            options={ACCREDITED_HEALTH_PROGRAMMES.map((p) => ({
+              value: p.code,
+              label: `${p.name} — [${p.regulatoryBody}] (${p.duration})`,
+            }))}
             value={newAppForm.programmeCode}
             onChange={(val) => setNewAppForm({ ...newAppForm, programmeCode: val })}
           />
@@ -1429,6 +1451,45 @@ export const AdmissionsView: React.FC = () => {
               value={newAppForm.cbtScore}
               onChange={(e) => setNewAppForm({ ...newAppForm, cbtScore: e.target.value })}
             />
+          </div>
+
+          {/* O'Level Core Subjects & Verification Grades */}
+          <div className="p-3 bg-slate-50 border border-slate-200 rounded-[4px] space-y-2">
+            <span className="text-[11px] font-bold text-slate-800 uppercase tracking-wide block">
+              Core O'Level Subjects &amp; Verification Grades
+            </span>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+              <Select
+                label="English"
+                value={newAppForm.englishGrade}
+                onChange={(val) => setNewAppForm({ ...newAppForm, englishGrade: val })}
+                options={['A1', 'B2', 'B3', 'C4', 'C5', 'C6', 'D7', 'E8', 'F9'].map((g) => ({ value: g, label: g }))}
+              />
+              <Select
+                label="Mathematics"
+                value={newAppForm.mathsGrade}
+                onChange={(val) => setNewAppForm({ ...newAppForm, mathsGrade: val })}
+                options={['A1', 'B2', 'B3', 'C4', 'C5', 'C6', 'D7', 'E8', 'F9'].map((g) => ({ value: g, label: g }))}
+              />
+              <Select
+                label="Biology"
+                value={newAppForm.biologyGrade}
+                onChange={(val) => setNewAppForm({ ...newAppForm, biologyGrade: val })}
+                options={['A1', 'B2', 'B3', 'C4', 'C5', 'C6', 'D7', 'E8', 'F9'].map((g) => ({ value: g, label: g }))}
+              />
+              <Select
+                label="Chemistry"
+                value={newAppForm.chemistryGrade}
+                onChange={(val) => setNewAppForm({ ...newAppForm, chemistryGrade: val })}
+                options={['A1', 'B2', 'B3', 'C4', 'C5', 'C6', 'D7', 'E8', 'F9'].map((g) => ({ value: g, label: g }))}
+              />
+              <Select
+                label="Physics"
+                value={newAppForm.physicsGrade}
+                onChange={(val) => setNewAppForm({ ...newAppForm, physicsGrade: val })}
+                options={['A1', 'B2', 'B3', 'C4', 'C5', 'C6', 'D7', 'E8', 'F9'].map((g) => ({ value: g, label: g }))}
+              />
+            </div>
           </div>
         </form>
       </Modal>
@@ -1638,8 +1699,8 @@ export const AdmissionsView: React.FC = () => {
           isOpen={isEditCandidateOpen}
           onClose={() => setIsEditCandidateOpen(false)}
           title={`Edit ${editingCandidate.fullName}`}
-          description="Update applicant contact details, exam scores, and department choice."
-          size="md"
+          description="Update applicant contact details, exam scores, programme choice, and O'Level verification grades."
+          size="lg"
         >
           <form onSubmit={handleUpdateCandidate} className="space-y-3.5 text-xs">
             <Input
@@ -1674,10 +1735,22 @@ export const AdmissionsView: React.FC = () => {
 
             <div>
               <Select
-                label="Programme Department"
-                options={departments.map((d) => ({ value: d.name, label: d.name }))}
-                value={editingCandidate.department}
-                onChange={(val) => setEditingCandidate({ ...editingCandidate, department: val })}
+                label="Applied Health Programme"
+                options={ACCREDITED_HEALTH_PROGRAMMES.map((p) => ({
+                  value: p.code,
+                  label: `${p.name} — [${p.regulatoryBody}] (${p.duration})`,
+                }))}
+                value={editingCandidate.programmeCode || 'CHEW'}
+                onChange={(val) => {
+                  const p = ACCREDITED_HEALTH_PROGRAMMES.find((item) => item.code === val);
+                  setEditingCandidate({
+                    ...editingCandidate,
+                    programmeCode: val,
+                    programme: p ? p.name : editingCandidate.programme,
+                    department: p ? p.departmentName : editingCandidate.department,
+                    regulatoryBody: p ? p.regulatoryBody : editingCandidate.regulatoryBody,
+                  });
+                }}
               />
             </div>
 
@@ -1705,6 +1778,87 @@ export const AdmissionsView: React.FC = () => {
                 value={editingCandidate.status}
                 onChange={(val: any) => setEditingCandidate({ ...editingCandidate, status: val })}
               />
+            </div>
+
+            {/* O'Level Examination Details & Subjects */}
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-[4px] space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-900 text-xs uppercase tracking-wide">
+                  O'Level Subjects &amp; Clearance Verification
+                </span>
+                <Badge variant={editingCandidate.olevelStatus === 'VERIFIED' ? 'success' : 'warning'} size="sm">
+                  {editingCandidate.olevelStatus || 'VERIFIED'}
+                </Badge>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <Select
+                  label="Exam Body"
+                  options={[
+                    { value: 'WAEC', label: 'WAEC' },
+                    { value: 'NECO', label: 'NECO' },
+                    { value: 'NABTEB', label: 'NABTEB' },
+                  ]}
+                  value={editingCandidate.olevelExamBody || 'WAEC'}
+                  onChange={(val: any) => setEditingCandidate({ ...editingCandidate, olevelExamBody: val })}
+                />
+                <Input
+                  label="Exam Year"
+                  value={editingCandidate.olevelExamYear || '2025'}
+                  onChange={(e) => setEditingCandidate({ ...editingCandidate, olevelExamYear: e.target.value })}
+                />
+                <Select
+                  label="Verification Status"
+                  options={[
+                    { value: 'VERIFIED', label: 'Verified (Credit Passed)' },
+                    { value: 'PENDING', label: 'Pending Verification' },
+                    { value: 'DEFICIENT', label: 'Deficient (Missing Credits)' },
+                  ]}
+                  value={editingCandidate.olevelStatus || 'VERIFIED'}
+                  onChange={(val: any) => setEditingCandidate({ ...editingCandidate, olevelStatus: val })}
+                />
+              </div>
+
+              <div className="space-y-1.5 pt-1">
+                <span className="text-[11px] font-semibold text-slate-700 block">
+                  Subject Grades:
+                </span>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  {['English Language', 'Mathematics', 'Biology', 'Chemistry', 'Physics'].map((subjectName) => {
+                    const existingSubject = (editingCandidate.olevelSubjects || []).find((s) => s.subject === subjectName);
+                    const currentGrade = existingSubject?.grade || 'C4';
+                    return (
+                      <Select
+                        key={subjectName}
+                        label={subjectName.split(' ')[0]}
+                        value={currentGrade}
+                        options={['A1', 'B2', 'B3', 'C4', 'C5', 'C6', 'D7', 'E8', 'F9'].map((g) => ({ value: g, label: g }))}
+                        onChange={(newGrade) => {
+                          const currentSubjects = editingCandidate.olevelSubjects && editingCandidate.olevelSubjects.length > 0
+                            ? [...editingCandidate.olevelSubjects]
+                            : [
+                                { subject: 'English Language', grade: 'B3' },
+                                { subject: 'Mathematics', grade: 'C4' },
+                                { subject: 'Biology', grade: 'B2' },
+                                { subject: 'Chemistry', grade: 'C4' },
+                                { subject: 'Physics', grade: 'C5' },
+                              ];
+                          const idx = currentSubjects.findIndex((s) => s.subject === subjectName);
+                          if (idx >= 0) {
+                            currentSubjects[idx] = { subject: subjectName, grade: newGrade };
+                          } else {
+                            currentSubjects.push({ subject: subjectName, grade: newGrade });
+                          }
+                          setEditingCandidate({
+                            ...editingCandidate,
+                            olevelSubjects: currentSubjects,
+                          });
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">

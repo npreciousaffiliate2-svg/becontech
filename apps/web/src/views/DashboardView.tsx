@@ -23,13 +23,16 @@ import {
   AlertTriangle,
   ChevronRight,
   Check,
+  Printer,
+  Lock,
 } from 'lucide-react';
 import { Button, Badge, Card } from '@campusone/ui';
 import { useNavigate } from 'react-router-dom';
 import { PersonAvatar } from '../components/common/PersonAvatar.tsx';
+import { printInstitutionalDocument } from '../utils/documentExport.ts';
 
 export const DashboardView: React.FC = () => {
-  const { session, persona, receipts, ledgerEntries, schoolProfile, departments } = useApp();
+  const { session, persona, receipts, ledgerEntries, schoolProfile, departments, candidates } = useApp();
   const navigate = useNavigate();
 
   const [timeframe, setTimeframe] = useState<'30D' | '90D' | 'Session'>('30D');
@@ -43,6 +46,234 @@ export const DashboardView: React.FC = () => {
    * 1. STUDENT & SPONSOR PORTAL DASHBOARD (STU / SPON)
    * ────────────────────────────────────────────────────────────────────────── */
   if (activeRole === 'STU' || activeRole === 'SPON') {
+    const userEmail = (currentPersona.email || session?.email || '').toLowerCase();
+    const matchingCandidate = candidates.find(
+      (c) => c.email && c.email.toLowerCase() === userEmail
+    );
+
+    // If logged in user is an Applicant (not yet matriculated/enrolled)
+    if (matchingCandidate && (matchingCandidate.status === 'APPLIED' || matchingCandidate.status === 'SCREENED' || matchingCandidate.status === 'ADMITTED')) {
+      const isAdmitted = matchingCandidate.status === 'ADMITTED';
+      const isScreened = matchingCandidate.status === 'SCREENED' || isAdmitted;
+
+      return (
+        <div className="flex flex-col gap-6 font-sans">
+          {/* Executive Overview Banner without profile image */}
+          <div className="bg-gradient-to-r from-[#0F7640] to-[#093322] rounded-[4px] p-5 sm:p-6 text-white shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <span className="text-xs font-semibold text-emerald-200 block">
+                {schoolProfile?.activeSession || '2026/2027'} Admission &amp; Screening Portal
+              </span>
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+                Welcome, {matchingCandidate.fullName}
+              </h1>
+              <p className="text-xs sm:text-sm text-emerald-100/90 font-medium flex items-center gap-2 flex-wrap">
+                <span>Application No: <strong className="text-white font-bold">{matchingCandidate.applicationNumber}</strong></span>
+                <span>&bull; {matchingCandidate.programme}</span>
+                <span className="bg-emerald-800/80 px-2 py-0.5 rounded text-[11px] text-emerald-100">
+                  {matchingCandidate.regulatoryBody}
+                </span>
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                variant="secondary"
+                size="sm"
+                className="bg-white text-[#0F7640] hover:bg-emerald-50 border-white text-xs font-bold"
+                leftIcon={<Printer className="w-3.5 h-3.5" />}
+                onClick={() => {
+                  printInstitutionalDocument({
+                    title: `Admission Application Slip — ${matchingCandidate.fullName}`,
+                    badgeText: `OFFICIAL ONLINE APPLICATION & CBT SCREENING SLIP`,
+                    referenceNo: matchingCandidate.applicationNumber,
+                    issuedDate: matchingCandidate.cbtDate,
+                    schoolProfile,
+                    officeSubtitle: 'Office of the Registrar • Admissions & Screening Division',
+                    metaItems: [
+                      { label: 'Application Number', value: matchingCandidate.applicationNumber, highlight: true },
+                      { label: 'Applicant Full Name', value: matchingCandidate.fullName, highlight: true },
+                      { label: 'Chosen Programme', value: matchingCandidate.programme },
+                      { label: 'Regulatory Council', value: matchingCandidate.regulatoryBody },
+                      { label: "O'Level Examination", value: `${matchingCandidate.olevelExamBody} (${matchingCandidate.olevelExamYear})` },
+                      { label: 'Application Fee Status', value: matchingCandidate.applicationFeePaid ? 'PAID & VERIFIED' : 'PENDING' },
+                    ],
+                    summaryNoteHtml: `
+                      <strong>Next Steps for Applicant:</strong><br/>
+                      1. Present this slip at the College CBT Centre for your Entrance Screening Examination.<br/>
+                      2. Upon scoring at least ${schoolProfile?.minimumCutoffScore || 50}% and O'Level verification, your provisional admission letter will be issued.<br/>
+                      3. After admission, pay the Acceptance Fee in the Bursary portal to receive your official Matriculation Number.
+                    `,
+                    stampText: 'APPLICATION REGISTERED',
+                  });
+                }}
+              >
+                Print Application Slip
+              </Button>
+            </div>
+          </div>
+
+          {/* 4 Summary Stat Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
+              <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
+                <span>Application Status</span>
+                <Clock className="w-4 h-4 text-emerald-600" />
+              </div>
+              <div className="mt-2 flex items-baseline gap-2">
+                <span className="text-xl font-bold text-slate-900 font-sans">
+                  {isAdmitted ? 'ADMITTED' : isScreened ? 'SCREENED' : 'SUBMITTED'}
+                </span>
+                <Badge variant={isAdmitted ? 'success' : isScreened ? 'success' : 'warning'} size="sm">
+                  {matchingCandidate.status}
+                </Badge>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1 font-sans">
+                {isAdmitted ? 'Provisional offer published' : 'Application in screening pool'}
+              </p>
+            </Card>
+
+            <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
+              <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
+                <span>O'Level Verification</span>
+                <CheckCircle2 className="w-4 h-4 text-[#0F7640]" />
+              </div>
+              <div className="mt-2 flex items-baseline gap-2">
+                <span className="text-xl font-bold text-slate-900 font-sans">
+                  {matchingCandidate.olevelStatus}
+                </span>
+                <Badge variant="success" size="sm">5 CREDITS</Badge>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1 font-sans">
+                {matchingCandidate.olevelExamBody} ({matchingCandidate.olevelExamYear}) Verified
+              </p>
+            </Card>
+
+            <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
+              <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
+                <span>CBT Screening Score</span>
+                <Award className="w-4 h-4 text-emerald-600" />
+              </div>
+              <div className="mt-2 flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-slate-900 font-sans">
+                  {matchingCandidate.cbtScore || 75}%
+                </span>
+                <span className="text-xs text-emerald-700 font-semibold font-sans">Pass Cut-off ≥ 50%</span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1 font-sans">
+                CBT entrance score
+              </p>
+            </Card>
+
+            <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
+              <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
+                <span>Application Fee</span>
+                <CreditCard className="w-4 h-4 text-[#0F7640]" />
+              </div>
+              <div className="mt-2 flex items-baseline gap-2">
+                <span className="text-xl font-bold text-[#0F7640] font-sans">SETTLED</span>
+                <Badge variant="success" size="sm">PAID</Badge>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1 font-sans">
+                Ref: {matchingCandidate.applicationFeeRef || 'PAY-ONLINE-001'}
+              </p>
+            </Card>
+          </div>
+
+          {/* Admission Progress Stepper */}
+          <Card
+            header={
+              <span className="font-bold text-slate-900 uppercase tracking-wider text-xs">
+                Admission Screening &amp; Enrollment Progression
+              </span>
+            }
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 p-2">
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-[4px]">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] font-bold text-emerald-800 uppercase">Stage 1</span>
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#0F7640]" />
+                </div>
+                <span className="font-bold text-slate-900 text-xs block">Application Submission</span>
+                <span className="text-[11px] text-slate-600 block mt-0.5">Bio-data &amp; choice submitted</span>
+              </div>
+
+              <div className={`p-3 border rounded-[4px] ${isScreened ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] font-bold text-slate-700 uppercase">Stage 2</span>
+                  {isScreened ? <CheckCircle2 className="w-3.5 h-3.5 text-[#0F7640]" /> : <Clock className="w-3.5 h-3.5 text-amber-600" />}
+                </div>
+                <span className="font-bold text-slate-900 text-xs block">Entrance &amp; O'Level Review</span>
+                <span className="text-[11px] text-slate-600 block mt-0.5">{isScreened ? 'Passed statutory criteria' : 'Reviewing exam results'}</span>
+              </div>
+
+              <div className={`p-3 border rounded-[4px] ${isAdmitted ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] font-bold text-slate-700 uppercase">Stage 3</span>
+                  {isAdmitted ? <CheckCircle2 className="w-3.5 h-3.5 text-[#0F7640]" /> : <Clock className="w-3.5 h-3.5 text-slate-400" />}
+                </div>
+                <span className="font-bold text-slate-900 text-xs block">Admission Offer</span>
+                <span className="text-[11px] text-slate-600 block mt-0.5">{isAdmitted ? 'Provisional offer granted' : 'Pending batch publication'}</span>
+              </div>
+
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-[4px]">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">Stage 4</span>
+                  <Lock className="w-3.5 h-3.5 text-slate-400" />
+                </div>
+                <span className="font-bold text-slate-900 text-xs block">Acceptance &amp; Matric</span>
+                <span className="text-[11px] text-slate-500 block mt-0.5">Matric number generation</span>
+              </div>
+            </div>
+          </Card>
+
+          {/* O'Level Breakdown Table */}
+          <Card
+            header={
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-900 uppercase tracking-wider text-xs">
+                  Submitted O'Level Science Subjects ({matchingCandidate.olevelExamBody} {matchingCandidate.olevelExamYear})
+                </span>
+                <Badge variant="success" size="sm">CREDITS VERIFIED</Badge>
+              </div>
+            }
+          >
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold">
+                  <tr>
+                    <th className="px-4 py-2.5">Subject</th>
+                    <th className="px-4 py-2.5">Examination Body</th>
+                    <th className="px-4 py-2.5">Grade</th>
+                    <th className="px-4 py-2.5">Statutory Remark</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {(matchingCandidate.olevelSubjects || []).map((s, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50/50">
+                      <td className="px-4 py-2.5 font-medium text-slate-800">{s.subject}</td>
+                      <td className="px-4 py-2.5 text-slate-600">{matchingCandidate.olevelExamBody}</td>
+                      <td className="px-4 py-2.5 font-bold text-slate-900">{s.grade}</td>
+                      <td className="px-4 py-2.5 text-[#0F7640] font-semibold">Credit Pass</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          {/* Institutional Note */}
+          <div className="p-4 bg-emerald-50/40 border border-emerald-200/80 rounded-[4px] text-xs text-slate-700 space-y-1">
+            <span className="font-bold text-[#0F7640] block">Official Academic Board Screening Notice:</span>
+            <p className="text-[11px] text-slate-600 leading-relaxed">
+              Your application credentials have been validated for <strong>{matchingCandidate.programme}</strong> under the <strong>{matchingCandidate.department}</strong>.
+              Upon Academic Board review and provisional offer ratification, your official Admission Letter and Bursary Acceptance Fee portal will unlock here.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
     const studentData = {
       fullName: currentPersona.fullName || 'Blessing Adeyemi',
       matricNumber: currentPersona.matricNumber || 'CHE/2026/0014',
@@ -103,29 +334,18 @@ export const DashboardView: React.FC = () => {
       <div className="flex flex-col gap-6 font-sans">
         {/* Trainee Welcome & Identification Banner */}
         <div className="bg-gradient-to-r from-[#0F7640] to-[#093322] rounded-[4px] p-5 sm:p-6 text-white shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <PersonAvatar
-              name={studentData.fullName}
-              email={currentPersona.email}
-              matricNumber={studentData.matricNumber}
-              avatarUrl={currentPersona.avatarUrl}
-              role={activeRole}
-              size="lg"
-              className="border-white/40"
-            />
-            <div className="space-y-1">
-              <span className="text-xs font-semibold text-emerald-200 block">
-                {studentData.session}
-              </span>
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-                Welcome, {studentData.fullName}
-              </h1>
-              <p className="text-xs sm:text-sm text-emerald-100/90 font-medium flex items-center gap-2 flex-wrap">
-                <span>Matric: <strong className="text-white font-bold">{studentData.matricNumber}</strong></span>
-                {studentData.department && <span>— {studentData.department}</span>}
-                <span className="bg-emerald-800/80 px-2 py-0.5 rounded text-[11px] text-emerald-100">{studentData.level}</span>
-              </p>
-            </div>
+          <div className="space-y-1">
+            <span className="text-xs font-semibold text-emerald-200 block">
+              {studentData.session}
+            </span>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+              Welcome, {studentData.fullName}
+            </h1>
+            <p className="text-xs sm:text-sm text-emerald-100/90 font-medium flex items-center gap-2 flex-wrap">
+              <span>Matric: <strong className="text-white font-bold">{studentData.matricNumber}</strong></span>
+              {studentData.department && <span>— {studentData.department}</span>}
+              <span className="bg-emerald-800/80 px-2 py-0.5 rounded text-[11px] text-emerald-100">{studentData.level}</span>
+            </p>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
@@ -564,28 +784,18 @@ export const DashboardView: React.FC = () => {
     return (
       <div className="flex flex-col gap-6 font-sans">
         <div className="bg-gradient-to-r from-[#0F7640] to-[#093322] rounded-[4px] p-5 sm:p-6 text-white shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <PersonAvatar
-              name={currentPersona.fullName}
-              email={currentPersona.email}
-              avatarUrl={currentPersona.avatarUrl}
-              role={activeRole}
-              size="lg"
-              className="border-white/40"
-            />
-            <div className="space-y-0.5">
-              <span className="text-xs text-emerald-200 font-medium block">
-                {[schoolProfile?.activeSession || '2026/2027', schoolProfile?.activeSemester || 'Harmattan Semester']
-                  .filter(Boolean)
-                  .join(' — ')}
-              </span>
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-                Welcome, {currentPersona.fullName}
-              </h1>
-              <p className="text-xs sm:text-sm text-emerald-100 font-medium">
-                {[currentPersona.title, currentPersona.department].filter(Boolean).join(' — ')}
-              </p>
-            </div>
+          <div className="space-y-0.5">
+            <span className="text-xs text-emerald-200 font-medium block">
+              {[schoolProfile?.activeSession || '2026/2027', schoolProfile?.activeSemester || 'Harmattan Semester']
+                .filter(Boolean)
+                .join(' — ')}
+            </span>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+              Welcome, {currentPersona.fullName}
+            </h1>
+            <p className="text-xs sm:text-sm text-emerald-100 font-medium">
+              {[currentPersona.title, currentPersona.department].filter(Boolean).join(' — ')}
+            </p>
           </div>
 
           <div className="flex items-center gap-2">
@@ -918,28 +1128,18 @@ export const DashboardView: React.FC = () => {
     <div className="flex flex-col gap-6 font-sans">
       {/* Personalized Officer Welcome & Role Workspace Header */}
       <div className="bg-gradient-to-r from-[#093322] to-[#0F7640] rounded-[4px] p-5 text-white shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5">
-          <PersonAvatar
-            name={currentPersona.fullName}
-            email={currentPersona.email}
-            avatarUrl={currentPersona.avatarUrl}
-            role={activeRole}
-            size="lg"
-            className="border-white/40"
-          />
-          <div>
-            <span className="text-xs text-emerald-200 font-medium block">
-              {[schoolProfile?.activeSession || '2026/2027', schoolProfile?.activeSemester || 'Harmattan Semester']
-                .filter(Boolean)
-                .join(' — ')}
-            </span>
-            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight mt-0.5">
-              Welcome back, {currentPersona.fullName}
-            </h1>
-            <p className="text-xs text-emerald-100/90 mt-0.5">
-              {[currentPersona.title, currentPersona.department].filter(Boolean).join(' — ')}
-            </p>
-          </div>
+        <div>
+          <span className="text-xs text-emerald-200 font-medium block">
+            {[schoolProfile?.activeSession || '2026/2027', schoolProfile?.activeSemester || 'Harmattan Semester']
+              .filter(Boolean)
+              .join(' — ')}
+          </span>
+          <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight mt-0.5">
+            Welcome back, {currentPersona.fullName}
+          </h1>
+          <p className="text-xs text-emerald-100/90 mt-0.5">
+            {[currentPersona.title, currentPersona.department].filter(Boolean).join(' — ')}
+          </p>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
@@ -971,7 +1171,7 @@ export const DashboardView: React.FC = () => {
                 className="bg-white text-[#0F7640] hover:bg-emerald-50 border-white font-bold"
                 onClick={() => navigate('/bursary')}
               >
-                Student Fee Ledger
+                Fee &amp; Tuition Account
               </Button>
               <Button
                 size="sm"
@@ -1288,7 +1488,7 @@ export const DashboardView: React.FC = () => {
               onClick={() => navigate('/bursary')}
               rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
             >
-              View Full Bursary Ledger
+              View Full Fee Account
             </Button>
           </div>
 

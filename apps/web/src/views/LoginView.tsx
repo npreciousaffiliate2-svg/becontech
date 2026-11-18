@@ -9,7 +9,7 @@ import { PhotoUploadControl } from '../components/common/PersonAvatar.tsx';
 import { StateLgaSelect } from '../components/common/StateLgaSelect.tsx';
 import { printInstitutionalDocument } from '../utils/documentExport.ts';
 import { UseOneIDButton, UseOneIDLookup } from '../components/ui/index.ts';
-import type { RoleCode } from '@campusone/contracts';
+import { type RoleCode, ACCREDITED_HEALTH_PROGRAMMES } from '@campusone/contracts';
 
 export const LoginView: React.FC = () => {
   const navigate = useNavigate();
@@ -42,6 +42,12 @@ export const LoginView: React.FC = () => {
   const [stateOfOrigin, setStateOfOrigin] = useState('Oyo');
   const [lga, setLga] = useState('Ibadan North');
   const [olevelBody, setOlevelBody] = useState<'WAEC' | 'NECO' | 'NABTEB'>('WAEC');
+  const [olevelYear, setOlevelYear] = useState('2025');
+  const [englishGrade, setEnglishGrade] = useState('B3');
+  const [mathsGrade, setMathsGrade] = useState('C4');
+  const [biologyGrade, setBiologyGrade] = useState('B2');
+  const [chemistryGrade, setChemistryGrade] = useState('C4');
+  const [physicsGrade, setPhysicsGrade] = useState('C5');
   const [programme, setProgramme] = useState('CHEW');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [regPassword, setRegPassword] = useState('');
@@ -133,6 +139,9 @@ export const LoginView: React.FC = () => {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    try {
+      localStorage.setItem('campusone_current_user_email', email.trim());
+    } catch (err) {}
     const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password,
@@ -186,10 +195,10 @@ export const LoginView: React.FC = () => {
     // 1. Register candidate in the college Admissions & Screening Registry
     const nextSerial = (candidates?.length || 10) + 142;
     const appNumber = `APP/2026/0${nextSerial}`;
-    const matchedDept = (departments || []).find((d) => d.code === programme) || departments?.[0];
-    const deptName = matchedDept ? matchedDept.name : 'Department of Community Health';
-    const regBoard = matchedDept ? matchedDept.regulatoryBody : 'CHPRBN';
-    const progName = matchedDept ? `${matchedDept.name} (${matchedDept.code})` : programme;
+    const matchedProg = ACCREDITED_HEALTH_PROGRAMMES.find((p) => p.code === programme) || ACCREDITED_HEALTH_PROGRAMMES[0];
+    const deptName = matchedProg.departmentName;
+    const regBoard = matchedProg.regulatoryBody;
+    const progName = matchedProg.name;
 
     const createdCandidate = addCandidate({
       id: `app-${Date.now().toString().slice(-4)}`,
@@ -201,19 +210,19 @@ export const LoginView: React.FC = () => {
       gender,
       stateOfOrigin,
       lga: lga || 'Ibadan North',
-      programmeCode: matchedDept ? matchedDept.code : programme,
+      programmeCode: matchedProg.code,
       programme: progName,
       department: deptName,
       regulatoryBody: regBoard,
       olevelExamBody: olevelBody,
-      olevelExamYear: '2025',
+      olevelExamYear: olevelYear || '2025',
       olevelStatus: 'VERIFIED',
       olevelSubjects: [
-        { subject: 'English Language', grade: 'B3' },
-        { subject: 'Mathematics', grade: 'C4' },
-        { subject: 'Biology', grade: 'B2' },
-        { subject: 'Chemistry', grade: 'C5' },
-        { subject: 'Physics', grade: 'C5' },
+        { subject: 'English Language', grade: englishGrade },
+        { subject: 'Mathematics', grade: mathsGrade },
+        { subject: 'Biology', grade: biologyGrade },
+        { subject: 'Chemistry', grade: chemistryGrade },
+        { subject: 'Physics', grade: physicsGrade },
       ],
       cbtScore: 0,
       status: 'APPLIED',
@@ -225,6 +234,11 @@ export const LoginView: React.FC = () => {
       oneIdVerified: Boolean(verifiedOneId),
       nin: verifiedOneId?.tier,
     });
+
+    try {
+      localStorage.setItem('campusone_current_user_email', regEmail.trim());
+      localStorage.setItem('campusone_last_applicant_email', regEmail.trim());
+    } catch (err) {}
 
     // 2. Also create Supabase Auth account if possible
     try {
@@ -490,17 +504,56 @@ export const LoginView: React.FC = () => {
                 label="Intended Health Programme"
                 value={programme}
                 onChange={setProgramme}
-                options={
-                  departments && departments.length > 0
-                    ? departments.map((d) => ({ value: d.code, label: `${d.name} (${d.code})` }))
-                    : [
-                        { value: 'CHEW', label: 'Community Health Extension Worker (CHEW)' },
-                        { value: 'MLT', label: 'Medical Laboratory Technician (MLT)' },
-                        { value: 'PHT', label: 'Pharmacy Technician' },
-                        { value: 'HIM', label: 'Health Information Management' },
-                      ]
-                }
+                options={ACCREDITED_HEALTH_PROGRAMMES.map((p) => ({
+                  value: p.code,
+                  label: `${p.name} — [${p.regulatoryBody}]`,
+                }))}
               />
+
+              {/* O'Level Examination Results Upload */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-[4px] space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-800 uppercase tracking-wide">
+                    O'Level Core Subjects &amp; Grades
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-medium">
+                    {olevelBody} ({olevelYear})
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  <Select
+                    label="English"
+                    value={englishGrade}
+                    onChange={setEnglishGrade}
+                    options={['A1', 'B2', 'B3', 'C4', 'C5', 'C6', 'D7', 'E8', 'F9'].map((g) => ({ value: g, label: g }))}
+                  />
+                  <Select
+                    label="Maths"
+                    value={mathsGrade}
+                    onChange={setMathsGrade}
+                    options={['A1', 'B2', 'B3', 'C4', 'C5', 'C6', 'D7', 'E8', 'F9'].map((g) => ({ value: g, label: g }))}
+                  />
+                  <Select
+                    label="Biology"
+                    value={biologyGrade}
+                    onChange={setBiologyGrade}
+                    options={['A1', 'B2', 'B3', 'C4', 'C5', 'C6', 'D7', 'E8', 'F9'].map((g) => ({ value: g, label: g }))}
+                  />
+                  <Select
+                    label="Chemistry"
+                    value={chemistryGrade}
+                    onChange={setChemistryGrade}
+                    options={['A1', 'B2', 'B3', 'C4', 'C5', 'C6', 'D7', 'E8', 'F9'].map((g) => ({ value: g, label: g }))}
+                  />
+                  <Select
+                    label="Physics"
+                    value={physicsGrade}
+                    onChange={setPhysicsGrade}
+                    options={['A1', 'B2', 'B3', 'C4', 'C5', 'C6', 'D7', 'E8', 'F9'].map((g) => ({ value: g, label: g }))}
+                  />
+                </div>
+              </div>
+
               <Input
                 label="Portal Password"
                 type="password"
@@ -522,7 +575,7 @@ export const LoginView: React.FC = () => {
             onClose={() => setSubmittedApplication(null)}
             title="Online Admission Application Submitted"
             description="Your application has been registered in the college admission screening queue."
-            size="md"
+            size="lg"
             footer={
               <div className="flex items-center justify-end gap-2 w-full">
                 <Button
@@ -531,6 +584,11 @@ export const LoginView: React.FC = () => {
                   leftIcon={<Printer className="w-3.5 h-3.5" />}
                   onClick={() => {
                     if (!submittedApplication) return;
+                    showToast({
+                      type: 'success',
+                      title: 'Opening Print Dialog',
+                      message: 'Generating official admission slip for printing or saving as PDF.',
+                    });
                     printInstitutionalDocument({
                       title: `Admission Application Slip — ${submittedApplication.fullName}`,
                       badgeText: `OFFICIAL ONLINE APPLICATION & CBT SCREENING SLIP`,

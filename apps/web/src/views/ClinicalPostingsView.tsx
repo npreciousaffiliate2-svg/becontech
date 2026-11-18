@@ -81,7 +81,7 @@ interface AllocationRecord {
 }
 
 export const ClinicalPostingsView: React.FC = () => {
-  const { recordAudit, isDense, session, schoolProfile, departments } = useApp();
+  const { recordAudit, isDense, session, schoolProfile, departments, persona } = useApp();
   const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -89,6 +89,7 @@ export const ClinicalPostingsView: React.FC = () => {
 
   const currentPersona = PERSONA_PROFILES[session?.activeRole || 'PROVOST'] || PERSONA_PROFILES.STU;
   const isStudent = session?.activeRole === 'STU' || session?.activeRole === 'SPON';
+  const isApplicant = isStudent && persona?.scopeBadge === 'Admission Applicant';
   const studentMatric = currentPersona.matricNumber || 'CHE/2026/0014';
 
   // Tab state synced with URL path and search params
@@ -1184,6 +1185,23 @@ export const ClinicalPostingsView: React.FC = () => {
         onChange={(id: any) => handleTabChange(id)}
       />
 
+      {isApplicant ? (
+        <Card className="p-8 text-center bg-white border border-slate-200 rounded-[4px] shadow-sm space-y-3 max-w-xl mx-auto my-8">
+          <div className="w-12 h-12 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center mx-auto">
+            <Stethoscope className="w-6 h-6" />
+          </div>
+          <h2 className="text-base font-bold text-slate-900">Hospital Clinical Rotations Open in 200 Level</h2>
+          <p className="text-xs text-slate-600 leading-relaxed">
+            Welcome, <strong>{persona.fullName}</strong>. You are currently in the <strong>Admission Screening Stage</strong> for <strong>{persona.department}</strong> (Application No: <strong>{persona.matricNumber}</strong>). Statutory hospital clinical postings, preceptor logbooks, and hospital clearance commence after formal admission, acceptance fee settlement, and completion of foundational 100-Level coursework.
+          </p>
+          <div className="pt-2">
+            <Button size="sm" onClick={() => navigate('/')} className="bg-[#0F7640] hover:bg-[#093322]">
+              Back to Admission Dashboard
+            </Button>
+          </div>
+        </Card>
+      ) : (
+        <>
       {/* ─── TAB 1: HOSPITAL ALLOCATIONS ─── */}
       {activeTab === 'allocations' && (
         <div className="space-y-4">
@@ -1294,6 +1312,8 @@ export const ClinicalPostingsView: React.FC = () => {
             />
           </Card>
         </div>
+      )}
+      </>
       )}
 
       {/* ─── MODAL 1: OFFICIAL POSTING LETTER / INTRODUCTION LETTER ─── */}

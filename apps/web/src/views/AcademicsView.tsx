@@ -74,6 +74,7 @@ export const AcademicsView: React.FC = () => {
 
   // Role Scope Enforcer: Students & Sponsors view personal broadsheet & transcripts only
   const isStudent = session.activeRole === 'STU' || session.activeRole === 'SPON';
+  const isApplicant = isStudent && persona.scopeBadge === 'Admission Applicant';
 
   // Industry-standard page routing with role defaults
   const activeTab = isStudent
@@ -563,6 +564,23 @@ export const AcademicsView: React.FC = () => {
         onChange={handleTabChange}
       />
 
+      {isApplicant ? (
+        <Card className="p-8 text-center bg-white border border-slate-200 rounded-[4px] shadow-sm space-y-3 max-w-xl mx-auto my-8">
+          <div className="w-12 h-12 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center mx-auto">
+            <GraduationCap className="w-6 h-6" />
+          </div>
+          <h2 className="text-base font-bold text-slate-900">Academic Records Established Upon Enrollment</h2>
+          <p className="text-xs text-slate-600 leading-relaxed">
+            Welcome, <strong>{persona.fullName}</strong>. You are currently in the <strong>Admission Screening Stage</strong> under application number <strong>{persona.matricNumber}</strong>. Course registrations, continuous assessments, and semester transcripts will be generated once your provisional admission is confirmed and matriculation is completed.
+          </p>
+          <div className="pt-2">
+            <Button size="sm" onClick={() => navigate('/')} className="bg-[#0F7640] hover:bg-[#093322]">
+              View Admission Screening Status
+            </Button>
+          </div>
+        </Card>
+      ) : (
+        <>
       {/* ─── TAB 1: Score Entry Grid ─── */}
       {activeTab === 'scores' && (
         <div className="space-y-4">
@@ -1124,6 +1142,8 @@ export const AcademicsView: React.FC = () => {
             />
           </Card>
         </div>
+      )}
+        </>
       )}
 
       {/* ─── MODAL 1: Print Official Transcript ─── */}

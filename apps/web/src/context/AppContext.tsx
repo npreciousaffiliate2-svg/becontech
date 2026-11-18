@@ -857,10 +857,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [supportTickets, setSupportTickets] = useState<SupportTicketItem[]>([]);
   const [notifications, setNotifications] = useState<RealNotificationItem[]>([]);
   const [schoolProfile, setSchoolProfileState] = useState<SchoolProfile>(DEFAULT_SCHOOL_PROFILE);
-  const [departments, setDepartmentsState] = useState<DepartmentItem[]>([]);
-  const [courses, setCoursesState] = useState<CurriculumCourseItem[]>([]);
-  const [candidates, setCandidatesState] = useState<AdmissionCandidateItem[]>([]);
+  const [departments, setDepartmentsState] = useState<DepartmentItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('campusone_registry_departments');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return DEFAULT_DEPARTMENTS;
+  });
+  const [courses, setCoursesState] = useState<CurriculumCourseItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('campusone_registry_courses');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return DEFAULT_COURSES;
+  });
+  const [candidates, setCandidatesState] = useState<AdmissionCandidateItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('campusone_admissions_candidates');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return DEFAULT_CANDIDATES;
+  });
   const [avatarDirectory, setAvatarDirectory] = useState<Record<string, string>>({});
+  const [authUserEmail, setAuthUserEmail] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem('campusone_current_user_email');
+    } catch (e) {
+      return null;
+    }
+  });
 
   const normalizeAvatarKey = (raw?: string): string => {
     if (!raw) return '';
@@ -926,6 +951,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const setDepartments = (updater: (prev: DepartmentItem[]) => DepartmentItem[]) => {
     setDepartmentsState((prev) => {
       const next = updater(prev);
+      try {
+        localStorage.setItem('campusone_registry_departments', JSON.stringify(next));
+      } catch (e) {}
       void persistRecords('registry.departments', next);
       return next;
     });
@@ -934,6 +962,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const setCourses = (updater: (prev: CurriculumCourseItem[]) => CurriculumCourseItem[]) => {
     setCoursesState((prev) => {
       const next = updater(prev);
+      try {
+        localStorage.setItem('campusone_registry_courses', JSON.stringify(next));
+      } catch (e) {}
       void persistRecords('registry.courses', next);
       return next;
     });
@@ -942,6 +973,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const setCandidates = (updater: (prev: AdmissionCandidateItem[]) => AdmissionCandidateItem[]) => {
     setCandidatesState((prev) => {
       const next = updater(prev);
+      try {
+        localStorage.setItem('campusone_admissions_candidates', JSON.stringify(next));
+      } catch (e) {}
       void persistRecords('admissions.candidates', next);
       return next;
     });
@@ -949,10 +983,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const basePersona = PERSONA_PROFILES[activeRole] || PERSONA_PROFILES.PROVOST;
   const personaOverrides = customProfiles[activeRole] || {};
+
+  const currentEmailToMatch =
+    authUserEmail ||
+    (activeRole === 'STU' || activeRole === 'SPON'
+      ? (() => {
+          try {
+            return localStorage.getItem('campusone_current_user_email');
+          } catch (e) {
+            return null;
+          }
+        })()
+      : null);
+
+  const matchedCandidate = currentEmailToMatch
+    ? candidates.find(
+        (c) => c.email && c.email.toLowerCase() === currentEmailToMatch.toLowerCase()
+      )
+    : null;
+
   const persona: PersonaProfile = {
     ...basePersona,
     ...personaOverrides,
     permissions: personaOverrides.permissions || basePersona.permissions,
+    ...(matchedCandidate && (activeRole === 'STU' || activeRole === 'SPON')
+      ? {
+          fullName: matchedCandidate.fullName,
+          email: matchedCandidate.email,
+          phone: matchedCandidate.phone,
+          department: matchedCandidate.department || matchedCandidate.programme,
+          matricNumber: matchedCandidate.matricNumber || matchedCandidate.applicationNumber,
+          scopeBadge:
+            matchedCandidate.status === 'ENROLLED'
+              ? 'Enrolled Student'
+              : matchedCandidate.status === 'ADMITTED'
+              ? 'Admitted Candidate'
+              : 'Admission Applicant',
+          bio: `${matchedCandidate.programme} • App No: ${matchedCandidate.applicationNumber}`,
+          avatarUrl: matchedCandidate.avatarUrl || basePersona.avatarUrl,
+        }
+      : {}),
     ...(impersonatedUserMeta
       ? {
           fullName: impersonatedUserMeta.name,
@@ -1187,9 +1257,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         loadRecords<AdmissionCandidateItem>('admissions.candidates'),
         loadRecords<{ id: string; url: string }>('registry.avatars'),
       ]);
-      if (remoteDepartments) setDepartmentsState(remoteDepartments);
-      if (remoteCourses) setCoursesState(remoteCourses);
-      if (remoteCandidates) setCandidatesState(remoteCandidates);
+      if (remoteDepartments && remoteDepartments.length > 0) setDepartmentsState(remoteDepartments);
+      if (remoteCourses && remoteCourses.length > 0) setCoursesState(remoteCourses);
+      if (remoteCandidates && remoteCandidates.length > 0) {
+        setCandidatesState((prev) => {
+          const map = new Map<string, AdmissionCandidateItem>();
+          remoteCandidates.forEach((c) => map.set(c.id || c.applicationNumber, c));
+          prev.forEach((c) => map.set(c.id || c.applicationNumber, c));
+          return Array.from(map.values());
+        });
+      }
       if (remoteAvatars && remoteAvatars.length > 0) {
         setAvatarDirectory((prev) => {
           const next = { ...prev };
@@ -1211,6 +1288,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, 6000);
     supabase.auth.getSession().then(async ({ data }) => {
       const email = data.session?.user?.email;
+      setAuthUserEmail(email || null);
       if (!email) {
         if (active) {
           setAuthenticatedRole(null);
