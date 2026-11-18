@@ -90,7 +90,9 @@ export const AdminView: React.FC = () => {
     addRegulatoryCouncil,
     removeRegulatoryCouncil,
     addAcademicSemester,
+    removeAcademicSemester,
     addAcademicSession,
+    removeAcademicSession,
   } = useApp();
   const { showToast } = useToast();
   const { tab: routeTab } = useParams();
@@ -985,6 +987,98 @@ export const AdminView: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Registered Academic Semesters List */}
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-800 text-xs">Registered Academic Semesters</span>
+                    <span className="text-[10px] text-slate-500">{schoolProfile.academicSemesters.length} Semesters</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 p-2.5 bg-slate-50 border border-slate-200 rounded-[4px]">
+                    {schoolProfile.academicSemesters.map((sem) => {
+                      const isActive = sem === schoolProfile.activeSemester;
+                      return (
+                        <span
+                          key={sem}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border rounded-[4px] text-[11px] font-medium shadow-xs ${
+                            isActive ? 'border-emerald-300 text-[#0F7640] bg-emerald-50/50' : 'border-slate-200 text-slate-800'
+                          }`}
+                        >
+                          <span>{sem}</span>
+                          {isActive ? (
+                            <span className="text-[9px] uppercase px-1 py-0.5 bg-emerald-100 text-[#0F7640] font-bold rounded-[2px]">
+                              Active
+                            </span>
+                          ) : (
+                            schoolProfile.academicSemesters.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  removeAcademicSemester(sem);
+                                  showToast({
+                                    type: 'success',
+                                    title: 'Semester Removed',
+                                    message: `${sem} removed from active academic calendar options. Historical records remain preserved.`,
+                                  });
+                                }}
+                                className="text-slate-400 hover:text-rose-600 transition-colors ml-0.5"
+                                title={`Delete ${sem}`}
+                              >
+                                ×
+                              </button>
+                            )
+                          )}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Registered Academic Sessions List */}
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-800 text-xs">Registered Academic Sessions</span>
+                    <span className="text-[10px] text-slate-500">{schoolProfile.academicSessions.length} Sessions</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 p-2.5 bg-slate-50 border border-slate-200 rounded-[4px]">
+                    {schoolProfile.academicSessions.map((sess) => {
+                      const isActive = sess === schoolProfile.activeSession;
+                      return (
+                        <span
+                          key={sess}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border rounded-[4px] text-[11px] font-medium shadow-xs ${
+                            isActive ? 'border-emerald-300 text-[#0F7640] bg-emerald-50/50' : 'border-slate-200 text-slate-800'
+                          }`}
+                        >
+                          <span>{sess}</span>
+                          {isActive ? (
+                            <span className="text-[9px] uppercase px-1 py-0.5 bg-emerald-100 text-[#0F7640] font-bold rounded-[2px]">
+                              Active
+                            </span>
+                          ) : (
+                            schoolProfile.academicSessions.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  removeAcademicSession(sess);
+                                  showToast({
+                                    type: 'success',
+                                    title: 'Session Removed',
+                                    message: `${sess} removed from active calendar options. Historical records remain preserved.`,
+                                  });
+                                }}
+                                className="text-slate-400 hover:text-rose-600 transition-colors ml-0.5"
+                                title={`Delete ${sess}`}
+                              >
+                                ×
+                              </button>
+                            )
+                          )}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 {/* Add new session or semester */}
                 <div className="p-3 bg-slate-50 border border-slate-200 rounded-[4px] space-y-2">
                   <span className="font-bold text-slate-900 block text-[11px]">Add New Session or Semester:</span>
@@ -1009,6 +1103,12 @@ export const AdminView: React.FC = () => {
                       Add
                     </Button>
                   </div>
+                </div>
+
+                {/* Record preservation notice */}
+                <div className="p-2.5 bg-emerald-50/40 border border-emerald-200/80 rounded-[4px] text-[11px] text-slate-600">
+                  <span className="font-semibold text-slate-800 block mb-0.5">Record Preservation Policy:</span>
+                  Deleting a semester removes it from future course assignment and schedule selectors. Existing historical transcripts, published examination results, student registrations, and financial receipts will NOT be lost or altered. Active semesters cannot be deleted until another semester is set as active.
                 </div>
               </div>
             </Card>

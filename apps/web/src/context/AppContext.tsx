@@ -172,7 +172,9 @@ export interface AppContextType {
   addRegulatoryCouncil: (councilName: string) => void;
   removeRegulatoryCouncil: (councilName: string) => void;
   addAcademicSemester: (semesterName: string) => void;
+  removeAcademicSemester: (semesterName: string) => void;
   addAcademicSession: (sessionName: string) => void;
+  removeAcademicSession: (sessionName: string) => void;
   // Departments
   departments: DepartmentItem[];
   addDepartment: (dept: DepartmentItem) => void;
@@ -1395,10 +1397,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     updateSchoolProfile({ academicSemesters: next }).catch(() => undefined);
   };
 
+  const removeAcademicSemester = (semesterName: string) => {
+    if (!semesterName) return;
+    const next = schoolProfile.academicSemesters.filter((s) => s !== semesterName);
+    updateSchoolProfile({ academicSemesters: next }).catch(() => undefined);
+    recordAudit('SEMESTER_DELETED', 'ACADEMIC_FRAMEWORK', semesterName, { semesterName });
+  };
+
   const addAcademicSession = (sessionName: string) => {
     if (!sessionName || schoolProfile.academicSessions.includes(sessionName)) return;
     const next = [...schoolProfile.academicSessions, sessionName];
     updateSchoolProfile({ academicSessions: next }).catch(() => undefined);
+  };
+
+  const removeAcademicSession = (sessionName: string) => {
+    if (!sessionName) return;
+    const next = schoolProfile.academicSessions.filter((s) => s !== sessionName);
+    updateSchoolProfile({ academicSessions: next }).catch(() => undefined);
+    recordAudit('SESSION_DELETED', 'ACADEMIC_FRAMEWORK', sessionName, { sessionName });
   };
 
   // ─── DEPARTMENTS CRUD ───
@@ -2099,7 +2115,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addRegulatoryCouncil,
         removeRegulatoryCouncil,
         addAcademicSemester,
+        removeAcademicSemester,
         addAcademicSession,
+        removeAcademicSession,
         departments,
         addDepartment,
         updateDepartment,

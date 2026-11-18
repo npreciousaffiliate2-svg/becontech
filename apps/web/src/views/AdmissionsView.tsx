@@ -32,6 +32,7 @@ import {
   Edit2,
   Trash2,
   ShieldCheck,
+  ShieldAlert,
   Fingerprint,
 } from 'lucide-react';
 import { escapeHtml, exportToCsv, printInstitutionalDocument } from '../utils/documentExport.ts';
@@ -533,10 +534,6 @@ export const AdmissionsView: React.FC = () => {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <UseOneIDLookup
-            buttonText="UseOneID 1-Click Lookup"
-            onFill={handleCandidateAutoFill}
-          />
           <Button
             size="sm"
             variant="secondary"
@@ -1252,20 +1249,37 @@ export const AdmissionsView: React.FC = () => {
               <span className="font-bold text-slate-900 text-xs uppercase tracking-wider block">
                 National Identity &amp; Biometric Clearance
               </span>
-              <div className="p-3 bg-emerald-50/50 border border-emerald-200 rounded-[4px] flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5">
-                  <ShieldCheck size={20} className="text-[#0F7640] shrink-0" />
-                  <div>
-                    <span className="font-bold text-slate-900 text-xs block font-sans">
-                      {selectedCandidate.oneIdNumber || 'UseOneID Verified'}
-                    </span>
-                    <span className="text-[11px] text-slate-600 block">
-                      UseOneID &bull; NIMC Verified &bull; Tier 3 Identity Clearance
-                    </span>
+              {selectedCandidate.oneIdVerified ? (
+                <div className="p-3 bg-emerald-50/50 border border-emerald-200 rounded-[4px] flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <ShieldCheck size={20} className="text-[#0F7640] shrink-0" />
+                    <div>
+                      <span className="font-bold text-slate-900 text-xs block font-sans">
+                        {selectedCandidate.oneIdNumber || 'UseOneID Verified'}
+                      </span>
+                      <span className="text-[11px] text-slate-600 block">
+                        UseOneID &bull; NIMC Verified &bull; Tier 3 Identity Clearance
+                      </span>
+                    </div>
                   </div>
+                  <Badge variant="success" size="sm">NIMC VERIFIED</Badge>
                 </div>
-                <Badge variant="success" size="sm">NIMC VERIFIED</Badge>
-              </div>
+              ) : (
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-[4px] flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <ShieldAlert size={20} className="text-slate-400 shrink-0" />
+                    <div>
+                      <span className="font-semibold text-slate-700 text-xs block font-sans">
+                        Manual Verification Required
+                      </span>
+                      <span className="text-[11px] text-slate-500 block">
+                        Candidate did not verify via UseOneID &bull; Physical document verification required
+                      </span>
+                    </div>
+                  </div>
+                  <Badge variant="neutral" size="sm">UNLINKED</Badge>
+                </div>
+              )}
             </div>
           </div>
         )}
