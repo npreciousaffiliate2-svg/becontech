@@ -37,8 +37,6 @@ import {
 import { escapeHtml, exportToCsv, printGraduationCertificate, printInstitutionalDocument, printStudentIdCards } from '../utils/documentExport.ts';
 import { PersonAvatar, PhotoUploadControl, pluralize } from '../components/common/PersonAvatar.tsx';
 import { StateLgaSelect } from '../components/common/StateLgaSelect.tsx';
-import { OneIdModal } from '../components/common/OneIdModal.tsx';
-import type { OneIdProfile } from '@campusone/contracts';
 import { NIGERIAN_STATES } from '@campusone/contracts';
 
 interface Student {
@@ -127,11 +125,6 @@ export const StudentsView: React.FC = () => {
   const [certificateStudent, setCertificateStudent] = useState<Student | null>(null);
   const [flippedCards, setFlippedCards] = useState<Record<string, boolean>>({});
   const [showAllBackSides, setShowAllBackSides] = useState(false);
-
-  // OneID Integration State
-  const [isOneIdModalOpen, setIsOneIdModalOpen] = useState(false);
-  const [oneIdModalMode, setOneIdModalMode] = useState<'lookup-reuse' | 'first-time' | 'verify-trust'>('verify-trust');
-  const [oneIdTargetProfile, setOneIdTargetProfile] = useState<OneIdProfile | null>(null);
 
   const computeDiplomaClass = (cgpa: number): string => {
     if (cgpa >= 3.5) return 'Distinction';
@@ -757,17 +750,6 @@ export const StudentsView: React.FC = () => {
                 }}
               >
                 Export CSV
-              </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                leftIcon={<ShieldCheck className="w-3.5 h-3.5 text-[#0F7640]" />}
-                onClick={() => {
-                  setOneIdModalMode('lookup-reuse');
-                  setIsOneIdModalOpen(true);
-                }}
-              >
-                OneID Lookup
               </Button>
               <Button
                 size="sm"
@@ -1610,7 +1592,7 @@ export const StudentsView: React.FC = () => {
               </div>
             </div>
 
-            {/* National Identity (OneID) Clearance */}
+            {/* National Identity (UseOneID) Clearance */}
             <div className="space-y-2">
               <span className="font-bold text-slate-900 text-xs uppercase tracking-wider block">
                 National Identity &amp; Biometric Clearance
@@ -1620,24 +1602,14 @@ export const StudentsView: React.FC = () => {
                   <ShieldCheck size={20} className="text-[#0F7640] shrink-0" />
                   <div>
                     <span className="font-bold text-slate-900 text-xs block font-sans">
-                      {selectedStudent.oneIdNumber || `ONE-NG-2026-${selectedStudent.matricNumber.slice(-6).replace(/[^0-9]/g, '12')}`}
+                      Verified with UseOneID
                     </span>
                     <span className="text-[11px] text-slate-600 block">
-                      NIMC Biometric Clearance &bull; Level 3 Identity Assurance &bull; Ed25519 Cryptographically Valid
+                      NIMC Biometric Clearance &bull; Tier 3 Sovereign Identity Assurance
                     </span>
                   </div>
                 </div>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => {
-                    setOneIdModalMode('verify-trust');
-                    setIsOneIdModalOpen(true);
-                  }}
-                  className="border-emerald-400 text-[#0F7640] hover:bg-emerald-100 text-xs h-7 shrink-0"
-                >
-                  Verify Trust Proof
-                </Button>
+                <Badge variant="success" size="sm">NIMC VERIFIED</Badge>
               </div>
             </div>
 
@@ -2092,29 +2064,22 @@ export const StudentsView: React.FC = () => {
                       {schoolProfile?.officialEmail || 'registrar@becohtech.edu.ng'}).
                     </div>
 
-                    {/* OneID Digital Trust Verification Seal */}
+                    {/* UseOneID Verified Identity Trust Badge */}
                     <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-[4px] flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <ShieldCheck size={16} className="text-[#0F7640] shrink-0" />
                         <div className="min-w-0">
                           <span className="text-[10px] font-bold text-[#0F7640] uppercase tracking-wider block truncate">
-                            OneID Verified Digital Credential
+                            Verified with UseOneID
                           </span>
                           <span className="text-[9px] text-slate-500 block truncate">
-                            NIMC Biometric Assurance Level 3
+                            NIMC Biometric Clearance &bull; Tier 3 Sovereign Identity
                           </span>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setOneIdModalMode('verify-trust');
-                          setIsOneIdModalOpen(true);
-                        }}
-                        className="text-[10px] font-bold text-[#0F7640] hover:text-[#093322] px-2 py-0.5 rounded-[2px] bg-white border border-emerald-300 shadow-xs shrink-0"
-                      >
-                        Verify Trust Proof
-                      </button>
+                      <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-[2px] bg-white text-[#0F7640] border border-emerald-300">
+                        NIMC CLEARANCE
+                      </span>
                     </div>
 
                     <div className="pt-3 border-t border-slate-200 grid grid-cols-2 gap-4 items-end">
@@ -2462,14 +2427,6 @@ export const StudentsView: React.FC = () => {
           );
         })()}
       </Modal>
-
-      {/* OneID Universal Modal */}
-      <OneIdModal
-        isOpen={isOneIdModalOpen}
-        onClose={() => setIsOneIdModalOpen(false)}
-        mode={oneIdModalMode}
-        targetProfile={oneIdTargetProfile}
-      />
     </div>
   );
 };

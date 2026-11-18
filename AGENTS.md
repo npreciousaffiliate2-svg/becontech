@@ -42,6 +42,22 @@
 13. **Mandatory Custom Dropdowns:** NEVER use native HTML `<select>`. Every dropdown on the platform, across all modules, tables, filters, forms, and modals, MUST use the custom `Select` component from `@campusone/ui` with viewport auto-positioning.
 14. **Strict No Mono Fonts Rule:** NEVER use `font-mono` or monospace fonts anywhere on the platform (including codes, IDs, receipts, numbers, hashes, barcodes, tables, or modals). Use Inter font (`font-sans`) exclusively across the entire application.
 15. **Refined Shadows (Zero Blurry Spill):** Shadows must be clean, tight, crisp, and subtle (`shadow-sm` or `0 1px 2px 0 rgba(0, 0, 0, 0.05)`). Never use diffuse, muddy, or wide-spill drop shadows.
+16. **UseOneID Official SDK Integration Directive:**
+    - Always integrate the official UseOneID SDK components (`UseOneIDButton` and `UseOneIDLookup`) conforming to the official `@useoneid/react` partner specification.
+    - NEVER build fake or mock in-app modal popups pretending to be OneID. The system must use the real UseOneID SDK handshake and verification flows.
+    - **Reuse Flow (5-Second 1-Click KYC):**
+      - Concurrently checks email and phone against the UseOneID identity vault (`/api/v1/verify/lookup-user`).
+      - If an existing verified account is matched, the button dynamically toggles to `mode="reuse"` with the text: `"Authorize with 1-Click ID (Reuse)"` and green authorization theme.
+      - Triggers biometric or 1-click authorization to deliver signed identity credentials without re-uploading documents.
+    - **First-Time Flow (60-Second KYC Enrollment):**
+      - When the candidate/user is new, the button displays `"Verify with UseOneID"` (or custom action text).
+      - Opens the official UseOneID OAuth2 popup consent handshake (`https://useoneid.com/oauth/authorize?client_id=...&response_type=token&scope=openid+profile+email+kyc`).
+      - Listens securely to `USEONEID_AUTH_SUCCESS` / `USEONEID_VERIFY_SUCCESS` postMessage events.
+    - **1-Click Form Auto-Fill (`UseOneIDLookup`):**
+      - Embed in registration and admission applicant screens to auto-fill verified candidate bio-data (Legal Full Name, Email, Phone, Address, State of Origin, LGA) in one click.
+    - **Design & Security Conformity:**
+      - All UseOneID elements adhere strictly to the 4px border radius (`rounded-[4px]`), Inter font (`font-sans`), and college emerald theme.
+      - Client ID: `cid_bf27f8dd65c77b0eec105349` (or `VITE_USEONEID_CLIENT_ID`).
 
 ---
 
