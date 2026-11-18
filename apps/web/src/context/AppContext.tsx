@@ -116,6 +116,9 @@ export interface AdmissionCandidateItem {
   status: 'APPLIED' | 'SCREENED' | 'ADMITTED' | 'ENROLLED';
   admissionListBatch?: string;
   matricNumber?: string;
+  oneIdNumber?: string;
+  oneIdVerified?: boolean;
+  nin?: string;
   applicationFeePaid?: boolean;
   applicationFeeRef?: string;
   acceptanceFeePaid: boolean;

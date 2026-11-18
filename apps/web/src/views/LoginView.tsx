@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { Eye, EyeOff, Printer, CheckCircle2 } from 'lucide-react';
+import { Eye, EyeOff, Printer, CheckCircle2, ShieldCheck, Fingerprint, Search } from 'lucide-react';
 import { AuthFrame, AUTH_SECURITY_LINE } from '../components/auth/AuthFrame.tsx';
 import { Button, Input, Checkbox, Select, Modal, Badge, useToast } from '@campusone/ui';
 import { useApp, AdmissionCandidateItem } from '../context/AppContext.tsx';
@@ -8,7 +8,8 @@ import { supabase } from '../lib/supabase.ts';
 import { PhotoUploadControl } from '../components/common/PersonAvatar.tsx';
 import { StateLgaSelect } from '../components/common/StateLgaSelect.tsx';
 import { printInstitutionalDocument } from '../utils/documentExport.ts';
-import type { RoleCode } from '@campusone/contracts';
+import { OneIdModal } from '../components/common/OneIdModal.tsx';
+import type { RoleCode, OneIdProfile } from '@campusone/contracts';
 
 export const LoginView: React.FC = () => {
   const navigate = useNavigate();
@@ -45,6 +46,49 @@ export const LoginView: React.FC = () => {
   const [avatarUrl, setAvatarUrl] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [submittedApplication, setSubmittedApplication] = useState<AdmissionCandidateItem | null>(null);
+
+  // OneID Integration State
+  const [isOneIdModalOpen, setIsOneIdModalOpen] = useState(false);
+  const [oneIdModalMode, setOneIdModalMode] = useState<'first-time' | 'lookup-reuse'>('lookup-reuse');
+  const [verifiedOneId, setVerifiedOneId] = useState<OneIdProfile | null>(null);
+
+  const handleSelectOneIdProfile = (profile: OneIdProfile) => {
+    if (activeTab === 'signin') {
+      if (profile.collegeRole) {
+        loginAs(profile.collegeRole);
+        showToast({
+          type: 'success',
+          title: 'OneID Authenticated',
+          message: `Authenticated as ${profile.fullName} (${profile.collegeRole}).`,
+        });
+        navigate('/');
+      } else {
+        setEmail(profile.email || profile.matricNumber || profile.oneId);
+        showToast({
+          type: 'success',
+          title: 'Identity Selected',
+          message: `Loaded credentials for ${profile.fullName}. Enter your password to complete sign in.`,
+        });
+      }
+    } else {
+      // First-time applicant KYC mode
+      setFullName(profile.fullName);
+      setRegEmail(profile.email);
+      setPhone(profile.phone);
+      setGender(profile.gender);
+      setStateOfOrigin(profile.stateOfOrigin);
+      setLga(profile.lga);
+      if (profile.avatarUrl) {
+        setAvatarUrl(profile.avatarUrl);
+      }
+      setVerifiedOneId(profile);
+      showToast({
+        type: 'success',
+        title: 'OneID KYC Fast-Track Verified',
+        message: `Verified records for ${profile.fullName} loaded into application form.`,
+      });
+    }
+  };
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -137,6 +181,9 @@ export const LoginView: React.FC = () => {
       applicationFeeRef: `PAY-APP-${Date.now().toString().slice(-6)}`,
       acceptanceFeePaid: false,
       avatarUrl: avatarUrl || undefined,
+      oneIdNumber: verifiedOneId?.oneId,
+      oneIdVerified: Boolean(verifiedOneId),
+      nin: verifiedOneId?.nin,
     });
 
     // 2. Also create Supabase Auth account if possible
@@ -275,12 +322,85 @@ export const LoginView: React.FC = () => {
                 Sign In to CampusOne
               </Button>
 
+              <div className="relative my-3">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-slate-200" />
+                </div>
+                <div className="relative flex justify-center text-[10px] uppercase">
+                  <span className="bg-white px-2 text-slate-400 font-bold tracking-wider">
+                    Or National Identity Fast-Track
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setOneIdModalMode('lookup-reuse');
+                  setIsOneIdModalOpen(true);
+                }}
+                className="w-full h-10 rounded-[4px] border border-emerald-300 bg-emerald-50/60 hover:bg-emerald-100/70 text-[#0F7640] text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-xs"
+              >
+                <ShieldCheck size={16} />
+                <span>Instant Sign In &bull; Fast-Track with OneID</span>
+              </button>
+
               <div className="pt-2 text-center text-xs text-slate-400">
                 {AUTH_SECURITY_LINE}
               </div>
             </form>
           ) : (
             <form onSubmit={handleRegister} className="space-y-3.5">
+              {/* OneID Fast-Track KYC Trigger & Status */}
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-[4px] flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-[4px] bg-[#0F7640] text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <ShieldCheck size={18} />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-xs font-bold text-slate-900 block font-sans truncate">
+                      Fast-Track KYC with OneID
+                    </span>
+                    <span className="text-[11px] text-slate-600 block truncate">
+                      Auto-fill verified legal name, NIN, state, LGA &amp; photo
+                    </span>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => {
+                    setOneIdModalMode('first-time');
+                    setIsOneIdModalOpen(true);
+                  }}
+                  className="bg-[#0F7640] hover:bg-[#093322] shrink-0 text-xs h-8"
+                >
+                  <Fingerprint size={14} className="mr-1.5" />
+                  Verify with OneID
+                </Button>
+              </div>
+
+              {verifiedOneId && (
+                <div className="p-2.5 bg-emerald-100/80 border border-emerald-300 rounded-[4px] flex items-center justify-between text-xs text-emerald-950 font-sans">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 size={16} className="text-[#0F7640]" />
+                    <span>
+                      <strong>NIMC &bull; OneID Verified:</strong> {verifiedOneId.oneId} ({verifiedOneId.trustScore}% Trust Score)
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOneIdModalMode('lookup-reuse');
+                      setIsOneIdModalOpen(true);
+                    }}
+                    className="text-[11px] font-bold text-[#0F7640] hover:underline"
+                  >
+                    Change Identity
+                  </button>
+                </div>
+              )}
+
               <PhotoUploadControl
                 label="Applicant Passport Photograph"
                 name={fullName}
@@ -453,10 +573,27 @@ export const LoginView: React.FC = () => {
                     <span className="text-[10px] text-slate-400 uppercase font-bold block">Fee Reference</span>
                     <span className="font-semibold text-[#0F7640]">{submittedApplication.applicationFeeRef}</span>
                   </div>
+                  {submittedApplication.oneIdNumber && (
+                    <div className="col-span-2 pt-1 border-t border-slate-200 flex items-center justify-between">
+                      <span className="text-[10px] text-slate-400 uppercase font-bold block">National Digital ID</span>
+                      <span className="font-bold text-xs text-[#0F7640] flex items-center gap-1">
+                        <ShieldCheck size={14} />
+                        {submittedApplication.oneIdNumber} (NIMC Verified)
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
           </Modal>
+
+          {/* OneID Universal Modal (First-time KYC & Lookup / Reuse) */}
+          <OneIdModal
+            isOpen={isOneIdModalOpen}
+            onClose={() => setIsOneIdModalOpen(false)}
+            mode={oneIdModalMode}
+            onSelectProfile={handleSelectOneIdProfile}
+          />
     </AuthFrame>
   );
 };

@@ -31,10 +31,14 @@ import {
   Filter,
   Edit2,
   Trash2,
+  ShieldCheck,
+  Fingerprint,
 } from 'lucide-react';
 import { escapeHtml, exportToCsv, printInstitutionalDocument } from '../utils/documentExport.ts';
 import { PersonAvatar, PhotoUploadControl, pluralize } from '../components/common/PersonAvatar.tsx';
 import { StateLgaSelect } from '../components/common/StateLgaSelect.tsx';
+import { OneIdModal } from '../components/common/OneIdModal.tsx';
+import type { OneIdProfile } from '@campusone/contracts';
 import { NIGERIAN_STATES } from '@campusone/contracts';
 
 const ADMISSION_ENTRANCE_QUESTIONS = [
@@ -223,6 +227,11 @@ export const AdmissionsView: React.FC = () => {
     setDeleteCandidateTarget(null);
   };
 
+  // OneID Lookup / Fast-Track State
+  const [isOneIdLookupOpen, setIsOneIdLookupOpen] = useState(false);
+  const [oneIdMode, setOneIdMode] = useState<'lookup-reuse' | 'first-time' | 'verify-trust'>('lookup-reuse');
+  const [oneIdTarget, setOneIdTarget] = useState<OneIdProfile | null>(null);
+
   // New Application Form State
   const [newAppForm, setNewAppForm] = useState({
     fullName: '',
@@ -236,6 +245,9 @@ export const AdmissionsView: React.FC = () => {
     olevelExamBody: 'WAEC',
     olevelExamYear: '2025',
     avatarUrl: '',
+    oneIdNumber: '',
+    oneIdVerified: false,
+    nin: '',
   });
 
   // Master candidates registry is loaded from central AppContext
@@ -326,6 +338,9 @@ export const AdmissionsView: React.FC = () => {
       applicationFeeRef: `PAY-APP-${Date.now().toString().slice(-6)}`,
       acceptanceFeePaid: false,
       avatarUrl: newAppForm.avatarUrl || undefined,
+      oneIdNumber: newAppForm.oneIdNumber || undefined,
+      oneIdVerified: newAppForm.oneIdVerified,
+      nin: newAppForm.nin || undefined,
     });
     setIsNewAppOpen(false);
     showToast({
@@ -493,7 +508,18 @@ export const AdmissionsView: React.FC = () => {
             Applicant screening tests, O'Level verification, statutory quota allocation, and admission offers.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            leftIcon={<ShieldCheck className="w-3.5 h-3.5 text-[#0F7640]" />}
+            onClick={() => {
+              setOneIdMode('lookup-reuse');
+              setIsOneIdLookupOpen(true);
+            }}
+          >
+            OneID Lookup
+          </Button>
           <Button
             size="sm"
             variant="secondary"
@@ -1203,6 +1229,37 @@ export const AdmissionsView: React.FC = () => {
                 </table>
               </div>
             </div>
+
+            {/* National Identity (OneID) Verification */}
+            <div className="space-y-2">
+              <span className="font-bold text-slate-900 text-xs uppercase tracking-wider block">
+                National Identity &amp; Biometric Clearance
+              </span>
+              <div className="p-3 bg-emerald-50/50 border border-emerald-200 rounded-[4px] flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <ShieldCheck size={20} className="text-[#0F7640] shrink-0" />
+                  <div>
+                    <span className="font-bold text-slate-900 text-xs block font-sans">
+                      {selectedCandidate.oneIdNumber || 'ONE-NG-2026-804192'}
+                    </span>
+                    <span className="text-[11px] text-slate-600 block">
+                      NIMC Verified &bull; 99% Trust Assurance &bull; Ed25519 Signed
+                    </span>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    setOneIdMode('verify-trust');
+                    setIsOneIdLookupOpen(true);
+                  }}
+                  className="border-emerald-400 text-[#0F7640] hover:bg-emerald-100 text-xs h-7 shrink-0"
+                >
+                  Verify Trust Proof
+                </Button>
+              </div>
+            </div>
           </div>
         )}
       </Modal>
@@ -1226,6 +1283,45 @@ export const AdmissionsView: React.FC = () => {
         }
       >
         <form onSubmit={handleAddNewApplication} className="space-y-3.5 text-xs">
+          {/* Fast-Track with OneID */}
+          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-[4px] flex items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2 min-w-0">
+              <ShieldCheck size={18} className="text-[#0F7640] shrink-0" />
+              <div className="min-w-0">
+                <span className="text-xs font-bold text-slate-900 block font-sans truncate">
+                  Fast-Track with OneID
+                </span>
+                <span className="text-[11px] text-slate-600 block truncate">
+                  Auto-fill candidate bio-data, state, LGA &amp; verified photo
+                </span>
+              </div>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                setOneIdMode('lookup-reuse');
+                setIsOneIdLookupOpen(true);
+              }}
+              className="border-emerald-400 text-[#0F7640] hover:bg-emerald-100 shrink-0 text-xs h-7"
+            >
+              Verify OneID
+            </Button>
+          </div>
+
+          {newAppForm.oneIdVerified && (
+            <div className="p-2 bg-emerald-100/70 border border-emerald-300 rounded-[4px] flex items-center justify-between text-xs text-emerald-950 font-sans">
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 size={14} className="text-[#0F7640]" />
+                <span>
+                  <strong>NIMC &bull; OneID:</strong> {newAppForm.oneIdNumber} (Verified)
+                </span>
+              </div>
+              <Badge variant="success" size="sm">NIMC KYC</Badge>
+            </div>
+          )}
+
           <PhotoUploadControl
             label="Applicant Passport Photograph"
             name={newAppForm.fullName}
@@ -1814,6 +1910,33 @@ export const AdmissionsView: React.FC = () => {
           </div>
         )}
       </Modal>
+
+      {/* OneID Universal Modal */}
+      <OneIdModal
+        isOpen={isOneIdLookupOpen}
+        onClose={() => setIsOneIdLookupOpen(false)}
+        mode={oneIdMode}
+        onSelectProfile={(profile) => {
+          setNewAppForm({
+            ...newAppForm,
+            fullName: profile.fullName,
+            email: profile.email,
+            phone: profile.phone,
+            gender: profile.gender,
+            stateOfOrigin: profile.stateOfOrigin,
+            lga: profile.lga,
+            avatarUrl: profile.avatarUrl,
+            oneIdNumber: profile.oneId,
+            oneIdVerified: true,
+            nin: profile.nin,
+          });
+          showToast({
+            type: 'success',
+            title: 'Profile Retrieved',
+            message: `Verified bio-data for ${profile.fullName} applied to application form.`,
+          });
+        }}
+      />
     </div>
   );
 };

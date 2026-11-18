@@ -5,6 +5,7 @@ export * from './types/academic.js';
 export * from './types/finance.js';
 export * from './types/audit.js';
 export * from './types/errors.js';
+export * from './types/oneid.js';
 export * from './locations/nigeriaLocations.js';
 export * from './math/academic.js';
 export * from './math/finance.js';
