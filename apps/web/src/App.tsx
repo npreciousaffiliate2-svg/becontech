@@ -27,6 +27,7 @@ import { ProfileView } from './views/ProfileView.tsx';
 import { SupportView } from './views/SupportView.tsx';
 import { TermsView } from './views/TermsView.tsx';
 import { PrivacyView } from './views/PrivacyView.tsx';
+import { AdmissionStatusView } from './views/AdmissionStatusView.tsx';
 
 export const App: React.FC = () => {
   return (
@@ -39,6 +40,8 @@ export const App: React.FC = () => {
             <Route path="/register" element={<LoginView />} />
             <Route path="/apply" element={<LoginView />} />
             <Route path="/forgot-password" element={<ForgotPasswordView />} />
+            <Route path="/check-admission" element={<AdmissionStatusView />} />
+            <Route path="/prospective-students" element={<AdmissionStatusView />} />
             <Route path="/terms" element={<TermsView />} />
             <Route path="/privacy" element={<PrivacyView />} />
 

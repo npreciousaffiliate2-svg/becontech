@@ -107,7 +107,16 @@ export const AuthFrame: React.FC<{ children: React.ReactNode }> = ({ children })
           </div>
         )}
         <div className="w-full">{children}</div>
-        <div className="mt-8 pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-400 gap-2">
+        <div className="mt-6 p-3 bg-emerald-50/70 border border-emerald-200 rounded-[4px] flex items-center justify-between gap-2 text-xs">
+          <span className="text-slate-700 font-medium">Already applied for 2026/2027 admission?</span>
+          <Link
+            to="/check-admission"
+            className="font-bold text-[#0F7640] hover:underline whitespace-nowrap"
+          >
+            Check Admission Status &rarr;
+          </Link>
+        </div>
+        <div className="mt-6 pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-400 gap-2">
           <span>&copy; {new Date().getFullYear()} {schoolProfile?.institutionName?.replace(' Ltd', '') || 'Bethsaida College of Health Technology'}</span>
           <div className="flex items-center gap-2.5">
             <Link to="/terms" className="hover:text-emerald-700 transition-colors font-medium">Terms of Service</Link>

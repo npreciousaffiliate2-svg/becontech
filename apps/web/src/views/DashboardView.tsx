@@ -182,16 +182,18 @@ export const DashboardView: React.FC = () => {
             <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
               <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
                 <span>O'Level Verification</span>
-                <CheckCircle2 className="w-4 h-4 text-[#0F7640]" />
+                <CheckCircle2 className={`w-4 h-4 ${candidateData.olevelStatus === 'VERIFIED' ? 'text-[#0F7640]' : 'text-amber-500'}`} />
               </div>
               <div className="mt-2 flex items-baseline gap-2">
                 <span className="text-xl font-bold text-slate-900 font-sans">
-                  {candidateData.olevelStatus}
+                  {candidateData.olevelStatus || 'PENDING'}
                 </span>
-                <Badge variant="success" size="sm">5 CREDITS</Badge>
+                <Badge variant={candidateData.olevelStatus === 'VERIFIED' ? 'success' : 'warning'} size="sm">
+                  {candidateData.olevelStatus === 'VERIFIED' ? 'VERIFIED' : 'AWAITING REVIEW'}
+                </Badge>
               </div>
               <p className="text-[11px] text-slate-500 mt-1 font-sans">
-                {candidateData.olevelExamBody} ({candidateData.olevelExamYear}) Verified
+                {candidateData.olevelExamBody} ({candidateData.olevelExamYear}) &bull; {candidateData.olevelStatus === 'VERIFIED' ? 'Cleared by Admissions' : 'Pending office check'}
               </p>
             </Card>
 
@@ -202,26 +204,36 @@ export const DashboardView: React.FC = () => {
               </div>
               <div className="mt-2 flex items-baseline gap-2">
                 <span className="text-2xl font-bold text-slate-900 font-sans">
-                  {candidateData.cbtScore || 75}%
+                  {candidateData.cbtScore > 0 ? `${candidateData.cbtScore}%` : 'Pending'}
                 </span>
-                <span className="text-xs text-emerald-700 font-semibold font-sans">Pass Cut-off ≥ 50%</span>
+                {candidateData.cbtScore > 0 && (
+                  <span className="text-xs text-emerald-700 font-semibold font-sans">
+                    Pass Cut-off ≥ {schoolProfile?.minimumCutoffScore || 50}%
+                  </span>
+                )}
               </div>
               <p className="text-[11px] text-slate-500 mt-1 font-sans">
-                CBT entrance score
+                {candidateData.cbtScore > 0 ? 'Recorded CBT entrance score' : 'Not yet taken / awaiting CBT date'}
               </p>
             </Card>
 
             <Card className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm">
               <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
                 <span>Application Fee</span>
-                <CreditCard className="w-4 h-4 text-[#0F7640]" />
+                <CreditCard className={`w-4 h-4 ${candidateData.applicationFeePaid ? 'text-[#0F7640]' : 'text-amber-600'}`} />
               </div>
               <div className="mt-2 flex items-baseline gap-2">
-                <span className="text-xl font-bold text-[#0F7640] font-sans">SETTLED</span>
-                <Badge variant="success" size="sm">PAID</Badge>
+                <span className={`text-xl font-bold font-sans ${candidateData.applicationFeePaid ? 'text-[#0F7640]' : 'text-amber-700'}`}>
+                  {candidateData.applicationFeePaid ? 'SETTLED' : 'UNPAID'}
+                </span>
+                <Badge variant={candidateData.applicationFeePaid ? 'success' : 'warning'} size="sm">
+                  {candidateData.applicationFeePaid ? 'PAID' : 'PENDING'}
+                </Badge>
               </div>
               <p className="text-[11px] text-slate-500 mt-1 font-sans">
-                Ref: {(candidateData as any).applicationFeeRef || 'PAY-ONLINE-001'}
+                {candidateData.applicationFeePaid
+                  ? `Ref: ${(candidateData as any).applicationFeeRef || 'Verified'}`
+                  : 'Complete payment to finalize screening'}
               </p>
             </Card>
           </div>

@@ -51,12 +51,40 @@ export const useOneIdService = {
 
   /**
    * Verify and extract sovereign claims from a UseOneID token
+   * Calls server-side /api/useoneid/verify (backed by USEONEID_SECRET_KEY) first.
    */
   async verifyToken(token: string): Promise<{ success: boolean; user: UseOneIDUser }> {
     if (!token) throw new Error('Token is required for verification');
 
+    // 1. Server-side verification via Vercel serverless route
     try {
-      // Decode JWT payload
+      const serverRes = await fetch('/api/useoneid/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      });
+
+      if (serverRes.ok) {
+        const json = await serverRes.json();
+        if (json?.success && json?.data?.user) {
+          return {
+            success: true,
+            user: json.data.user,
+          };
+        }
+      } else if (serverRes.status === 401) {
+        const errJson = await serverRes.json().catch(() => null);
+        throw new Error(errJson?.error?.message || 'UseOneID token was rejected by verification server.');
+      }
+    } catch (err: any) {
+      if (err?.message?.includes('rejected')) {
+        throw err;
+      }
+      // On local Vite dev (where /api/* serverless route is not mounted), continue to JWT claim decode
+    }
+
+    try {
+      // 2. Local dev fallback: Decode JWT payload
       const parts = token.split('.');
       if (parts.length >= 2) {
         const base64Url = parts[1];
@@ -85,16 +113,7 @@ export const useOneIdService = {
         };
       }
 
-      // If token is opaque / session-based
-      return {
-        success: true,
-        user: {
-          id: `oneid_${token.slice(0, 10)}`,
-          email: '',
-          name: 'Verified Citizen',
-          tier: 'Tier 3 (NIMC Verified)',
-        },
-      };
+      throw new Error('Malformed UseOneID token.');
     } catch (err: any) {
       console.error('[UseOneID Service] Token verification error:', err);
       throw new Error(`UseOneID verification error: ${err.message || 'Invalid token'}`);

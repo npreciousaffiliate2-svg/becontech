@@ -156,6 +156,40 @@ export const LoginView: React.FC = () => {
     const regBoard = matchedProg.regulatoryBody;
     const progName = matchedProg.name;
 
+    const olevelSubjectsPayload = [
+      { subject: 'English Language', grade: englishGrade },
+      { subject: 'Mathematics', grade: mathsGrade },
+      { subject: 'Biology', grade: biologyGrade },
+      { subject: 'Chemistry', grade: chemistryGrade },
+      { subject: 'Physics', grade: physicsGrade },
+    ];
+
+    // 1a. Submit via tamper-proof Supabase RPC (forces APPLIED, CBT=0, PENDING O'Level, UNPAID server-side)
+    try {
+      await supabase.rpc('submit_admission_application', {
+        p_application_number: appNumber,
+        p_full_name: fullName.trim(),
+        p_email: regEmail.trim(),
+        p_phone: phone.trim(),
+        p_gender: gender,
+        p_state_of_origin: stateOfOrigin,
+        p_lga: lga || 'Ibadan North',
+        p_programme_code: matchedProg.code,
+        p_programme: progName,
+        p_department: deptName,
+        p_regulatory_body: regBoard,
+        p_olevel_exam_body: olevelBody,
+        p_olevel_exam_year: olevelYear || '2025',
+        p_olevel_subjects: olevelSubjectsPayload,
+        p_avatar_url: avatarUrl || null,
+        p_one_id_number: verifiedOneId?.id || null,
+        p_one_id_verified: Boolean(verifiedOneId),
+      });
+    } catch (rpcErr) {
+      console.warn('[CampusOne] Candidate RPC sync notice:', rpcErr);
+    }
+
+    // 1b. Register in local client state with authentic unverified/unpaid initial status
     const createdCandidate = addCandidate({
       id: `app-${Date.now().toString().slice(-4)}`,
       cbtDate: new Date().toISOString().split('T')[0],
@@ -172,18 +206,11 @@ export const LoginView: React.FC = () => {
       regulatoryBody: regBoard,
       olevelExamBody: olevelBody,
       olevelExamYear: olevelYear || '2025',
-      olevelStatus: 'VERIFIED',
-      olevelSubjects: [
-        { subject: 'English Language', grade: englishGrade },
-        { subject: 'Mathematics', grade: mathsGrade },
-        { subject: 'Biology', grade: biologyGrade },
-        { subject: 'Chemistry', grade: chemistryGrade },
-        { subject: 'Physics', grade: physicsGrade },
-      ],
+      olevelStatus: 'PENDING',
+      olevelSubjects: olevelSubjectsPayload,
       cbtScore: 0,
       status: 'APPLIED',
-      applicationFeePaid: true,
-      applicationFeeRef: `PAY-APP-${Date.now().toString().slice(-6)}`,
+      applicationFeePaid: false,
       acceptanceFeePaid: false,
       avatarUrl: avatarUrl || undefined,
       oneIdNumber: verifiedOneId?.id,

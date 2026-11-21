@@ -305,7 +305,16 @@ export const AdminView: React.FC = () => {
           setGatewaySettings(gwData);
           gwData.forEach((gw) => {
             try {
-              localStorage.setItem(`campusone_gateway_${gw.gateway_type}`, JSON.stringify(gw));
+              // SECURITY: Never cache secret_key, webhook_secret, or smtp_password in localStorage
+              const safePublicCache = {
+                id: gw.id,
+                gateway_type: gw.gateway_type,
+                provider: gw.provider,
+                is_enabled: gw.is_enabled,
+                environment: gw.environment,
+                public_key: gw.public_key,
+              };
+              localStorage.setItem(`campusone_gateway_${gw.gateway_type}`, JSON.stringify(safePublicCache));
               if (gw.gateway_type === 'payment_paystack' && gw.public_key) {
                 localStorage.setItem('campusone_paystack_public_key', gw.public_key);
               }
@@ -397,9 +406,17 @@ export const AdminView: React.FC = () => {
     e.preventDefault();
     if (!editingGateway) return;
 
-    // Save to local cache first so it is available across all views immediately
+    // Save ONLY non-secret public fields to localStorage (never store secret_key / webhook_secret in browser storage)
     try {
-      localStorage.setItem(`campusone_gateway_${editingGateway.gateway_type}`, JSON.stringify(editingGateway));
+      const safePublicCache = {
+        id: editingGateway.id,
+        gateway_type: editingGateway.gateway_type,
+        provider: editingGateway.provider,
+        is_enabled: editingGateway.is_enabled,
+        environment: editingGateway.environment,
+        public_key: editingGateway.public_key,
+      };
+      localStorage.setItem(`campusone_gateway_${editingGateway.gateway_type}`, JSON.stringify(safePublicCache));
       if (editingGateway.gateway_type === 'payment_paystack') {
         localStorage.setItem('campusone_paystack_public_key', editingGateway.public_key || '');
         localStorage.setItem('campusone_paystack_enabled', String(editingGateway.is_enabled));

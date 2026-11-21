@@ -544,7 +544,7 @@ export const BursaryView: React.FC = () => {
     if (!paystackKey) {
       try {
         const { data: gateway } = await supabase
-          .from('integration_settings')
+          .from('public_payment_gateways')
           .select('public_key, is_enabled')
           .eq('gateway_type', 'payment_paystack')
           .maybeSingle();
@@ -612,35 +612,67 @@ export const BursaryView: React.FC = () => {
               });
               return;
             }
-            const receipt = addLedgerPayment({
-              studentId: payerId,
-              matricNumber: userMatric,
-              studentName: payerName,
-              amountKobo,
-              category: onlinePaymentCategory,
-              description: `Paystack Verified Payment (${onlinePaymentCategory.toUpperCase()}) — Ref: ${ref}`,
-              paymentMethod: 'paystack',
-              referenceId: ref,
-              gatewayReference: ref,
-              programme: persona?.department || (payer ? `${payer.dept} programme` : undefined),
-              level: persona?.title,
-            });
 
-            recordAudit('ONLINE_PAYMENT_SUCCESS', 'BURSARY_PAYSTACK', userMatric, {
-              gateway: 'paystack',
-              amountKobo,
-              reference: ref,
-              receiptNo: receipt.receiptNumber,
-            });
+            // Server-side cryptographic payment verification (prevents client-side spoofing)
+            (async () => {
+              try {
+                const verifyRes = await fetch('/api/paystack/verify', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ reference: ref, expectedAmountKobo: amountKobo }),
+                });
+                const verifyPayload = await verifyRes.json().catch(() => null);
+                if (!verifyRes.ok || !verifyPayload?.success || !verifyPayload?.data?.verified) {
+                  setIsProcessingPayment(false);
+                  showToast({
+                    type: 'danger',
+                    title: 'Payment Verification Failed',
+                    message:
+                      verifyPayload?.error?.message ||
+                      'Could not verify transaction with Paystack server. No receipt was issued.',
+                  });
+                  return;
+                }
 
-            setIsProcessingPayment(false);
-            setIsOnlinePayModalOpen(false);
-            showToast({
-              type: 'success',
-              title: 'Paystack Payment Confirmed',
-              message: `Official Receipt #${receipt.receiptNumber} generated. Reference: ${ref}`,
-            });
-            setSelectedReceipt(receipt);
+                const receipt = addLedgerPayment({
+                  studentId: payerId,
+                  matricNumber: userMatric,
+                  studentName: payerName,
+                  amountKobo: verifyPayload.data.amountKobo || amountKobo,
+                  category: onlinePaymentCategory,
+                  description: `Paystack Server-Verified Payment (${onlinePaymentCategory.toUpperCase()}) — Ref: ${ref}`,
+                  paymentMethod: 'paystack',
+                  referenceId: ref,
+                  gatewayReference: ref,
+                  programme: persona?.department || (payer ? `${payer.dept} programme` : undefined),
+                  level: persona?.title,
+                });
+
+                recordAudit('ONLINE_PAYMENT_VERIFIED', 'BURSARY_PAYSTACK', userMatric, {
+                  gateway: 'paystack',
+                  amountKobo: verifyPayload.data.amountKobo || amountKobo,
+                  reference: ref,
+                  receiptNo: receipt.receiptNumber,
+                  channel: verifyPayload.data.channel,
+                });
+
+                setIsProcessingPayment(false);
+                setIsOnlinePayModalOpen(false);
+                showToast({
+                  type: 'success',
+                  title: 'Paystack Payment Confirmed',
+                  message: `Official Receipt #${receipt.receiptNumber} generated. Reference: ${ref}`,
+                });
+                setSelectedReceipt(receipt);
+              } catch (verifyErr) {
+                setIsProcessingPayment(false);
+                showToast({
+                  type: 'danger',
+                  title: 'Verification Server Unreachable',
+                  message: 'Your payment reference could not be verified server-side. Please contact Bursary with Ref: ' + ref,
+                });
+              }
+            })();
           },
           onClose: () => {
             setIsProcessingPayment(false);
