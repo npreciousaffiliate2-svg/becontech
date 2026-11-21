@@ -173,14 +173,23 @@ export const UseOneIDButton: React.FC<UseOneIDButtonProps> = ({
       (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
     const canonicalOrigin = typeof window !== 'undefined' ? window.location.origin : '';
 
-    const finalRedirect = customRedirectUri || `${canonicalOrigin}/api/auth/useoneid`;
+    const configuredRedirect =
+      customRedirectUri ||
+      ((import.meta as any).env?.VITE_USEONEID_REDIRECT_URI as string);
 
     const params = new URLSearchParams({
       client_id: clientId,
       response_type: 'token',
       scope: normalizedScope,
-      redirect_uri: finalRedirect,
     });
+
+    // In popup mode, UseOneID communicates directly via window.opener postMessage (USEONEID_AUTH_SUCCESS).
+    // Never append an unhandled fictitious '/api/auth/useoneid' path.
+    if (configuredRedirect) {
+      params.set('redirect_uri', configuredRedirect);
+    } else if (mode === 'redirect') {
+      params.set('redirect_uri', canonicalOrigin || window.location.href);
+    }
 
     if (isReuse) {
       params.set('mode', 'reuse');
