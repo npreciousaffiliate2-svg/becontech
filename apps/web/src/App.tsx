@@ -25,6 +25,8 @@ import { AnalyticsView } from './views/AnalyticsView.tsx';
 import { AdminView } from './views/AdminView.tsx';
 import { ProfileView } from './views/ProfileView.tsx';
 import { SupportView } from './views/SupportView.tsx';
+import { TermsView } from './views/TermsView.tsx';
+import { PrivacyView } from './views/PrivacyView.tsx';
 
 export const App: React.FC = () => {
   return (
@@ -32,11 +34,13 @@ export const App: React.FC = () => {
       <AppProvider>
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Routes>
-            {/* Public Auth Routes */}
+            {/* Public Auth & Legal Routes */}
             <Route path="/login" element={<LoginView />} />
             <Route path="/register" element={<LoginView />} />
             <Route path="/apply" element={<LoginView />} />
             <Route path="/forgot-password" element={<ForgotPasswordView />} />
+            <Route path="/terms" element={<TermsView />} />
+            <Route path="/privacy" element={<PrivacyView />} />
 
             {/* Authenticated Application Layout */}
             <Route element={<AppLayout />}>

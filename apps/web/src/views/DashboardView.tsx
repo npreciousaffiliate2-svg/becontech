@@ -59,39 +59,46 @@ export const DashboardView: React.FC = () => {
 
     // If logged in user is an Applicant (not yet matriculated/enrolled)
     if (isApplicant) {
-      const candidateData = matchingCandidate || {
-        id: currentPersona.id || 'cand-current',
-        applicationNumber: currentPersona.applicationNumber || 'APP/2026/0145',
-        fullName: currentPersona.fullName || session?.fullName || 'Applicant',
-        email: currentPersona.email || session?.email || '',
-        phone: currentPersona.phone || '+234 800 000 0000',
-        gender: 'Female',
-        stateOfOrigin: 'Oyo State',
-        lga: 'Ibadan North',
-        programme: currentPersona.department || 'Community Health Extension Worker (CHEW)',
-        programmeCode: 'CHEW',
-        regulatoryBody: 'CHPRBN',
-        olevelExamBody: 'WAEC',
-        olevelExamYear: 2025,
-        olevelStatus: 'VERIFIED' as const,
-        olevelVerified: true,
-        olevelSubjects: [
-          { subject: 'English Language', grade: 'B3', verified: true },
-          { subject: 'Mathematics', grade: 'C4', verified: true },
-          { subject: 'Biology', grade: 'B2', verified: true },
-          { subject: 'Chemistry', grade: 'B3', verified: true },
-          { subject: 'Physics', grade: 'C5', verified: true },
-        ],
-        cbtScore: 78,
-        cbtDate: new Date().toISOString().slice(0, 10),
-        status: (currentPersona.scopeBadge === 'Admitted Candidate' ? 'ADMITTED' : 'SCREENED') as any,
-        applicationFeePaid: true,
-        acceptanceFeePaid: false,
-        verifiedByOneId: true,
-        registeredAt: new Date().toISOString(),
-        department: currentPersona.department || 'Community Health Extension (CHEW)',
-      };
+      if (!matchingCandidate) {
+        return (
+          <div className="flex flex-col gap-6 font-sans">
+            <div className="bg-gradient-to-r from-[#0F7640] to-[#093322] rounded-[4px] p-6 text-white shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <span className="text-xs font-semibold text-emerald-200 block">
+                  {schoolProfile?.activeSession || '2026/2027'} Admission &amp; Screening Portal
+                </span>
+                <h1 className="text-2xl font-extrabold tracking-tight">
+                  Welcome, {currentPersona.fullName || 'Candidate'}
+                </h1>
+                <p className="text-xs text-emerald-100/90 mt-1">
+                  You are registered on the college portal. Complete your admission application below to enter the entrance screening queue.
+                </p>
+              </div>
+            </div>
 
+            <Card className="p-8 text-center bg-white border border-slate-200 rounded-[4px] shadow-sm max-w-xl mx-auto w-full my-6">
+              <div className="w-14 h-14 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center mx-auto mb-4 border border-emerald-200">
+                <FileText className="w-7 h-7" />
+              </div>
+              <h2 className="text-lg font-bold text-slate-900 mb-2">No Application Submitted Yet</h2>
+              <p className="text-xs text-slate-600 leading-relaxed mb-6">
+                We have no record of an admission application submitted under <strong>{userEmail || currentPersona.email || 'this account'}</strong> for the {schoolProfile?.activeSession || '2026/2027'} session. Please choose your intended health technology programme, enter your O'Level credits, and submit your application.
+              </p>
+              <div className="flex justify-center gap-3">
+                <Button
+                  variant="primary"
+                  className="bg-[#0F7640] hover:bg-[#093322] text-xs font-bold"
+                  onClick={() => navigate('/login?tab=register')}
+                >
+                  Start New Admission Application
+                </Button>
+              </div>
+            </Card>
+          </div>
+        );
+      }
+
+      const candidateData = matchingCandidate;
       const isAdmitted = candidateData.status === 'ADMITTED';
       const isScreened = candidateData.status === 'SCREENED' || isAdmitted;
 
