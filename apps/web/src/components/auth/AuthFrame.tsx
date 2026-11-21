@@ -1,5 +1,4 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 import { ShieldCheck, FileCheck, LockKeyhole } from 'lucide-react';
 import { useApp } from '../../context/AppContext.tsx';
 
@@ -107,16 +106,6 @@ export const AuthFrame: React.FC<{ children: React.ReactNode }> = ({ children })
           </div>
         )}
         <div className="w-full">{children}</div>
-        <div className="mt-8 pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-400 gap-2">
-          <Link to="/portal" className="hover:text-[#0F7640] transition-colors font-medium">
-            &larr; Back to Portal Home
-          </Link>
-          <div className="flex items-center gap-2.5">
-            <Link to="/terms" className="hover:text-emerald-700 transition-colors font-medium">Terms of Service</Link>
-            <span>&bull;</span>
-            <Link to="/privacy" className="hover:text-emerald-700 transition-colors font-medium">Privacy Policy</Link>
-          </div>
-        </div>
       </div>
     </div>
   );

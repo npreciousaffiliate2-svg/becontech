@@ -1,0 +1,32 @@
+# Bethsaida College of Health Technology (BECOHTECH)
+
+> Official institutional portal for Bethsaida College of Health Technology, Ogbomoso, Oyo State, Nigeria.
+
+## Overview
+Bethsaida College of Health Technology trains accredited health technology professionals across Nigeria under statutory health regulatory boards including CHPRBN, WAHEB, PCN, MLSCN, DTRBN, and HRORBN.
+
+- **Campus Address:** Ikolaba Aladan Layout, off Ayegun Yemetu Road, along CAC Grammar School, Ogbomoso, Oyo State, Nigeria
+- **Official Portal:** https://portal.becohtech.edu.ng
+- **Email:** info@becohtech.edu.ng
+- **Phone:** +234 907 578 9045
+
+## Key Portal Pages
+- [Portal Homepage](https://portal.becohtech.edu.ng/): Overview of accredited departments, programmes, notices, and entry requirements.
+- [Online Application](https://portal.becohtech.edu.ng/apply): Submit a new admission application online (supports UseOneID 1-click bio-data auto-fill).
+- [Check Admission Status](https://portal.becohtech.edu.ng/check-admission): Check provisional admission status using Application Number or registered email.
+- [Student & Staff Login](https://portal.becohtech.edu.ng/login): Sign in for course registration, results, clinical postings, and fee payments.
+- [Terms of Service](https://portal.becohtech.edu.ng/terms): Institutional portal terms, academic integrity, and fee policies.
+- [Privacy Policy](https://portal.becohtech.edu.ng/privacy): NDPA/NDPR student and candidate data protection policy.
+
+## Accredited Departments & Programmes
+- **Community Health Department:** Community Health Extension Worker (CHEW), Junior Community Health Extension Worker (JCHEW) — Regulated by CHPRBN
+- **Dental Health Department:** Dental Surgery Technician (DST), Dental Health Technician (DHT) — Regulated by DTRBN
+- **Environmental Health Department:** Environmental Health Technician (EHT), Environmental Health Assistant (EHA) — Regulated by WAHEB / EHCON
+- **Health Information Management Department:** Health Information Management Technician (HIM) — Regulated by HRORBN
+- **Pharmacy Technician Department:** Pharmacy Technician (PHT) — Regulated by PCN
+- **Medical Laboratory Science Department:** Medical Laboratory Technician (MLT) — Regulated by MLSCN
+- **Health Technician & Health Assistant Departments:** Accredited diploma and certificate health support programmes
+
+## General Admission Requirements
+- Five (5) O'Level credits in English Language, Mathematics, Biology, Chemistry, and Physics (WAEC, NECO, or NABTEB) in not more than two sittings.
+- Pass the College Entrance CBT Screening Exercise.

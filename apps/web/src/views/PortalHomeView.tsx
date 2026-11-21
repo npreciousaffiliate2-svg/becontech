@@ -61,13 +61,20 @@ export const PortalHomeView: React.FC = () => {
         </div>
       )}
 
-      {/* Clean Solid Institutional Hero */}
-      <section className="bg-[#0B4D2B] text-white py-16 sm:py-20 px-4 sm:px-6">
-        <div className="max-w-3xl mx-auto text-center space-y-3">
+      {/* Clean Institutional Hero with Campus Photography */}
+      <section className="relative bg-[#093322] text-white py-16 sm:py-24 px-4 sm:px-6 overflow-hidden">
+        <img
+          src="/portal-hero.jpg"
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 w-full h-full object-cover object-center opacity-35"
+        />
+        <div className="absolute inset-0 bg-[#093322]/75" aria-hidden="true" />
+        <div className="relative z-10 max-w-3xl mx-auto text-center space-y-3">
           <h1 className="text-2xl sm:text-4xl font-bold tracking-tight leading-snug">
             Welcome to {institutionName} Portal
           </h1>
-          <p className="text-sm text-emerald-100/90 max-w-xl mx-auto leading-relaxed">
+          <p className="text-sm text-emerald-50/90 max-w-xl mx-auto leading-relaxed">
             Explore accredited health technology programmes, apply for {sessionYear} admission, and access student services.
           </p>
         </div>

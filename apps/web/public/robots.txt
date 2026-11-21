@@ -1,0 +1,25 @@
+User-agent: *
+Allow: /
+Allow: /portal
+Allow: /check-admission
+Allow: /prospective-students
+Allow: /apply
+Allow: /login
+Allow: /terms
+Allow: /privacy
+Allow: /llms.txt
+
+Disallow: /settings
+Disallow: /admin
+Disallow: /bursary
+Disallow: /students
+Disallow: /academics
+Disallow: /attendance
+Disallow: /postings
+Disallow: /hostels
+Disallow: /staff
+Disallow: /reports
+Disallow: /analytics
+Disallow: /api/
+
+Sitemap: https://portal.becohtech.edu.ng/sitemap.xml
