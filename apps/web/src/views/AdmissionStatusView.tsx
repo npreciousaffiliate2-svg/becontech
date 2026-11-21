@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GraduationCap } from 'lucide-react';
 import { Button, Badge, Input, Select } from '@campusone/ui';
+import { ACCREDITED_COLLEGE_DEPARTMENTS } from '@campusone/contracts';
 import { useApp } from '../context/AppContext.tsx';
 import { supabase } from '../lib/supabase.ts';
 import { PortalShell } from '../components/layout/PortalShell.tsx';
@@ -24,7 +25,7 @@ interface PublicStatusResult {
 export const AdmissionStatusView: React.FC = () => {
   const navigate = useNavigate();
   const { schoolProfile, candidates } = useApp();
-  const [studentType, setStudentType] = useState('diploma');
+  const [selectedDepartment, setSelectedDepartment] = useState('ALL');
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PublicStatusResult | null>(null);
@@ -101,15 +102,17 @@ export const AdmissionStatusView: React.FC = () => {
             <form onSubmit={handleCheckStatus} className="space-y-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-slate-700 block">
-                  Programme Type
+                  Department
                 </label>
                 <Select
-                  value={studentType}
-                  onChange={setStudentType}
+                  value={selectedDepartment}
+                  onChange={setSelectedDepartment}
                   options={[
-                    { value: 'diploma', label: 'National Diploma (ND) / Technician' },
-                    { value: 'hnd', label: 'Higher National Diploma (HND)' },
-                    { value: 'certificate', label: 'Certificate / Health Assistant' },
+                    { value: 'ALL', label: 'All Accredited Departments' },
+                    ...ACCREDITED_COLLEGE_DEPARTMENTS.map((dept) => ({
+                      value: dept.name,
+                      label: dept.name,
+                    })),
                   ]}
                 />
               </div>
