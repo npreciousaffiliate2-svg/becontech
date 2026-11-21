@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar.tsx';
 import { Topbar } from './Topbar.tsx';
+import { PortalHomeView } from '../../views/PortalHomeView.tsx';
 import { useApp } from '../../context/AppContext.tsx';
 import { useToast } from '@campusone/ui';
 import { SAVE_ERROR_EVENT } from '../../lib/sharedRecords.ts';
 import { ShieldAlert, LogOut, Wrench, RefreshCw, Clock, Phone, Mail } from 'lucide-react';
 
 export const AppLayout: React.FC = () => {
+  const location = useLocation();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const {
@@ -88,6 +90,9 @@ export const AppLayout: React.FC = () => {
   }
 
   if (!isAuthenticated) {
+    if (location.pathname === '/') {
+      return <PortalHomeView />;
+    }
     return <Navigate to="/login" replace />;
   }
 

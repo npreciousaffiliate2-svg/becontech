@@ -28,6 +28,7 @@ import { SupportView } from './views/SupportView.tsx';
 import { TermsView } from './views/TermsView.tsx';
 import { PrivacyView } from './views/PrivacyView.tsx';
 import { AdmissionStatusView } from './views/AdmissionStatusView.tsx';
+import { PortalHomeView } from './views/PortalHomeView.tsx';
 
 export const App: React.FC = () => {
   return (
@@ -35,7 +36,8 @@ export const App: React.FC = () => {
       <AppProvider>
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Routes>
-            {/* Public Auth & Legal Routes */}
+            {/* Public Portal, Auth & Legal Routes */}
+            <Route path="/portal" element={<PortalHomeView />} />
             <Route path="/login" element={<LoginView />} />
             <Route path="/register" element={<LoginView />} />
             <Route path="/apply" element={<LoginView />} />
