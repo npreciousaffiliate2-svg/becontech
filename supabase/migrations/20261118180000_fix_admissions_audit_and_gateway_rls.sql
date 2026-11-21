@@ -32,9 +32,12 @@ WHERE is_enabled = true
 GRANT SELECT ON public.public_payment_gateways TO anon, authenticated;
 
 -- 2. OPERATIONAL RECORDS: Strict least-privilege RLS (NO anon/student UPDATE or DELETE on admissions!)
+GRANT SELECT ON public.operational_records TO anon, authenticated;
 DROP POLICY IF EXISTS operational_records_candidates_all ON public.operational_records;
 DROP POLICY IF EXISTS operational_records_candidates_anon ON public.operational_records;
 DROP POLICY IF EXISTS operational_records_candidates_read ON public.operational_records;
+DROP POLICY IF EXISTS operational_records_public_reference_read ON public.operational_records;
+DROP POLICY IF EXISTS operational_records_own_candidate_read ON public.operational_records;
 
 -- Public read-only access strictly for institutional reference data (departments, programmes, semesters)
 CREATE POLICY operational_records_public_reference_read ON public.operational_records
@@ -82,6 +85,7 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
+    v_app_number TEXT;
     v_id TEXT;
     v_payload JSONB;
 BEGIN
@@ -92,12 +96,19 @@ BEGIN
         RAISE EXCEPTION 'Valid email address is required';
     END IF;
 
-    v_id := 'admissions.candidates:' || p_application_number;
+    v_app_number := coalesce(nullif(trim(p_application_number), ''), 'APP/2026/' || upper(substring(md5(p_email || now()::text) from 1 for 5)));
+    v_id := 'admissions.candidates:' || v_app_number;
+
+    -- Prevent silent drop if two concurrent applicants generate the same application number
+    IF EXISTS (SELECT 1 FROM public.operational_records WHERE id = v_id) THEN
+        v_app_number := v_app_number || '-' || upper(substring(md5(random()::text || clock_timestamp()::text) from 1 for 3));
+        v_id := 'admissions.candidates:' || v_app_number;
+    END IF;
 
     -- Server-enforced invariants: applicants can NEVER self-admit, set CBT scores, or mark fees paid
     v_payload := jsonb_build_object(
-        'id', 'app-' || substring(md5(p_email || now()::text) from 1 for 8),
-        'applicationNumber', p_application_number,
+        'id', 'app-' || substring(md5(p_email || clock_timestamp()::text) from 1 for 8),
+        'applicationNumber', v_app_number,
         'fullName', trim(p_full_name),
         'email', lower(trim(p_email)),
         'phone', trim(coalesce(p_phone, '')),
@@ -124,8 +135,7 @@ BEGIN
     );
 
     INSERT INTO public.operational_records (id, college_id, record_kind, payload, updated_at)
-    VALUES (v_id, 'bethsaida', 'admissions.candidates', v_payload, now())
-    ON CONFLICT (id) DO NOTHING;
+    VALUES (v_id, 'bethsaida', 'admissions.candidates', v_payload, now());
 
     RETURN v_payload;
 END;

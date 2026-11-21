@@ -1,22 +1,32 @@
-import type { IncomingMessage, ServerResponse } from 'node:http';
-
-interface VercelRequest extends IncomingMessage {
+interface ApiRequest {
+  method?: string;
+  headers: Record<string, string | string[] | undefined>;
   body?: any;
 }
 
-interface VercelResponse extends ServerResponse {
-  status: (code: number) => VercelResponse;
+interface ApiResponse {
+  status: (code: number) => ApiResponse;
   json: (data: any) => void;
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+declare const process: { env: Record<string, string | undefined> };
+
+export default async function handler(req: ApiRequest, res: ApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, error: { code: 'METHOD_NOT_ALLOWED', message: 'Use POST' } });
   }
 
-  const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
-  const token = String(body.token || '').trim();
+  let body: Record<string, any> = {};
+  try {
+    body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
+  } catch {
+    return res.status(400).json({
+      success: false,
+      error: { code: 'INVALID_JSON', message: 'Request body must be valid JSON.' },
+    });
+  }
 
+  const token = String(body.token || '').trim();
   if (!token) {
     return res.status(400).json({
       success: false,

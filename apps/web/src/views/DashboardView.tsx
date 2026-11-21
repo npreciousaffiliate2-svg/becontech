@@ -292,7 +292,9 @@ export const DashboardView: React.FC = () => {
                 <span className="font-bold text-slate-900 uppercase tracking-wider text-xs">
                   Submitted O'Level Science Subjects ({candidateData.olevelExamBody} {candidateData.olevelExamYear})
                 </span>
-                <Badge variant="success" size="sm">CREDITS VERIFIED</Badge>
+                <Badge variant={candidateData.olevelStatus === 'VERIFIED' ? 'success' : 'warning'} size="sm">
+                  {candidateData.olevelStatus === 'VERIFIED' ? 'CREDITS VERIFIED' : 'PENDING VERIFICATION'}
+                </Badge>
               </div>
             }
           >
@@ -307,14 +309,19 @@ export const DashboardView: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {(candidateData.olevelSubjects || []).map((s, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50/50">
-                      <td className="px-4 py-2.5 font-medium text-slate-800">{s.subject}</td>
-                      <td className="px-4 py-2.5 text-slate-600">{candidateData.olevelExamBody}</td>
-                      <td className="px-4 py-2.5 font-bold text-slate-900">{s.grade}</td>
-                      <td className="px-4 py-2.5 text-[#0F7640] font-semibold">Credit Pass</td>
-                    </tr>
-                  ))}
+                  {(candidateData.olevelSubjects || []).map((s, idx) => {
+                    const isCredit = ['A1', 'B2', 'B3', 'C4', 'C5', 'C6'].includes(String(s.grade || '').toUpperCase());
+                    return (
+                      <tr key={idx} className="hover:bg-slate-50/50">
+                        <td className="px-4 py-2.5 font-medium text-slate-800">{s.subject}</td>
+                        <td className="px-4 py-2.5 text-slate-600">{candidateData.olevelExamBody}</td>
+                        <td className="px-4 py-2.5 font-bold text-slate-900">{s.grade}</td>
+                        <td className={`px-4 py-2.5 font-semibold ${isCredit ? 'text-[#0F7640]' : 'text-red-600'}`}>
+                          {isCredit ? 'Credit Pass' : 'Below Credit'}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

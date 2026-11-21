@@ -1,16 +1,70 @@
-import crypto from 'node:crypto';
-import type { IncomingMessage, ServerResponse } from 'node:http';
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
 
-interface VercelRequest extends IncomingMessage {
+interface ApiRequest {
+  method?: string;
+  headers: Record<string, string | string[] | undefined>;
   body?: any;
+  on?: (event: string, cb: (chunk?: any) => void) => void;
 }
 
-interface VercelResponse extends ServerResponse {
-  status: (code: number) => VercelResponse;
+interface ApiResponse {
+  status: (code: number) => ApiResponse;
   json: (data: any) => void;
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+declare const process: { env: Record<string, string | undefined> };
+
+async function readRawBody(req: ApiRequest): Promise<string> {
+  if (typeof req.body === 'string') return req.body;
+  if (req.body && typeof req.body === 'object' && !req.on) return JSON.stringify(req.body);
+  return new Promise((resolve, reject) => {
+    const chunks: Uint8Array[] = [];
+    req.on?.('data', (chunk: Uint8Array | string) => {
+      chunks.push(typeof chunk === 'string' ? new TextEncoder().encode(chunk) : chunk);
+    });
+    req.on?.('end', () => {
+      const total = chunks.reduce((acc, c) => acc + c.byteLength, 0);
+      const merged = new Uint8Array(total);
+      let offset = 0;
+      for (const c of chunks) {
+        merged.set(c, offset);
+        offset += c.byteLength;
+      }
+      resolve(new TextDecoder().decode(merged));
+    });
+    req.on?.('error', reject);
+  });
+}
+
+async function computeHmacSha512Hex(secret: string, payload: string): Promise<string> {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(secret),
+    { name: 'HMAC', hash: 'SHA-512' },
+    false,
+    ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(payload));
+  return Array.from(new Uint8Array(sig))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+function timingSafeEqualHex(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
+export default async function handler(req: ApiRequest, res: ApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, error: { code: 'METHOD_NOT_ALLOWED', message: 'Use POST' } });
   }
@@ -20,17 +74,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(503).json({ success: false, error: { code: 'SECRET_MISSING', message: 'Webhook secret not configured.' } });
   }
 
-  const signature = String(req.headers['x-paystack-signature'] || '');
-  const rawBody = typeof req.body === 'string' ? req.body : JSON.stringify(req.body || {});
-  const expectedHash = crypto.createHmac('sha512', secretKey).update(rawBody).digest('hex');
+  const rawBody = await readRawBody(req);
+  const signature = String(req.headers['x-paystack-signature'] || '').trim().toLowerCase();
+  const expectedHash = await computeHmacSha512Hex(secretKey, rawBody);
 
-  const sigBuf = Buffer.from(signature);
-  const expBuf = Buffer.from(expectedHash);
-  if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
+  if (!signature || !timingSafeEqualHex(signature, expectedHash)) {
     return res.status(401).json({ success: false, error: { code: 'INVALID_SIGNATURE', message: 'Signature verification failed.' } });
   }
 
-  const event = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
+  let event: Record<string, any> = {};
+  try {
+    event = JSON.parse(rawBody || '{}');
+  } catch {
+    return res.status(400).json({ success: false, error: { code: 'INVALID_JSON', message: 'Malformed webhook payload.' } });
+  }
 
   if (event?.event === 'charge.success') {
     const ref = event?.data?.reference;

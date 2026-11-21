@@ -25,9 +25,23 @@ export const LoginView: React.FC = () => {
     });
   }, [schoolProfile?.institutionName]);
 
-  const [activeTab, setActiveTab] = useState<'signin' | 'register'>(
-    location.pathname === '/register' || location.pathname === '/apply' ? 'register' : 'signin'
-  );
+  const resolveTabFromLocation = () => {
+    const params = new URLSearchParams(location.search);
+    if (
+      location.pathname === '/register' ||
+      location.pathname === '/apply' ||
+      params.get('tab') === 'register'
+    ) {
+      return 'register' as const;
+    }
+    return 'signin' as const;
+  };
+
+  const [activeTab, setActiveTab] = useState<'signin' | 'register'>(resolveTabFromLocation);
+
+  useEffect(() => {
+    setActiveTab(resolveTabFromLocation());
+  }, [location.pathname, location.search]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -585,7 +599,12 @@ export const LoginView: React.FC = () => {
                         { label: 'Chosen Programme', value: submittedApplication.programme },
                         { label: 'Regulatory Council', value: submittedApplication.regulatoryBody },
                         { label: "O'Level Examination", value: `${submittedApplication.olevelExamBody} (${submittedApplication.olevelExamYear})` },
-                        { label: 'Application Fee Ref', value: `${submittedApplication.applicationFeeRef} (PAID)` },
+                        {
+                          label: 'Application Fee Status',
+                          value: submittedApplication.applicationFeePaid
+                            ? `${submittedApplication.applicationFeeRef || 'VERIFIED'} (PAID)`
+                            : 'PENDING PAYMENT',
+                        },
                       ],
                       summaryNoteHtml: `
                         <strong>Next Steps for Applicant:</strong><br/>
@@ -638,8 +657,12 @@ export const LoginView: React.FC = () => {
                     <Badge variant="warning" size="sm">AWAITING ENTRANCE CBT</Badge>
                   </div>
                   <div>
-                    <span className="text-[10px] text-slate-400 uppercase font-bold block">Fee Reference</span>
-                    <span className="font-semibold text-[#0F7640]">{submittedApplication.applicationFeeRef}</span>
+                    <span className="text-[10px] text-slate-400 uppercase font-bold block">Application Fee</span>
+                    <span className={`font-semibold ${submittedApplication.applicationFeePaid ? 'text-[#0F7640]' : 'text-amber-700'}`}>
+                      {submittedApplication.applicationFeePaid
+                        ? submittedApplication.applicationFeeRef || 'PAID'
+                        : 'PENDING PAYMENT'}
+                    </span>
                   </div>
                   {submittedApplication.oneIdNumber && (
                     <div className="col-span-2 pt-1 border-t border-slate-200 flex items-center justify-between">
