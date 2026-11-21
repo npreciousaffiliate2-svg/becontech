@@ -8,7 +8,7 @@ import { supabase } from '../lib/supabase.ts';
 import { PhotoUploadControl } from '../components/common/PersonAvatar.tsx';
 import { StateLgaSelect } from '../components/common/StateLgaSelect.tsx';
 import { printInstitutionalDocument } from '../utils/documentExport.ts';
-import { UseOneIDButton, UseOneIDLookup } from '../components/ui/index.ts';
+import { UseOneIDLookup } from '../components/ui/index.ts';
 import { type RoleCode, ACCREDITED_HEALTH_PROGRAMMES, ACCREDITED_COLLEGE_DEPARTMENTS } from '@campusone/contracts';
 
 export const LoginView: React.FC = () => {
@@ -61,54 +61,6 @@ export const LoginView: React.FC = () => {
     tier: string;
     token?: string;
   } | null>(null);
-
-  const handleUseOneIdSuccess = (payload: { token: string; user: any }) => {
-    const user = payload.user || {};
-    const id = user.id || user.email || 'useoneid_verified';
-    const name = user.name || user.fullName || 'Verified Citizen';
-    const tier = user.tier || 'Tier 3 (NIMC Verified)';
-
-    setVerifiedOneId({ id, name, tier, token: payload.token });
-
-    if (activeTab === 'signin') {
-      if (user.email) {
-        setEmail(user.email);
-      }
-      showToast({
-        type: 'success',
-        title: 'UseOneID Authenticated',
-        message: `Identity verified for ${name}. Signing into CampusOne...`,
-      });
-      // If email matches student demo or admin, log them straight in
-      if (user.email === 'blessing.adeyemi@becohtech.edu.ng') {
-        loginAs('STU', user.email, name);
-        navigate('/');
-      } else if (user.email === 'admin@becohtech.edu.ng') {
-        loginAs('SADMIN', user.email, name);
-        navigate('/');
-      } else if (user.email === 'hod.chew@becohtech.edu.ng') {
-        loginAs('HOD', user.email, name);
-        navigate('/');
-      } else {
-        loginAs('STU', user.email, name);
-        navigate('/');
-      }
-    } else {
-      // New Applicant KYC Flow
-      if (user.name) setFullName(user.name);
-      if (user.email) setRegEmail(user.email);
-      if (user.phone) setPhone(user.phone);
-      if (user.stateOfOrigin) setStateOfOrigin(user.stateOfOrigin);
-      if (user.lga) setLga(user.lga);
-      if (user.avatarUrl) setAvatarUrl(user.avatarUrl);
-
-      showToast({
-        type: 'success',
-        title: 'Identity Verified by UseOneID',
-        message: `Verified records for ${name} loaded into application.`,
-      });
-    }
-  };
 
   const handleUseOneIdFill = (data: {
     fullName: string;
@@ -379,27 +331,6 @@ export const LoginView: React.FC = () => {
               <Button type="submit" isLoading={isLoading} className="w-full h-10 text-sm bg-[#0F7640] hover:bg-[#093322]">
                 Sign In to CampusOne
               </Button>
-
-              <div className="relative my-3">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-slate-200" />
-                </div>
-                <div className="relative flex justify-center text-[10px] uppercase">
-                  <span className="bg-white px-2 text-slate-400 font-bold tracking-wider">
-                    Or UseOneID 1-Click ID
-                  </span>
-                </div>
-              </div>
-
-              <UseOneIDButton
-                lookupEmail={email}
-                onSuccess={handleUseOneIdSuccess}
-                onError={(err) => showToast({ type: 'danger', title: 'UseOneID Error', message: err })}
-                firstTimeText="Sign in with UseOneID"
-                reuseText="Authorize with 1-Click ID (Reuse)"
-                theme="brand"
-                showBadge={false}
-              />
 
               <div className="pt-2 text-center text-xs text-slate-400">
                 {AUTH_SECURITY_LINE}
