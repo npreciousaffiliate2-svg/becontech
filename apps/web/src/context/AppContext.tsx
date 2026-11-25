@@ -106,7 +106,7 @@ export interface AdmissionCandidateItem {
   programme: string;
   department: string;
   regulatoryBody: string;
-  olevelExamBody: 'WAEC' | 'NECO' | 'NABTEB';
+  olevelExamBody: string;
   olevelExamYear: string;
   olevelStatus: 'VERIFIED' | 'PENDING' | 'DEFICIENT';
   olevelSubjects: { subject: string; grade: string }[];

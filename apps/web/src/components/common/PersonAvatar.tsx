@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Trash2 } from 'lucide-react';
 import { Button, useToast } from '@campusone/ui';
 import { useApp } from '../../context/AppContext.tsx';
@@ -67,6 +67,10 @@ export const PersonAvatar: React.FC<PersonAvatarProps> = ({
     role,
   });
 
+  useEffect(() => {
+    setImgError(false);
+  }, [resolvedUrl]);
+
   const sizeCls = SIZE_CLASSES[size] || SIZE_CLASSES.sm;
   const initials = extractInitials(name);
 
@@ -106,7 +110,13 @@ export const PhotoUploadControl: React.FC<PhotoUploadControlProps> = ({
 }) => {
   const { showToast } = useToast();
   const [isUploading, setIsUploading] = useState(false);
+  const [previewError, setPreviewError] = useState(false);
+  const [localFallbackDataUrl, setLocalFallbackDataUrl] = useState<string>('');
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setPreviewError(false);
+  }, [value]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -124,23 +134,38 @@ export const PhotoUploadControl: React.FC<PhotoUploadControlProps> = ({
     setIsUploading(true);
     try {
       const optimized = await optimizeImage(file, { maxWidth: 512, maxHeight: 512, quality: 0.84 });
+      setLocalFallbackDataUrl(optimized.dataUrl);
       let finalUrl = optimized.dataUrl;
 
-      const filePath = `person-${Date.now()}-${Math.floor(Math.random() * 1000)}.webp`;
-      const { data: uploadData, error: uploadErr } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, optimized.file, {
-          contentType: 'image/webp',
-          upsert: true,
-        });
+      try {
+        const filePath = `person-${Date.now()}-${Math.floor(Math.random() * 1000)}.webp`;
+        const { data: uploadData, error: uploadErr } = await supabase.storage
+          .from('avatars')
+          .upload(filePath, optimized.file, {
+            contentType: 'image/webp',
+            upsert: true,
+          });
 
-      if (!uploadErr && uploadData) {
-        const { data: pubData } = supabase.storage.from('avatars').getPublicUrl(filePath);
-        if (pubData?.publicUrl) {
-          finalUrl = pubData.publicUrl;
+        if (!uploadErr && uploadData) {
+          const { data: pubData } = supabase.storage.from('avatars').getPublicUrl(filePath);
+          if (pubData?.publicUrl) {
+            // Verify public URL is actually reachable before preferring it over dataUrl
+            const reachable = await new Promise<boolean>((resolve) => {
+              const probe = new Image();
+              probe.onload = () => resolve(true);
+              probe.onerror = () => resolve(false);
+              probe.src = pubData.publicUrl;
+            });
+            if (reachable) {
+              finalUrl = pubData.publicUrl;
+            }
+          }
         }
+      } catch {
+        // Keep optimized.dataUrl so the photo always renders visibly
       }
 
+      setPreviewError(false);
       onChange(finalUrl);
       showToast({
         type: 'success',
@@ -158,14 +183,22 @@ export const PhotoUploadControl: React.FC<PhotoUploadControlProps> = ({
     }
   };
 
+  const displaySrc = !previewError ? value : localFallbackDataUrl;
+
   return (
     <div className="p-3 bg-slate-50 border border-slate-200 rounded-[4px] flex items-center justify-between gap-3">
       <div className="flex items-center gap-3 min-w-0">
-        {value ? (
+        {displaySrc ? (
           <img
-            src={value}
+            src={displaySrc}
             alt={name || 'Preview'}
-            className="w-11 h-11 rounded-[4px] object-cover border border-slate-200 bg-white shrink-0"
+            onError={() => {
+              if (!previewError && localFallbackDataUrl && displaySrc !== localFallbackDataUrl) {
+                onChange(localFallbackDataUrl);
+              }
+              setPreviewError(true);
+            }}
+            className="w-11 h-11 rounded-[4px] object-cover border border-slate-200 bg-slate-100 shrink-0"
           />
         ) : (
           <div className="w-11 h-11 rounded-[4px] bg-emerald-100 text-[#0F7640] font-bold text-xs flex items-center justify-center shrink-0 border border-emerald-200">

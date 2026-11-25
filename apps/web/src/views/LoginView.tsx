@@ -48,23 +48,34 @@ export const LoginView: React.FC = () => {
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Register / Online Application Form State
-  const [fullName, setFullName] = useState('');
-  const [regEmail, setRegEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [gender, setGender] = useState<'Female' | 'Male'>('Female');
-  const [stateOfOrigin, setStateOfOrigin] = useState('Oyo');
-  const [lga, setLga] = useState('Ibadan North');
-  const [olevelBody, setOlevelBody] = useState<'WAEC' | 'NECO' | 'NABTEB'>('WAEC');
-  const [olevelYear, setOlevelYear] = useState('2025');
-  const [englishGrade, setEnglishGrade] = useState('B3');
-  const [mathsGrade, setMathsGrade] = useState('C4');
-  const [biologyGrade, setBiologyGrade] = useState('B2');
-  const [chemistryGrade, setChemistryGrade] = useState('C4');
-  const [physicsGrade, setPhysicsGrade] = useState('C5');
-  const [selectedDeptCode, setSelectedDeptCode] = useState('CHD');
-  const [programme, setProgramme] = useState('CHEW');
-  const [avatarUrl, setAvatarUrl] = useState('');
+  // Load persisted applicant form draft (excluding password) so refreshes never lose progress
+  const loadDraft = () => {
+    try {
+      const raw = sessionStorage.getItem('campusone_applicant_form_draft');
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  };
+  const initialDraft = loadDraft();
+
+  // Register / Online Application Form State (auto-persisted across refreshes)
+  const [fullName, setFullName] = useState<string>(initialDraft.fullName || '');
+  const [regEmail, setRegEmail] = useState<string>(initialDraft.regEmail || '');
+  const [phone, setPhone] = useState<string>(initialDraft.phone || '');
+  const [gender, setGender] = useState<'Female' | 'Male'>(initialDraft.gender || 'Female');
+  const [stateOfOrigin, setStateOfOrigin] = useState<string>(initialDraft.stateOfOrigin || 'Oyo');
+  const [lga, setLga] = useState<string>(initialDraft.lga || 'Ibadan North');
+  const [olevelBody, setOlevelBody] = useState<string>(initialDraft.olevelBody || 'WAEC (SSCE)');
+  const [olevelYear, setOlevelYear] = useState<string>(initialDraft.olevelYear || String(new Date().getFullYear() - 1));
+  const [englishGrade, setEnglishGrade] = useState<string>(initialDraft.englishGrade || 'B3');
+  const [mathsGrade, setMathsGrade] = useState<string>(initialDraft.mathsGrade || 'C4');
+  const [biologyGrade, setBiologyGrade] = useState<string>(initialDraft.biologyGrade || 'B2');
+  const [chemistryGrade, setChemistryGrade] = useState<string>(initialDraft.chemistryGrade || 'C4');
+  const [physicsGrade, setPhysicsGrade] = useState<string>(initialDraft.physicsGrade || 'C5');
+  const [selectedDeptCode, setSelectedDeptCode] = useState<string>(initialDraft.selectedDeptCode || 'CHD');
+  const [programme, setProgramme] = useState<string>(initialDraft.programme || 'CHEW');
+  const [avatarUrl, setAvatarUrl] = useState<string>(initialDraft.avatarUrl || '');
   const [regPassword, setRegPassword] = useState('');
   const [submittedApplication, setSubmittedApplication] = useState<AdmissionCandidateItem | null>(null);
 
@@ -74,8 +85,54 @@ export const LoginView: React.FC = () => {
     name: string;
     tier: string;
     token?: string;
-  } | null>(null);
+  } | null>(initialDraft.verifiedOneId || null);
   const [hasOneIdWallet, setHasOneIdWallet] = useState(false);
+
+  // Persist non-sensitive form draft to sessionStorage whenever fields change
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        'campusone_applicant_form_draft',
+        JSON.stringify({
+          fullName,
+          regEmail,
+          phone,
+          gender,
+          stateOfOrigin,
+          lga,
+          olevelBody,
+          olevelYear,
+          englishGrade,
+          mathsGrade,
+          biologyGrade,
+          chemistryGrade,
+          physicsGrade,
+          selectedDeptCode,
+          programme,
+          avatarUrl,
+          verifiedOneId,
+        })
+      );
+    } catch {}
+  }, [
+    fullName,
+    regEmail,
+    phone,
+    gender,
+    stateOfOrigin,
+    lga,
+    olevelBody,
+    olevelYear,
+    englishGrade,
+    mathsGrade,
+    biologyGrade,
+    chemistryGrade,
+    physicsGrade,
+    selectedDeptCode,
+    programme,
+    avatarUrl,
+    verifiedOneId,
+  ]);
 
   const handleUseOneIdFill = (data: {
     fullName: string;
@@ -261,6 +318,9 @@ export const LoginView: React.FC = () => {
       console.warn('[CampusOne] Applicant auth signup note:', err);
     }
 
+    try {
+      sessionStorage.removeItem('campusone_applicant_form_draft');
+    } catch {}
     setIsLoading(false);
     setSubmittedApplication(createdCandidate);
   };
@@ -515,14 +575,40 @@ export const LoginView: React.FC = () => {
               </div>
 
               {/* O'Level Examination Results Upload */}
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-[4px] space-y-2">
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-[4px] space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold text-slate-800 uppercase tracking-wide">
-                    O'Level Core Subjects &amp; Grades
+                    O&apos;Level Examination &amp; Core Subjects
                   </span>
                   <span className="text-[10px] text-slate-500 font-medium">
                     {olevelBody} ({olevelYear})
                   </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <Select
+                    label="Examination Body"
+                    value={olevelBody}
+                    onChange={setOlevelBody}
+                    options={[
+                      { value: 'WAEC (SSCE)', label: 'WAEC (SSCE)' },
+                      { value: 'WAEC (GCE / Private)', label: 'WAEC (GCE / Private)' },
+                      { value: 'NECO (SSCE)', label: 'NECO (SSCE)' },
+                      { value: 'NECO (GCE / Private)', label: 'NECO (GCE / Private)' },
+                      { value: 'NABTEB', label: 'NABTEB' },
+                      { value: 'NBAIS', label: 'NBAIS' },
+                      { value: 'IGCSE / Cambridge', label: 'IGCSE / Cambridge' },
+                      { value: 'WAEC + NECO (Combined)', label: 'WAEC + NECO (Combined Sittings)' },
+                    ]}
+                  />
+                  <Select
+                    label="Examination Year"
+                    value={olevelYear}
+                    onChange={setOlevelYear}
+                    options={Array.from({ length: 26 }, (_, i) => {
+                      const yr = String(new Date().getFullYear() - i);
+                      return { value: yr, label: yr };
+                    })}
+                  />
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                   <Select

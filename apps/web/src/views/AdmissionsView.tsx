@@ -1480,17 +1480,26 @@ export const AdmissionsView: React.FC = () => {
             <Select
               label="O'Level Body"
               options={[
-                { value: 'WAEC', label: 'WAEC' },
-                { value: 'NECO', label: 'NECO' },
+                { value: 'WAEC (SSCE)', label: 'WAEC (SSCE)' },
+                { value: 'WAEC (GCE / Private)', label: 'WAEC (GCE / Private)' },
+                { value: 'NECO (SSCE)', label: 'NECO (SSCE)' },
+                { value: 'NECO (GCE / Private)', label: 'NECO (GCE / Private)' },
                 { value: 'NABTEB', label: 'NABTEB' },
+                { value: 'NBAIS', label: 'NBAIS' },
+                { value: 'IGCSE / Cambridge', label: 'IGCSE / Cambridge' },
+                { value: 'WAEC + NECO (Combined)', label: 'WAEC + NECO (Combined Sittings)' },
               ]}
               value={newAppForm.olevelExamBody}
               onChange={(val) => setNewAppForm({ ...newAppForm, olevelExamBody: val })}
             />
-            <Input
+            <Select
               label="Exam Year"
+              options={Array.from({ length: 26 }, (_, i) => {
+                const yr = String(new Date().getFullYear() - i);
+                return { value: yr, label: yr };
+              })}
               value={newAppForm.olevelExamYear}
-              onChange={(e) => setNewAppForm({ ...newAppForm, olevelExamYear: e.target.value })}
+              onChange={(val) => setNewAppForm({ ...newAppForm, olevelExamYear: val })}
             />
             <Input
               label="CBT Score (%)"
