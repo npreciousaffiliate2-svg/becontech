@@ -255,12 +255,12 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
 
     const onVisibilityChange = () => {
       if (document.hidden) {
-        recordStrike('TAB_SWITCH', 'Switched browser tab or minimized examination window');
+        recordStrike('TAB_SWITCH', 'You switched to another tab or minimized the exam.');
       }
     };
 
     const onWindowBlur = () => {
-      recordStrike('WINDOW_BLUR', 'Moved focus outside the proctored examination window');
+      recordStrike('WINDOW_BLUR', 'You left the exam screen.');
     };
 
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -527,12 +527,12 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
           <div className="flex items-center gap-2 font-semibold">
             <ShieldAlert className="w-4 h-4 text-red-600 shrink-0" />
             <span>
-              Proctoring Alert (Strike {proctorWarnings} of {MAX_PROCTOR_STRIKES}):{' '}
-              {lastViolationReason || 'Leaving the examination window is strictly prohibited.'}
+              Warning {proctorWarnings} of {MAX_PROCTOR_STRIKES}:{' '}
+              {lastViolationReason || 'Please stay on the exam screen.'} Leaving {MAX_PROCTOR_STRIKES} times will submit your exam.
             </span>
           </div>
           <Badge variant="danger" size="sm">
-            Auto-Submit at {MAX_PROCTOR_STRIKES}/{MAX_PROCTOR_STRIKES}
+            {MAX_PROCTOR_STRIKES} Warnings = Auto-Submit
           </Badge>
         </div>
       )}
@@ -635,10 +635,10 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
               </h2>
               <p className="text-xs sm:text-sm text-slate-500">
                 {autoSubmittedByProctor
-                  ? 'Your exam was submitted automatically because you left the exam window 3 times.'
+                  ? 'You left the exam screen 3 times, so your exam was submitted automatically.'
                   : autoSubmittedByTimeout
-                  ? 'Your exam time ran out, so all answered questions were graded and submitted automatically.'
-                  : 'Your screening score has been securely recorded and forwarded to the Admissions Office.'}
+                  ? 'Your exam time finished, so your answers were submitted automatically.'
+                  : 'Your answers have been submitted and sent to the Admissions Office.'}
               </p>
             </div>
 
@@ -826,19 +826,6 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
                     );
                   })}
                 </div>
-              </div>
-
-              <div className="hidden lg:block p-5 border-t border-slate-200 bg-slate-50/70">
-                <Button
-                  type="button"
-                  variant="primary"
-                  isLoading={isSubmitting}
-                  leftIcon={<CheckCircle2 className="w-4 h-4" />}
-                  className="w-full bg-[#0F7640] hover:bg-[#093322]"
-                  onClick={() => setConfirmSubmit(true)}
-                >
-                  Submit Entrance CBT
-                </Button>
               </div>
             </aside>
           </div>

@@ -2316,9 +2316,9 @@ export const LearningView: React.FC = () => {
                 {proctorWarnings > 0 && !isSubmitted && (
                   <div className="max-w-5xl mx-auto p-3 bg-red-50 border border-red-200 rounded-[4px] flex flex-wrap items-center justify-between gap-2 text-red-800 text-xs font-semibold">
                     <span>
-                      Proctoring Alert (Strike {proctorWarnings} of 3): Switching tabs or leaving the examination window is strictly prohibited.
+                      Warning {proctorWarnings} of 3: Please stay on the exam screen. Leaving 3 times will submit your exam automatically.
                     </span>
-                    <Badge variant="danger" size="sm">Auto-Submit at 3/3</Badge>
+                    <Badge variant="danger" size="sm">3 Warnings = Auto-Submit</Badge>
                   </div>
                 )}
               </div>
@@ -2552,17 +2552,6 @@ export const LearningView: React.FC = () => {
                           );
                         })}
                       </div>
-                    </div>
-
-                    <div className="hidden lg:block p-5 border-t border-slate-200 bg-slate-50/70">
-                      <Button
-                        variant="primary"
-                        onClick={handleSubmitCbt}
-                        leftIcon={<Check className="w-4 h-4" />}
-                        className="w-full whitespace-nowrap bg-[#0F7640] hover:bg-[#093322]"
-                      >
-                        Submit Exam ({answeredCount}/{examPool.length})
-                      </Button>
                     </div>
                   </aside>
                 </div>

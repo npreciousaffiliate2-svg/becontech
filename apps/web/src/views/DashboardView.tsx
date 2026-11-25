@@ -26,7 +26,7 @@ import {
   Printer,
   Lock,
 } from 'lucide-react';
-import { Button, Badge, Card } from '@campusone/ui';
+import { Button, Badge, Card, Table } from '@campusone/ui';
 import { useNavigate } from 'react-router-dom';
 import { PersonAvatar } from '../components/common/PersonAvatar.tsx';
 import { printInstitutionalDocument } from '../utils/documentExport.ts';
@@ -403,33 +403,50 @@ export const DashboardView: React.FC = () => {
               </div>
             }
           >
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold">
-                  <tr>
-                    <th className="px-4 py-2.5">Subject</th>
-                    <th className="px-4 py-2.5">Examination Body</th>
-                    <th className="px-4 py-2.5">Grade</th>
-                    <th className="px-4 py-2.5">Statutory Remark</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {(candidateData.olevelSubjects || []).map((s, idx) => {
-                    const isCredit = ['A1', 'B2', 'B3', 'C4', 'C5', 'C6'].includes(String(s.grade || '').toUpperCase());
-                    return (
-                      <tr key={idx} className="hover:bg-slate-50/50">
-                        <td className="px-4 py-2.5 font-medium text-slate-800">{s.subject}</td>
-                        <td className="px-4 py-2.5 text-slate-600">{candidateData.olevelExamBody}</td>
-                        <td className="px-4 py-2.5 font-bold text-slate-900">{s.grade}</td>
-                        <td className={`px-4 py-2.5 font-semibold ${isCredit ? 'text-[#0F7640]' : 'text-red-600'}`}>
-                          {isCredit ? 'Credit Pass' : 'Below Credit'}
-                        </td>
-                      </tr>
+            <Table
+              columns={[
+                {
+                  key: 'subject',
+                  header: 'Subject',
+                  render: (s: { subject: string; grade: string }) => (
+                    <span className="font-semibold text-slate-900">{s.subject}</span>
+                  ),
+                },
+                {
+                  key: 'examBody',
+                  header: 'Examination Body',
+                  render: () => (
+                    <span className="text-slate-600">
+                      {candidateData.olevelExamBody} ({candidateData.olevelExamYear})
+                    </span>
+                  ),
+                },
+                {
+                  key: 'grade',
+                  header: 'Grade',
+                  render: (s: { subject: string; grade: string }) => (
+                    <span className="font-bold text-slate-900">{s.grade}</span>
+                  ),
+                },
+                {
+                  key: 'remark',
+                  header: 'Remark',
+                  align: 'right' as const,
+                  render: (s: { subject: string; grade: string }) => {
+                    const isCredit = ['A1', 'B2', 'B3', 'C4', 'C5', 'C6'].includes(
+                      String(s.grade || '').toUpperCase()
                     );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                    return (
+                      <Badge variant={isCredit ? 'success' : 'danger'} size="sm">
+                        {isCredit ? 'Credit Pass' : 'Below Credit'}
+                      </Badge>
+                    );
+                  },
+                },
+              ]}
+              data={candidateData.olevelSubjects || []}
+              keyExtractor={(s) => `${s.subject}-${s.grade}`}
+            />
           </Card>
 
           {/* Institutional Note */}
