@@ -2234,14 +2234,9 @@ export const LearningView: React.FC = () => {
                   {activeTest?.courseCode || 'CBT'}
                 </span>
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h1 className="text-sm sm:text-base font-bold tracking-tight truncate">
-                      {activeTest ? activeTest.title : 'Computer-Based Examination'}
-                    </h1>
-                    <span className="hidden md:inline-block text-[10px] bg-white/10 text-emerald-200 px-2 py-0.5 rounded-[4px] font-semibold uppercase tracking-wider shrink-0">
-                      Proctored &bull; Randomized
-                    </span>
-                  </div>
+                  <h1 className="text-sm sm:text-base font-bold tracking-tight truncate">
+                    {activeTest ? activeTest.title : 'Computer-Based Examination'}
+                  </h1>
                   <p className="text-[11px] text-emerald-200/80 truncate">
                     {persona?.fullName || session.fullName} {!isSubmitted && `\u2022 Question ${currentQuestionIndex + 1} of ${examPool.length}`}
                   </p>

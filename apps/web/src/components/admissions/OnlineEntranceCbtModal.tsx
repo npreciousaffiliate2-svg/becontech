@@ -34,6 +34,7 @@ interface PersistedExamState {
   proctorWarnings: number;
   violations: { type: string; at: string }[];
   questions: ShuffledEntranceQuestion[];
+  verifiedByUseOneId?: boolean;
 }
 
 export interface OnlineEntranceCbtModalProps {
@@ -90,7 +91,6 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
   const [autoSubmittedByProctor, setAutoSubmittedByProctor] = useState(false);
   const [isIdentityVerified, setIsIdentityVerified] = useState(false);
   const [identityError, setIdentityError] = useState<string | null>(null);
-  const [verifiedHolderName, setVerifiedHolderName] = useState<string | null>(null);
 
   const lastStrikeTsRef = useRef(0);
   const submittingRef = useRef(false);
@@ -115,12 +115,18 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
     );
     setActiveSuite(resolved);
 
-    // Try resuming existing locked exam attempt so refreshing NEVER resets the timer or clears strikes
+    // Try resuming existing locked exam attempt ONLY if it was already verified via UseOneID
     try {
       const savedRaw = localStorage.getItem(lockStorageKey);
       if (savedRaw) {
         const saved = JSON.parse(savedRaw) as PersistedExamState;
-        if (saved && saved.suiteId === resolved.id && Array.isArray(saved.questions) && saved.questions.length > 0) {
+        if (
+          saved &&
+          saved.verifiedByUseOneId === true &&
+          saved.suiteId === resolved.id &&
+          Array.isArray(saved.questions) &&
+          saved.questions.length > 0
+        ) {
           const elapsedSec = Math.floor((Date.now() - saved.startedAt) / 1000);
           const remaining = Math.max(0, saved.durationSeconds - elapsedSec);
           setExamQuestions(saved.questions);
@@ -164,7 +170,6 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
     setViolations([]);
     setSecondsLeft(durationSeconds);
     setIsIdentityVerified(false);
-    setVerifiedHolderName(null);
   }, [isOpen]);
 
   const handleUseOneIdExamAuthorized = (payload: any) => {
@@ -178,7 +183,6 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
     }
 
     setIdentityError(null);
-    setVerifiedHolderName(payload?.fullName || candidateName);
     const durationSeconds = Math.max(1, Number(activeSuite.durationMinutes) || 20) * 60;
     const initialState: PersistedExamState = {
       suiteId: activeSuite.id,
@@ -188,6 +192,7 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
       proctorWarnings: 0,
       violations: [],
       questions: examQuestions,
+      verifiedByUseOneId: true,
     };
     try {
       localStorage.setItem(lockStorageKey, JSON.stringify(initialState));
@@ -448,17 +453,9 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
             />
           </div>
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h1 className="text-sm sm:text-base font-bold tracking-tight truncate">
-                {activeSuite.examTitle || 'Online Entrance CBT Screening'}
-              </h1>
-              <span className="hidden md:inline-block px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-white/10 text-emerald-200 rounded-[4px] shrink-0">
-                {activeSuite.session} &bull; {activeSuite.departmentCode === 'ALL' ? 'All Departments' : activeSuite.departmentCode}
-              </span>
-              <span className="hidden xl:inline-block px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-emerald-900/80 border border-emerald-700/60 text-emerald-200 rounded-[4px] shrink-0">
-                {verifiedHolderName ? `UseOneID Verified` : 'Proctored • Anti-Fraud Active'}
-              </span>
-            </div>
+            <h1 className="text-sm sm:text-base font-bold tracking-tight truncate">
+              {activeSuite.examTitle || 'Online Entrance CBT Screening'}
+            </h1>
             <p className="text-[11px] text-emerald-200/80 truncate">
               {candidateName} &bull; {applicationNumber}
             </p>
