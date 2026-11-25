@@ -629,10 +629,10 @@ export const TimetableView: React.FC = () => {
     if (dayFilter !== 'ALL' && s.day !== dayFilter) return false;
     if (classSearch.trim()) {
       const q = classSearch.toLowerCase();
-      const matchCode = s.courseCode.toLowerCase().includes(q);
-      const matchTitle = s.courseTitle.toLowerCase().includes(q);
-      const matchInstructor = s.instructorName.toLowerCase().includes(q);
-      const matchVenue = s.venueName.toLowerCase().includes(q);
+      const matchCode = String(s.courseCode || '').toLowerCase().includes(q);
+      const matchTitle = String(s.courseTitle || '').toLowerCase().includes(q);
+      const matchInstructor = String(s.instructorName || '').toLowerCase().includes(q);
+      const matchVenue = String(s.venueName || '').toLowerCase().includes(q);
       if (!matchCode && !matchTitle && !matchInstructor && !matchVenue) return false;
     }
     return true;
@@ -641,10 +641,10 @@ export const TimetableView: React.FC = () => {
   const filteredPracticals = practicals.filter((p) => {
     if (practicalSearch.trim()) {
       const q = practicalSearch.toLowerCase();
-      const matchTopic = p.practicalTopic.toLowerCase().includes(q);
-      const matchLab = p.labName.toLowerCase().includes(q);
-      const matchCode = p.courseCode.toLowerCase().includes(q);
-      const matchTech = p.chiefTechnologist.toLowerCase().includes(q);
+      const matchTopic = String(p.practicalTopic || '').toLowerCase().includes(q);
+      const matchLab = String(p.labName || '').toLowerCase().includes(q);
+      const matchCode = String(p.courseCode || '').toLowerCase().includes(q);
+      const matchTech = String(p.chiefTechnologist || '').toLowerCase().includes(q);
       if (!matchTopic && !matchLab && !matchCode && !matchTech) return false;
     }
     return true;

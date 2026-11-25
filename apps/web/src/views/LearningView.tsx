@@ -201,16 +201,16 @@ export const LearningView: React.FC = () => {
 
         if (dbMaterials && dbMaterials.length > 0) {
           const mappedMaterials: CourseMaterial[] = dbMaterials.map((m: any) => ({
-            id: m.id,
-            courseCode: m.course_code,
-            title: m.title,
-            departmentCode: m.department_code,
-            type: m.type as MaterialType,
-            fileSize: m.file_size,
-            uploadedBy: m.uploaded_by,
-            uploadDate: m.upload_date,
-            downloadCount: m.download_count,
-            description: m.description,
+            id: String(m.id || ''),
+            courseCode: String(m.course_code || ''),
+            title: String(m.title || 'Untitled Material'),
+            departmentCode: String(m.department_code || 'CHE'),
+            type: (m.type || 'PDF_DOCUMENT') as MaterialType,
+            fileSize: String(m.file_size || '—'),
+            uploadedBy: String(m.uploaded_by || 'Academic Staff'),
+            uploadDate: String(m.upload_date || ''),
+            downloadCount: Number(m.download_count || 0),
+            description: String(m.description || ''),
           }));
           setMaterials(mappedMaterials);
         }
@@ -221,17 +221,21 @@ export const LearningView: React.FC = () => {
           .order('created_at', { ascending: false });
 
         if (dbQuestions && dbQuestions.length > 0) {
-          const mappedQuestions: QuestionItem[] = dbQuestions.map((q: any) => ({
-            id: q.id,
-            courseCode: q.course_code,
-            questionText: q.question_text,
-            options: q.options,
-            correctOptionId: q.correct_option_id,
-            difficulty: q.difficulty,
-            explanation: q.explanation,
-            author: q.author,
-          }));
-          setCbtQuestions(mappedQuestions);
+          const mappedQuestions: QuestionItem[] = dbQuestions
+            .filter((q: any) => Boolean(q && q.question_text))
+            .map((q: any) => ({
+              id: String(q.id || ''),
+              courseCode: String(q.course_code || ''),
+              questionText: String(q.question_text || ''),
+              options: Array.isArray(q.options) ? q.options : [],
+              correctOptionId: String(q.correct_option_id || 'A'),
+              difficulty: (q.difficulty || 'INTERMEDIATE') as DifficultyLevel,
+              explanation: String(q.explanation || ''),
+              author: String(q.author || 'Academic Staff'),
+            }));
+          if (mappedQuestions.length > 0) {
+            setCbtQuestions(mappedQuestions);
+          }
         }
       } catch (err) {
         console.warn('[CampusOne] LMS live database load note:', err);
@@ -675,11 +679,34 @@ export const LearningView: React.FC = () => {
   }, [isCbtModalOpen, isSubmitted, secondsRemaining]);
 
   /* ─── CBT ACTIONS ─── */
-  const startCbtExam = (test: PracticeTest) => {
-    const courseMatching = cbtQuestions.filter(
-      (q) => q.courseCode.toLowerCase() === test.courseCode.toLowerCase()
+  const startCbtExam = (test?: PracticeTest) => {
+    if (!test) {
+      showToast({
+        type: 'warning',
+        title: 'No CBT Exam Available',
+        message: 'No CBT examination suite is currently configured. Please create or select an exam first.',
+      });
+      return;
+    }
+
+    const targetCode = String(test.courseCode || '').trim().toLowerCase();
+    const validQuestions = cbtQuestions.filter(
+      (q): q is QuestionItem => Boolean(q && q.questionText && Array.isArray(q.options) && q.options.length > 0)
     );
-    const pool = courseMatching.length >= 3 ? courseMatching : cbtQuestions;
+    const courseMatching = targetCode
+      ? validQuestions.filter((q) => String(q.courseCode || '').trim().toLowerCase() === targetCode)
+      : [];
+    const pool = courseMatching.length >= 3 ? courseMatching : validQuestions;
+
+    if (pool.length === 0) {
+      showToast({
+        type: 'warning',
+        title: 'Empty Question Bank',
+        message: 'No valid questions are available in the question bank for this examination yet.',
+      });
+      return;
+    }
+
     const shuffled = [...pool].sort(() => Math.random() - 0.5);
     setActiveExamQuestions(shuffled);
     setActiveTest(test);
@@ -687,7 +714,7 @@ export const LearningView: React.FC = () => {
     setUserAnswers({});
     setFlaggedQuestions({});
     setProctorWarnings(0);
-    setSecondsRemaining(test.durationMinutes * 60);
+    setSecondsRemaining((Number(test.durationMinutes) || 30) * 60);
     examStartedAtRef.current = Date.now();
     setIsSubmitted(false);
     setExitPrompt(false);
@@ -1139,6 +1166,7 @@ export const LearningView: React.FC = () => {
               )}
               <Button
                 size="sm"
+                disabled={practiceTests.length === 0}
                 onClick={() => startCbtExam(practiceTests[0])}
                 leftIcon={<Play className="w-3.5 h-3.5" />}
                 className="whitespace-nowrap bg-[#0F7640] hover:bg-[#093322]"
@@ -1151,87 +1179,108 @@ export const LearningView: React.FC = () => {
       </div>
 
       {/* ─── Academic Stat Cards ─── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <div className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] flex flex-col justify-between h-full min-w-0">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
-              Learning Modules
-            </span>
-            <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center shrink-0">
-              <BookOpen className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">42</div>
-            <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
-              <span className="text-[#13A348] font-semibold">+8 this semester</span>
-              <span className="text-slate-300">•</span>
-              <span className="text-[11px] text-slate-400">Accredited notes & lab guides</span>
-            </div>
-          </div>
-        </div>
+      {(() => {
+        const scopedAttempts = isStaff
+          ? studentAttempts
+          : studentAttempts.filter(
+              (a) =>
+                String(a.studentName || '').toLowerCase() ===
+                  String(persona?.fullName || session.fullName || '').toLowerCase() ||
+                (persona?.matricNumber && a.matricNumber === persona.matricNumber)
+            );
+        const passedAttempts = scopedAttempts.filter((a) => a.passed).length;
+        const passRate = scopedAttempts.length > 0 ? Math.round((passedAttempts / scopedAttempts.length) * 100) : 0;
+        const avgScore =
+          scopedAttempts.length > 0
+            ? Math.round(scopedAttempts.reduce((acc, a) => acc + (Number(a.percentage) || 0), 0) / scopedAttempts.length)
+            : 0;
 
-        <div className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] flex flex-col justify-between h-full min-w-0">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
-              Practice Mock Tests
-            </span>
-            <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center shrink-0">
-              <GraduationCap className="w-4 h-4" />
+        return (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] flex flex-col justify-between h-full min-w-0">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
+                  Learning Modules
+                </span>
+                <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center shrink-0">
+                  <BookOpen className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-3">
+                <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">{materials.length}</div>
+                <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
+                  <span className="text-[#13A348] font-semibold">{cbtQuestions.length} bank questions</span>
+                  <span className="text-slate-300">•</span>
+                  <span className="text-[11px] text-slate-400">Accredited notes &amp; lab guides</span>
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">16</div>
-            <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
-              <span className="text-slate-600 font-semibold">Active suites</span>
-              <span className="text-slate-300">•</span>
-              <span className="text-[11px] text-slate-400">Exam format</span>
-            </div>
-          </div>
-        </div>
 
-        <div className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] flex flex-col justify-between h-full min-w-0">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
-              {isStaff ? 'Student Submissions' : 'Completed Mocks'}
-            </span>
-            <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#13A348] flex items-center justify-center shrink-0">
-              <FileCheck className="w-4 h-4" />
+            <div className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] flex flex-col justify-between h-full min-w-0">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
+                  Practice Mock Tests
+                </span>
+                <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center shrink-0">
+                  <GraduationCap className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-3">
+                <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">{practiceTests.length}</div>
+                <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
+                  <span className="text-slate-600 font-semibold">Active suites</span>
+                  <span className="text-slate-300">•</span>
+                  <span className="text-[11px] text-slate-400">Full-screen CBT format</span>
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">
-              {isStaff ? '2,480' : '4'}
-            </div>
-            <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
-              <span className="text-[#13A348] font-semibold">{isStaff ? '78.4% pass rate' : '100% Passed'}</span>
-              <span className="text-slate-300">•</span>
-              <span className="text-[11px] text-slate-400">Logged attempts</span>
-            </div>
-          </div>
-        </div>
 
-        <div className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] flex flex-col justify-between h-full min-w-0">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
-              {isStaff ? 'Average Mock Score' : 'My Average Score'}
-            </span>
-            <div className="w-8 h-8 rounded-[4px] bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
-              <Award className="w-4 h-4" />
+            <div className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] flex flex-col justify-between h-full min-w-0">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
+                  {isStaff ? 'Student Submissions' : 'Completed Mocks'}
+                </span>
+                <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-[#13A348] flex items-center justify-center shrink-0">
+                  <FileCheck className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-3">
+                <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">
+                  {scopedAttempts.length}
+                </div>
+                <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
+                  <span className="text-[#13A348] font-semibold">
+                    {scopedAttempts.length > 0 ? `${passRate}% pass rate` : 'No attempts yet'}
+                  </span>
+                  <span className="text-slate-300">•</span>
+                  <span className="text-[11px] text-slate-400">Logged attempts</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-[4px] flex flex-col justify-between h-full min-w-0">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
+                  {isStaff ? 'Average Mock Score' : 'My Average Score'}
+                </span>
+                <div className="w-8 h-8 rounded-[4px] bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
+                  <Award className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-3">
+                <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">
+                  {scopedAttempts.length > 0 ? `${avgScore}%` : '—'}
+                </div>
+                <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
+                  <span className="text-[#13A348] font-semibold">Licensing ready</span>
+                  <span className="text-slate-300">•</span>
+                  <span className="text-[11px] text-slate-400">50% statutory pass mark</span>
+                </div>
+              </div>
             </div>
           </div>
-          <div className="mt-3">
-            <div className="text-2xl font-bold text-slate-900 font-sans tracking-tight">
-              {isStaff ? '74.8%' : '88.5%'}
-            </div>
-            <div className="mt-1 flex items-center gap-1.5 flex-wrap text-xs">
-              <span className="text-[#13A348] font-semibold">Licensing ready</span>
-              <span className="text-slate-300">•</span>
-              <span className="text-[11px] text-slate-400">Exam preparation</span>
-            </div>
-          </div>
-        </div>
-      </div>
+        );
+      })()}
 
       {/* ─── Navigation Tabs ─── */}
       <Tabs
@@ -1381,9 +1430,9 @@ export const LearningView: React.FC = () => {
                 if (cbtSearchQuery.trim()) {
                   const q = cbtSearchQuery.toLowerCase();
                   return (
-                    t.title.toLowerCase().includes(q) ||
-                    t.courseCode.toLowerCase().includes(q) ||
-                    t.targetBoard.toLowerCase().includes(q)
+                    String(t.title || '').toLowerCase().includes(q) ||
+                    String(t.courseCode || '').toLowerCase().includes(q) ||
+                    String(t.targetBoard || '').toLowerCase().includes(q)
                   );
                 }
                 return true;
@@ -1489,9 +1538,9 @@ export const LearningView: React.FC = () => {
                 if (questionSearchQuery.trim()) {
                   const s = questionSearchQuery.toLowerCase();
                   return (
-                    q.questionText.toLowerCase().includes(s) ||
-                    q.courseCode.toLowerCase().includes(s) ||
-                    q.author.toLowerCase().includes(s)
+                    String(q.questionText || '').toLowerCase().includes(s) ||
+                    String(q.courseCode || '').toLowerCase().includes(s) ||
+                    String(q.author || '').toLowerCase().includes(s)
                   );
                 }
                 return true;
@@ -1508,7 +1557,7 @@ export const LearningView: React.FC = () => {
                     onChange={(val) => setQuestionCourseFilter(val)}
                     options={[
                       { value: 'ALL', label: 'All Courses' },
-                      ...Array.from(new Set(cbtQuestions.map((q) => q.courseCode))).map((code) => ({
+                      ...Array.from(new Set(cbtQuestions.map((q) => String(q.courseCode || '')).filter(Boolean))).map((code) => ({
                         value: code,
                         label: code,
                       })),
