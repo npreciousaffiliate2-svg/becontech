@@ -45,6 +45,7 @@ import {
 import { escapeHtml, exportToCsv, printInstitutionalDocument } from '../utils/documentExport.ts';
 import { PersonAvatar, PhotoUploadControl, pluralize } from '../components/common/PersonAvatar.tsx';
 import { UseOneIDButton } from '../components/ui/index.ts';
+import { useOneIdMatchesRegisteredPerson } from '../lib/identityMatch.ts';
 
 /* ─── TYPES ─── */
 type MaterialType = 'PDF_DOCUMENT' | 'LAB_MANUAL' | 'CLINICAL_VIDEO' | 'SLIDE_DECK';
@@ -2385,12 +2386,17 @@ export const LearningView: React.FC = () => {
                       reuseText="Verify with 1-Click UseOneID"
                       firstTimeText="Verify Identity with UseOneID"
                       theme="brand"
-                      onSuccess={(payload: any) => {
-                        const returnedEmail = String(payload?.email || '').trim().toLowerCase();
-                        const expectedEmail = String(persona?.email || '').trim().toLowerCase();
-                        if (returnedEmail && expectedEmail && returnedEmail !== expectedEmail) {
+                      onSuccess={(payload) => {
+                        const { matches, returnedEmail } = useOneIdMatchesRegisteredPerson(
+                          payload,
+                          persona?.email,
+                          persona?.phone
+                        );
+                        if (!matches) {
                           setCbtIdentityError(
-                            `Identity mismatch: The UseOneID account (${returnedEmail}) does not match your student account (${expectedEmail}).`
+                            returnedEmail
+                              ? `This UseOneID account (${returnedEmail}) does not match your student account. Please sign in with your own UseOneID account.`
+                              : 'We could not confirm who you are from UseOneID. Please try again.'
                           );
                           return;
                         }

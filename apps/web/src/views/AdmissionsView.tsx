@@ -848,6 +848,39 @@ export const AdmissionsView: React.FC = () => {
                   ),
                 },
                 {
+                  key: 'cbtIntegrity',
+                  header: 'How Exam Ended',
+                  render: (c: Candidate) => {
+                    if (!c.cbtTaken && !(c.cbtScore > 0)) {
+                      return <span className="text-xs text-slate-400">Not taken online</span>;
+                    }
+                    if (c.cbtMode !== 'ONLINE' && !c.cbtSubmitReason) {
+                      return <Badge variant="neutral" size="sm">Score recorded by office</Badge>;
+                    }
+                    const warnings = Number(c.cbtStrikes || 0);
+                    const label =
+                      c.cbtSubmitReason === 'PROCTOR_LIMIT'
+                        ? 'Left exam screen 3 times'
+                        : c.cbtSubmitReason === 'TIME_UP'
+                        ? 'Time ran out'
+                        : 'Submitted by candidate';
+                    const variant =
+                      c.cbtSubmitReason === 'PROCTOR_LIMIT'
+                        ? 'danger'
+                        : c.cbtSubmitReason === 'TIME_UP'
+                        ? 'warning'
+                        : 'success';
+                    return (
+                      <div className="space-y-0.5 whitespace-nowrap">
+                        <Badge variant={variant} size="sm">{label}</Badge>
+                        <span className="block text-[11px] text-slate-500">
+                          {warnings === 0 ? 'No warnings' : `${warnings} ${warnings === 1 ? 'warning' : 'warnings'}`}
+                        </span>
+                      </div>
+                    );
+                  },
+                },
+                {
                   key: 'olevel',
                   header: "O'Level Compliance",
                   render: (c: Candidate) => (

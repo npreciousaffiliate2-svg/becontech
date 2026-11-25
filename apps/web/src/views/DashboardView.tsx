@@ -466,18 +466,20 @@ export const DashboardView: React.FC = () => {
             candidateName={candidateData.fullName}
             candidateEmail={candidateData.email}
             candidatePhone={candidateData.phone}
-            candidateDepartment={candidateData.department}
-            candidateProgrammeCode={candidateData.programmeCode}
-            activeSession={schoolProfile?.activeSession}
             schoolLogoUrl={schoolProfile?.logoUrl}
             cutoffScore={schoolProfile?.minimumCutoffScore || 50}
-            onCompleted={(score) => {
-              const cutoff = schoolProfile?.minimumCutoffScore || 50;
+            onCompleted={(score, details) => {
               updateCandidate(candidateData.id, {
                 cbtScore: score,
                 cbtDate: new Date().toISOString().split('T')[0],
-                status: candidateData.status === 'APPLIED' && score >= cutoff ? 'SCREENED' : candidateData.status,
-                ...({ cbtTaken: true, cbtMode: 'ONLINE' } as any),
+                cbtTaken: true,
+                cbtMode: 'ONLINE',
+                cbtSubmitReason: details?.reason,
+                cbtStrikes: details?.strikes,
+                status:
+                  candidateData.status === 'APPLIED' && score >= (schoolProfile?.minimumCutoffScore || 50)
+                    ? 'SCREENED'
+                    : candidateData.status,
               });
               recordAudit('APPLICANT_ONLINE_CBT_COMPLETED', 'ADMISSION_CANDIDATE', candidateData.applicationNumber, {
                 score,

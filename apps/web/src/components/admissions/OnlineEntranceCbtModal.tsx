@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Clock,
   CheckCircle2,
@@ -13,28 +13,47 @@ import {
 } from 'lucide-react';
 import { Button, Badge, useToast } from '@campusone/ui';
 import { UseOneIDButton } from '../ui/index.ts';
+import type { UseOneIDPayload } from '../../lib/useOneIdService.ts';
+import { useOneIdMatchesRegisteredPerson } from '../../lib/identityMatch.ts';
 import { supabase } from '../../lib/supabase.ts';
-import { useSharedRecords } from '../../lib/sharedRecords.ts';
-import {
-  DEFAULT_ENTRANCE_EXAM_SUITES,
-  EntranceCbtQuestion,
-  EntranceExamSuite,
-  resolveApplicantEntranceExam,
-} from '../../lib/entranceCbt.ts';
 
-interface ShuffledEntranceQuestion extends EntranceCbtQuestion {
-  shuffledOptions: { text: string; isCorrect: boolean }[];
+type SubmitReason = 'MANUAL' | 'TIME_UP' | 'PROCTOR_LIMIT';
+
+interface ExamQuestion {
+  id: string;
+  subject: string;
+  question: string;
+  options: string[];
 }
 
-interface PersistedExamState {
-  suiteId: string;
-  startedAt: number;
-  durationSeconds: number;
-  answers: Record<string, number>;
-  proctorWarnings: number;
-  violations: { type: string; at: string }[];
-  questions: ShuffledEntranceQuestion[];
-  verifiedByUseOneId?: boolean;
+interface Violation {
+  type: string;
+  at: string;
+}
+
+interface ExamResult {
+  score: number;
+  correct: number;
+  total: number;
+  cutoffScore: number;
+  passed: boolean;
+  reason: SubmitReason;
+  strikes: number;
+}
+
+interface StartResponse {
+  attemptId?: string;
+  examTitle?: string;
+  session?: string;
+  instructions?: string;
+  durationSeconds?: number;
+  remainingSeconds?: number;
+  cutoffScore?: number;
+  answers?: Record<string, number>;
+  violations?: Violation[];
+  questions?: ExamQuestion[];
+  expired?: boolean;
+  result?: ExamResult;
 }
 
 export interface OnlineEntranceCbtModalProps {
@@ -45,15 +64,22 @@ export interface OnlineEntranceCbtModalProps {
   candidateName: string;
   candidateEmail: string;
   candidatePhone?: string;
-  candidateDepartment?: string;
-  candidateProgrammeCode?: string;
-  activeSession?: string;
   schoolLogoUrl?: string;
   cutoffScore: number;
-  onCompleted: (score: number) => void;
+  onCompleted: (score: number, details?: { reason: SubmitReason; strikes: number }) => void;
 }
 
 const MAX_PROCTOR_STRIKES = 3;
+
+function rpcErrorCode(message?: string): string {
+  const match = /^([A-Z_]{4,}):/.exec(String(message || '').trim());
+  return match ? match[1] : '';
+}
+
+function rpcErrorText(message?: string): string {
+  const text = String(message || '').trim();
+  return text.replace(/^[A-Z_]{4,}:\s*/, '') || 'Something went wrong. Please try again.';
+}
 
 export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
   isOpen,
@@ -62,209 +88,288 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
   candidateName,
   candidateEmail,
   candidatePhone,
-  candidateDepartment,
-  candidateProgrammeCode,
-  activeSession,
   schoolLogoUrl,
   cutoffScore,
   onCompleted,
 }) => {
   const { showToast } = useToast();
-  const [suites] = useSharedRecords<EntranceExamSuite>(
-    'admissions.cbt_suites',
-    DEFAULT_ENTRANCE_EXAM_SUITES
-  );
 
-  const lockStorageKey = `campusone_cbt_lock_${applicationNumber}`;
-  const [activeSuite, setActiveSuite] = useState<EntranceExamSuite>(DEFAULT_ENTRANCE_EXAM_SUITES[0]);
-  const [examQuestions, setExamQuestions] = useState<ShuffledEntranceQuestion[]>([]);
-  const [currentIdx, setCurrentIdx] = useState(0);
+  const [phase, setPhase] = useState<'gate' | 'starting' | 'exam' | 'result'>('gate');
+  const [attemptId, setAttemptId] = useState<string | null>(null);
+  const [examTitle, setExamTitle] = useState('Online Entrance CBT Screening');
+  const [instructions, setInstructions] = useState('');
+  const [durationMinutes, setDurationMinutes] = useState(0);
+  const [questions, setQuestions] = useState<ExamQuestion[]>([]);
   const [answers, setAnswers] = useState<Record<string, number>>({});
-  const [secondsLeft, setSecondsLeft] = useState(20 * 60);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [finalScore, setFinalScore] = useState<number | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [violations, setViolations] = useState<Violation[]>([]);
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const [secondsLeft, setSecondsLeft] = useState(0);
   const [confirmSubmit, setConfirmSubmit] = useState(false);
-  const [proctorWarnings, setProctorWarnings] = useState(0);
-  const [lastViolationReason, setLastViolationReason] = useState<string | null>(null);
-  const [violations, setViolations] = useState<{ type: string; at: string }[]>([]);
-  const [autoSubmittedByProctor, setAutoSubmittedByProctor] = useState(false);
-  const [autoSubmittedByTimeout, setAutoSubmittedByTimeout] = useState(false);
-  const [isIdentityVerified, setIsIdentityVerified] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [result, setResult] = useState<ExamResult | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [identityError, setIdentityError] = useState<string | null>(null);
+  const [startError, setStartError] = useState<string | null>(null);
+  const [lastViolationReason, setLastViolationReason] = useState<string | null>(null);
 
-  const lastStrikeTsRef = useRef(0);
+  const deadlineRef = useRef(0);
+  const answersRef = useRef<Record<string, number>>({});
+  const violationsRef = useRef<Violation[]>([]);
+  const attemptIdRef = useRef<string | null>(null);
   const submittingRef = useRef(false);
-  const submitFnRef = useRef<() => Promise<void>>(async () => {});
+  const lastStrikeTsRef = useRef(0);
+  const timeUpFiredRef = useRef(false);
+  const pendingReasonRef = useRef<SubmitReason>('MANUAL');
+  const submitFnRef = useRef<(reason: SubmitReason) => Promise<void>>(async () => {});
 
-  // Resolve and snapshot (or resume tamper-proof locked state) when opened
+  useEffect(() => {
+    answersRef.current = answers;
+  }, [answers]);
+  useEffect(() => {
+    violationsRef.current = violations;
+  }, [violations]);
+
+  // Reset everything each time the exam screen is opened (server holds the real attempt)
   useEffect(() => {
     if (!isOpen) return;
-    submittingRef.current = false;
-    setFinalScore(null);
+    setPhase('gate');
+    setAttemptId(null);
+    attemptIdRef.current = null;
+    setQuestions([]);
+    setAnswers({});
+    setViolations([]);
+    answersRef.current = {};
+    violationsRef.current = [];
+    setCurrentIdx(0);
+    setSecondsLeft(0);
     setConfirmSubmit(false);
     setIsSubmitting(false);
-    setAutoSubmittedByProctor(false);
-    setAutoSubmittedByTimeout(false);
-    setLastViolationReason(null);
+    setSubmitError(null);
+    setResult(null);
     setIdentityError(null);
-
-    const resolved = resolveApplicantEntranceExam(
-      suites.length > 0 ? suites : DEFAULT_ENTRANCE_EXAM_SUITES,
-      activeSession,
-      candidateDepartment,
-      candidateProgrammeCode
-    );
-    setActiveSuite(resolved);
-
-    // Try resuming existing locked exam attempt ONLY if it was already verified via UseOneID
-    try {
-      const savedRaw = localStorage.getItem(lockStorageKey);
-      if (savedRaw) {
-        const saved = JSON.parse(savedRaw) as PersistedExamState;
-        if (
-          saved &&
-          saved.verifiedByUseOneId === true &&
-          saved.suiteId === resolved.id &&
-          Array.isArray(saved.questions) &&
-          saved.questions.length > 0
-        ) {
-          const elapsedSec = Math.floor((Date.now() - saved.startedAt) / 1000);
-          const remaining = Math.max(0, saved.durationSeconds - elapsedSec);
-          setExamQuestions(saved.questions);
-          setAnswers(saved.answers || {});
-          setProctorWarnings(saved.proctorWarnings || 0);
-          setViolations(saved.violations || []);
-          setSecondsLeft(remaining);
-          setCurrentIdx(0);
-          setIsIdentityVerified(true);
-          return;
-        }
-      }
-    } catch {
-      // Fall through to fresh attempt requiring UseOneID check
-    }
-
-    const validPool = (resolved.questions || []).filter(
-      (q) => Boolean(q && q.question && Array.isArray(q.options) && q.options.length > 0)
-    );
-    const orderedPool = resolved.randomizeQuestions
-      ? [...validPool].sort(() => Math.random() - 0.5)
-      : validPool;
-
-    // Shuffle A-D options per candidate to prevent side-by-side collusion
-    const shuffledQuestions: ShuffledEntranceQuestion[] = orderedPool.map((q) => {
-      const tagged = q.options.map((text, idx) => ({
-        text,
-        isCorrect: idx === q.correctIndex,
-      }));
-      const shuffledOptions = resolved.randomizeQuestions
-        ? [...tagged].sort(() => Math.random() - 0.5)
-        : tagged;
-      return { ...q, shuffledOptions };
-    });
-
-    const durationSeconds = Math.max(1, Number(resolved.durationMinutes) || 20) * 60;
-    setExamQuestions(shuffledQuestions);
-    setCurrentIdx(0);
-    setAnswers({});
-    setProctorWarnings(0);
-    setViolations([]);
-    setSecondsLeft(durationSeconds);
-    setIsIdentityVerified(false);
+    setStartError(null);
+    setLastViolationReason(null);
+    submittingRef.current = false;
+    timeUpFiredRef.current = false;
   }, [isOpen]);
 
-  const handleUseOneIdExamAuthorized = (payload: any) => {
-    const returnedEmail = String(payload?.email || '').trim().toLowerCase();
-    const expectedEmail = String(candidateEmail || '').trim().toLowerCase();
-    if (returnedEmail && expectedEmail && returnedEmail !== expectedEmail) {
+  const saveProgress = useCallback(async () => {
+    const id = attemptIdRef.current;
+    if (!id || submittingRef.current) return;
+    try {
+      const { data, error } = await supabase.rpc('save_cbt_progress', {
+        p_attempt_id: id,
+        p_email: candidateEmail,
+        p_answers: answersRef.current,
+        p_violations: violationsRef.current,
+      });
+      if (error) {
+        console.warn('[CampusOne] CBT progress not saved:', error.message);
+        return;
+      }
+      const remaining = Number((data as { remainingSeconds?: number } | null)?.remainingSeconds);
+      if (Number.isFinite(remaining)) {
+        deadlineRef.current = Date.now() + remaining * 1000;
+      }
+    } catch (err) {
+      console.warn('[CampusOne] CBT progress not saved:', err);
+    }
+  }, [candidateEmail]);
+
+  // Auto-save answers shortly after each change
+  useEffect(() => {
+    if (phase !== 'exam') return;
+    const timer = window.setTimeout(() => {
+      void saveProgress();
+    }, 1500);
+    return () => window.clearTimeout(timer);
+  }, [answers, phase, saveProgress]);
+
+  const submitExam = useCallback(
+    async (reason: SubmitReason) => {
+      if (submittingRef.current || !attemptIdRef.current) return;
+      submittingRef.current = true;
+      pendingReasonRef.current = reason;
+      setIsSubmitting(true);
+      setConfirmSubmit(false);
+      setSubmitError(null);
+
+      try {
+        const { data, error } = await supabase.rpc('submit_online_cbt_attempt', {
+          p_attempt_id: attemptIdRef.current,
+          p_email: candidateEmail,
+          p_answers: answersRef.current,
+          p_violations: violationsRef.current,
+          p_reason: reason,
+        });
+        if (error) throw error;
+
+        const finalResult = data as ExamResult;
+        setResult(finalResult);
+        setPhase('result');
+        onCompleted(finalResult.score, { reason: finalResult.reason, strikes: finalResult.strikes });
+        showToast({
+          type: finalResult.reason === 'MANUAL' ? 'success' : 'warning',
+          title: finalResult.reason === 'MANUAL' ? 'Exam Submitted' : 'Exam Submitted Automatically',
+          message: 'Your answers have been saved and sent to the Admissions Office.',
+        });
+      } catch (err: unknown) {
+        const message = (err as { message?: string } | null)?.message;
+        const code = rpcErrorCode(message);
+        submittingRef.current = false;
+        if (code === 'CBT_ALREADY_TAKEN') {
+          showToast({
+            type: 'warning',
+            title: 'Already Submitted',
+            message: 'Your entrance CBT has already been recorded.',
+          });
+          onClose();
+        } else {
+          setSubmitError(rpcErrorText(message));
+        }
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [candidateEmail, onCompleted, onClose, showToast]
+  );
+
+  submitFnRef.current = submitExam;
+
+  const startExam = async () => {
+    setPhase('starting');
+    setStartError(null);
+    try {
+      const { data, error } = await supabase.rpc('start_online_cbt', {
+        p_application_number: applicationNumber,
+        p_email: candidateEmail,
+      });
+      if (error) throw error;
+
+      const res = data as StartResponse;
+
+      if (res.expired && res.result) {
+        setResult(res.result);
+        setPhase('result');
+        onCompleted(res.result.score, { reason: res.result.reason, strikes: res.result.strikes });
+        return;
+      }
+
+      if (!res.attemptId || !Array.isArray(res.questions) || res.questions.length === 0) {
+        throw new Error('The exam could not be loaded. Please try again.');
+      }
+
+      attemptIdRef.current = res.attemptId;
+      setAttemptId(res.attemptId);
+      setExamTitle(res.examTitle || 'Online Entrance CBT Screening');
+      setInstructions(res.instructions || '');
+      setDurationMinutes(Math.round((res.durationSeconds || 0) / 60));
+      setQuestions(res.questions);
+      setAnswers(res.answers || {});
+      setViolations(res.violations || []);
+      answersRef.current = res.answers || {};
+      violationsRef.current = res.violations || [];
+      setCurrentIdx(0);
+      deadlineRef.current = Date.now() + (res.remainingSeconds || 0) * 1000;
+      setSecondsLeft(res.remainingSeconds || 0);
+      timeUpFiredRef.current = false;
+      setPhase('exam');
+    } catch (err: unknown) {
+      const message = (err as { message?: string } | null)?.message;
+      const code = rpcErrorCode(message);
+      if (code === 'CBT_ALREADY_TAKEN') {
+        showToast({
+          type: 'warning',
+          title: 'Already Submitted',
+          message: 'Your entrance CBT has already been recorded.',
+        });
+        onClose();
+        return;
+      }
+      if (code === 'ONLINE_CBT_DISABLED') {
+        showToast({
+          type: 'danger',
+          title: 'Online CBT Disabled',
+          message: 'The school has turned off the online entrance exam.',
+        });
+        onClose();
+        return;
+      }
+      setPhase('gate');
+      setStartError(rpcErrorText(message));
+    }
+  };
+
+  const handleUseOneIdExamAuthorized = (payload: UseOneIDPayload) => {
+    const { matches, returnedEmail } = useOneIdMatchesRegisteredPerson(payload, candidateEmail, candidatePhone);
+    if (!matches) {
       setIdentityError(
-        `Impersonation Alert: The authorized UseOneID account (${returnedEmail}) does not match the registered candidate email (${expectedEmail}). Please verify with your own UseOneID wallet.`
+        returnedEmail
+          ? `This UseOneID account (${returnedEmail}) does not match your application. Please sign in with the UseOneID account you used to apply.`
+          : 'We could not confirm who you are from UseOneID. Please try again with the UseOneID account you used to apply.'
       );
       return;
     }
-
     setIdentityError(null);
-    const durationSeconds = Math.max(1, Number(activeSuite.durationMinutes) || 20) * 60;
-    const initialState: PersistedExamState = {
-      suiteId: activeSuite.id,
-      startedAt: Date.now(),
-      durationSeconds,
-      answers: {},
-      proctorWarnings: 0,
-      violations: [],
-      questions: examQuestions,
-      verifiedByUseOneId: true,
-    };
-    try {
-      localStorage.setItem(lockStorageKey, JSON.stringify(initialState));
-    } catch {}
-    setSecondsLeft(durationSeconds);
-    setIsIdentityVerified(true);
     showToast({
       type: 'success',
       title: 'Identity Verified via UseOneID',
-      message: 'Biometric / 1-Click identity confirmed. Your proctored Entrance CBT has started.',
+      message: 'Your exam is starting.',
     });
+    void startExam();
   };
 
-  // Persist answers & violations continuously to anti-refresh lock
+  // Countdown based on the server deadline (survives slow or throttled browser tabs)
   useEffect(() => {
-    if (!isOpen || finalScore !== null || examQuestions.length === 0) return;
-    try {
-      const savedRaw = localStorage.getItem(lockStorageKey);
-      if (savedRaw) {
-        const saved = JSON.parse(savedRaw) as PersistedExamState;
-        saved.answers = answers;
-        saved.proctorWarnings = proctorWarnings;
-        saved.violations = violations;
-        localStorage.setItem(lockStorageKey, JSON.stringify(saved));
+    if (phase !== 'exam') return;
+    const tick = () => {
+      const left = Math.max(0, Math.ceil((deadlineRef.current - Date.now()) / 1000));
+      setSecondsLeft(left);
+      if (left === 0 && !timeUpFiredRef.current) {
+        timeUpFiredRef.current = true;
+        void submitFnRef.current('TIME_UP');
       }
-    } catch {}
-  }, [isOpen, finalScore, answers, proctorWarnings, violations, examQuestions.length, lockStorageKey]);
+    };
+    tick();
+    const interval = window.setInterval(tick, 500);
+    return () => window.clearInterval(interval);
+  }, [phase]);
 
-  // Lock background page scroll, track native fullscreen, and enforce anti-cheat proctoring
+  // Page lock, fullscreen tracking, and "leaving the exam screen" warnings
   useEffect(() => {
     if (!isOpen) return;
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
     const recordStrike = (type: string, label: string) => {
-      if (!isIdentityVerified || submittingRef.current || finalScore !== null) return;
+      if (phase !== 'exam' || submittingRef.current) return;
       const now = Date.now();
-      // Debounce rapid duplicate events (e.g. blur + visibilitychange firing together)
       if (now - lastStrikeTsRef.current < 1500) return;
       lastStrikeTsRef.current = now;
 
+      const next = [...violationsRef.current, { type, at: new Date().toISOString() }];
+      violationsRef.current = next;
+      setViolations(next);
       setLastViolationReason(label);
-      setViolations((prev) => [...prev, { type, at: new Date().toISOString() }]);
-      setProctorWarnings((prev) => {
-        const next = prev + 1;
-        if (next >= MAX_PROCTOR_STRIKES && !submittingRef.current) {
-          setAutoSubmittedByProctor(true);
-          void submitFnRef.current();
-        }
-        return next;
-      });
+      void saveProgress();
+
+      if (next.length >= MAX_PROCTOR_STRIKES) {
+        void submitFnRef.current('PROCTOR_LIMIT');
+      }
     };
 
-    const onFsChange = () => {
-      const nowFs = Boolean(document.fullscreenElement);
-      setIsFullscreen(nowFs);
-    };
-
+    const onFsChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
     const onVisibilityChange = () => {
       if (document.hidden) {
         recordStrike('TAB_SWITCH', 'You switched to another tab or minimized the exam.');
       }
     };
-
     const onWindowBlur = () => {
       recordStrike('WINDOW_BLUR', 'You left the exam screen.');
     };
-
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (finalScore === null) {
+      if (phase === 'exam') {
         e.preventDefault();
         e.returnValue = '';
       }
@@ -285,7 +390,7 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
         document.exitFullscreen().catch(() => {});
       }
     };
-  }, [isOpen, finalScore, isIdentityVerified]);
+  }, [isOpen, phase, saveProgress]);
 
   const toggleBrowserFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -295,35 +400,13 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
     }
   };
 
+  // Keyboard navigation and blocked shortcuts during the exam
   useEffect(() => {
-    if (!isOpen || !isIdentityVerified || finalScore !== null) return;
-    const interval = setInterval(() => {
-      setSecondsLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [isOpen, isIdentityVerified, finalScore]);
-
-  useEffect(() => {
-    if (isOpen && isIdentityVerified && secondsLeft === 0 && finalScore === null && !submittingRef.current) {
-      setAutoSubmittedByTimeout(true);
-      void submitFnRef.current();
-    }
-  }, [secondsLeft, isOpen, isIdentityVerified, finalScore]);
-
-  // Keyboard navigation + Anti-Cheat Shortcut Blocking (DevTools, Print, View Source, Copy/Paste)
-  useEffect(() => {
-    if (!isOpen || finalScore !== null || examQuestions.length === 0) return;
+    if (!isOpen || phase !== 'exam' || questions.length === 0) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       const keyLower = e.key.toLowerCase();
       const isCtrlOrMeta = e.ctrlKey || e.metaKey;
 
-      // Block DevTools, Print, Save, View Source, Copy, Paste, Select All, PrintScreen
       if (
         e.key === 'F12' ||
         e.key === 'PrintScreen' ||
@@ -336,15 +419,15 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
       }
 
       if (e.key === 'ArrowRight') {
-        setCurrentIdx((i) => Math.min(examQuestions.length - 1, i + 1));
+        setCurrentIdx((i) => Math.min(questions.length - 1, i + 1));
       } else if (e.key === 'ArrowLeft') {
         setCurrentIdx((i) => Math.max(0, i - 1));
       } else if (!isCtrlOrMeta && !e.altKey) {
         const keyMap: Record<string, number> = { a: 0, b: 1, c: 2, d: 3, '1': 0, '2': 1, '3': 2, '4': 3 };
         const idx = keyMap[keyLower];
         if (idx !== undefined) {
-          const q = examQuestions[currentIdx];
-          if (q && idx < q.shuffledOptions.length) {
+          const q = questions[currentIdx];
+          if (q && idx < q.options.length) {
             setAnswers((prev) => ({ ...prev, [q.id]: idx }));
           }
         }
@@ -352,99 +435,17 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isOpen, finalScore, currentIdx, examQuestions]);
-
-  const handleSubmitCbt = async () => {
-    if (submittingRef.current || finalScore !== null) return;
-    submittingRef.current = true;
-    setIsSubmitting(true);
-    setConfirmSubmit(false);
-
-    let correct = 0;
-    for (const q of examQuestions) {
-      const selectedIdx = answers[q.id];
-      if (selectedIdx !== undefined && q.shuffledOptions[selectedIdx]?.isCorrect) {
-        correct += 1;
-      }
-    }
-    const pct = examQuestions.length > 0 ? Math.round((correct / examQuestions.length) * 100) : 0;
-
-    try {
-      const { error } = await supabase.rpc('submit_online_cbt_score', {
-        p_application_number: applicationNumber,
-        p_email: candidateEmail,
-        p_score: pct,
-      });
-      if (error) {
-        if (error.message?.includes('ONLINE_CBT_DISABLED')) {
-          submittingRef.current = false;
-          setIsSubmitting(false);
-          showToast({
-            type: 'danger',
-            title: 'Online CBT Disabled',
-            message: 'The school has disabled online entrance CBT screening.',
-          });
-          onClose();
-          return;
-        }
-        if (error.message?.includes('CBT_ALREADY_TAKEN')) {
-          try {
-            localStorage.removeItem(lockStorageKey);
-          } catch {}
-          submittingRef.current = false;
-          setIsSubmitting(false);
-          showToast({
-            type: 'warning',
-            title: 'Already Submitted',
-            message: 'Your entrance CBT score has already been recorded.',
-          });
-          onClose();
-          return;
-        }
-        submittingRef.current = false;
-        setIsSubmitting(false);
-        showToast({
-          type: 'danger',
-          title: 'Submission Failed',
-          message: error.message || 'Could not record your CBT score in the database. Please try submitting again.',
-        });
-        return;
-      }
-    } catch (err: any) {
-      submittingRef.current = false;
-      setIsSubmitting(false);
-      showToast({
-        type: 'danger',
-        title: 'Network Error',
-        message: err?.message || 'Unable to reach the examination server. Your answers are preserved — please retry.',
-      });
-      return;
-    }
-
-    try {
-      localStorage.removeItem(lockStorageKey);
-    } catch {}
-
-    setFinalScore(pct);
-    onCompleted(pct);
-    setIsSubmitting(false);
-    showToast({
-      type: autoSubmittedByProctor ? 'warning' : 'success',
-      title: autoSubmittedByProctor ? 'Exam Auto-Submitted (Proctoring)' : 'Entrance CBT Completed',
-      message: `Your screening score (${pct}%) has been submitted to the Admissions Office.`,
-    });
-  };
-
-  submitFnRef.current = handleSubmitCbt;
+  }, [isOpen, phase, currentIdx, questions]);
 
   if (!isOpen) return null;
 
-  const effectiveCutoff = activeSuite.cutoffScore || cutoffScore || 50;
+  const effectiveCutoff = result?.cutoffScore ?? cutoffScore ?? 50;
   const mins = Math.floor(secondsLeft / 60);
   const secs = secondsLeft % 60;
-  const activeQ = examQuestions[currentIdx];
+  const activeQ = questions[currentIdx];
   const answeredCount = Object.keys(answers).length;
-  const progressPct = examQuestions.length > 0 ? Math.round((answeredCount / examQuestions.length) * 100) : 0;
+  const progressPct = questions.length > 0 ? Math.round((answeredCount / questions.length) * 100) : 0;
+  const strikeCount = violations.length;
 
   return (
     <div
@@ -457,7 +458,7 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
       role="region"
       aria-label="Full-Screen Online Entrance CBT Screening"
     >
-      {/* ─── TOP INSTITUTIONAL EXAM BAR ─── */}
+      {/* ─── TOP EXAM BAR ─── */}
       <header className="bg-[#093322] text-white px-4 sm:px-6 lg:px-8 py-3 border-b border-emerald-950/60 flex items-center justify-between gap-3 shrink-0 z-10">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-9 h-9 rounded-[4px] bg-white p-1 border border-emerald-400/30 flex items-center justify-center shrink-0">
@@ -471,9 +472,7 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
             />
           </div>
           <div className="min-w-0">
-            <h1 className="text-sm sm:text-base font-bold tracking-tight truncate">
-              {activeSuite.examTitle || 'Online Entrance CBT Screening'}
-            </h1>
+            <h1 className="text-sm sm:text-base font-bold tracking-tight truncate">{examTitle}</h1>
             <p className="text-[11px] text-emerald-200/80 truncate">
               {candidateName} &bull; {applicationNumber}
             </p>
@@ -481,7 +480,7 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          {finalScore === null && (
+          {phase === 'exam' && (
             <div
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] border text-xs sm:text-sm font-bold ${
                 secondsLeft < 120
@@ -507,7 +506,7 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
             <span className="hidden sm:inline">{isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}</span>
           </button>
 
-          {(finalScore !== null || !isIdentityVerified) && (
+          {(phase === 'gate' || phase === 'result') && (
             <button
               type="button"
               onClick={onClose}
@@ -521,13 +520,13 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
         </div>
       </header>
 
-      {/* ─── PROCTORING VIOLATION STRIP ─── */}
-      {isIdentityVerified && finalScore === null && proctorWarnings > 0 && (
+      {/* ─── WARNING STRIP ─── */}
+      {phase === 'exam' && strikeCount > 0 && (
         <div className="bg-red-50 border-b border-red-200 px-4 sm:px-8 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs text-red-900 shrink-0 z-10">
           <div className="flex items-center gap-2 font-semibold">
             <ShieldAlert className="w-4 h-4 text-red-600 shrink-0" />
             <span>
-              Warning {proctorWarnings} of {MAX_PROCTOR_STRIKES}:{' '}
+              Warning {Math.min(strikeCount, MAX_PROCTOR_STRIKES)} of {MAX_PROCTOR_STRIKES}:{' '}
               {lastViolationReason || 'Please stay on the exam screen.'} Leaving {MAX_PROCTOR_STRIKES} times will submit your exam.
             </span>
           </div>
@@ -537,8 +536,26 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
         </div>
       )}
 
+      {/* ─── SUBMIT FAILED STRIP ─── */}
+      {phase === 'exam' && submitError && (
+        <div className="bg-amber-50 border-b border-amber-200 px-4 sm:px-8 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs text-amber-950 shrink-0 z-10">
+          <span className="font-semibold">
+            Your exam could not be submitted yet: {submitError} Your answers are safe.
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant="primary"
+            className="bg-[#0F7640] hover:bg-[#093322]"
+            onClick={() => void submitFnRef.current(pendingReasonRef.current)}
+          >
+            Try Again
+          </Button>
+        </div>
+      )}
+
       {/* ─── MAIN WORKSPACE ─── */}
-      {!isIdentityVerified && finalScore === null ? (
+      {phase === 'gate' || phase === 'starting' ? (
         <main className="flex-1 overflow-y-auto flex items-center justify-center p-4 sm:p-8">
           <div className="w-full max-w-lg bg-white border border-slate-200 rounded-[4px] shadow-sm p-6 sm:p-8 space-y-5">
             <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
@@ -566,18 +583,6 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
                 <span className="text-slate-500 shrink-0">Application Number:</span>
                 <span className="font-bold text-[#0F7640] text-right">{applicationNumber}</span>
               </div>
-              <div className="flex items-start justify-between gap-4">
-                <span className="text-slate-500 shrink-0">Examination:</span>
-                <span className="font-semibold text-slate-800 text-right max-w-[260px] leading-snug">
-                  {activeSuite.examTitle}
-                </span>
-              </div>
-              <div className="flex items-start justify-between gap-4">
-                <span className="text-slate-500 shrink-0">Duration &amp; Questions:</span>
-                <span className="font-semibold text-slate-800 text-right">
-                  {activeSuite.durationMinutes} mins &bull; {examQuestions.length} Questions
-                </span>
-              </div>
             </div>
 
             <div className="p-4 bg-amber-50 border border-amber-200 rounded-[4px] text-xs text-amber-950 space-y-1.5">
@@ -585,7 +590,8 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
               <ol className="list-decimal list-inside space-y-1 text-amber-900 leading-relaxed">
                 <li>Use the same UseOneID account linked to your application email to unlock your exam.</li>
                 <li>Stay on this exam screen until you finish. Leaving or switching tabs 3 times will automatically submit your exam.</li>
-                <li>Copying questions, printing, or refreshing the page is not allowed and will not pause your timer.</li>
+                <li>Your timer keeps running even if you close or refresh the page. You can only take this exam once.</li>
+                <li>Copying questions or printing is not allowed.</li>
               </ol>
             </div>
 
@@ -596,21 +602,36 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
               </div>
             )}
 
+            {startError && (
+              <div className="p-3.5 bg-red-50 border border-red-200 rounded-[4px] text-xs text-red-800 font-medium flex items-start gap-2">
+                <ShieldAlert className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                <span>{startError}</span>
+              </div>
+            )}
+
             <div className="pt-1 space-y-2.5">
-              <UseOneIDButton
-                lookupEmail={candidateEmail}
-                lookupPhone={candidatePhone}
-                reuseText="Verify with 1-Click UseOneID"
-                firstTimeText="Verify Identity with UseOneID"
-                theme="brand"
-                onSuccess={handleUseOneIdExamAuthorized}
-                onError={(err) => setIdentityError(err || 'UseOneID verification was cancelled or failed.')}
-                className="w-full"
-              />
+              {phase === 'starting' ? (
+                <div className="space-y-2.5" aria-live="polite" aria-busy="true">
+                  <div className="h-[46px] w-full rounded-[4px] bg-slate-200 animate-pulse" />
+                  <p className="text-center text-xs text-slate-500">Getting your exam ready...</p>
+                </div>
+              ) : (
+                <UseOneIDButton
+                  lookupEmail={candidateEmail}
+                  lookupPhone={candidatePhone}
+                  reuseText="Verify with 1-Click UseOneID"
+                  firstTimeText="Verify Identity with UseOneID"
+                  theme="brand"
+                  onSuccess={handleUseOneIdExamAuthorized}
+                  onError={(err) => setIdentityError(err || 'UseOneID verification was cancelled or failed.')}
+                  className="w-full"
+                />
+              )}
               <Button
                 type="button"
                 variant="secondary"
                 className="w-full h-[46px] text-xs font-semibold"
+                disabled={phase === 'starting'}
                 onClick={onClose}
               >
                 Cancel &amp; Return to Applicant Portal
@@ -618,7 +639,7 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
             </div>
           </div>
         </main>
-      ) : finalScore !== null ? (
+      ) : phase === 'result' && result ? (
         <main className="flex-1 overflow-y-auto flex items-center justify-center p-4 sm:p-8">
           <div className="w-full max-w-xl bg-white border border-slate-200 rounded-[4px] shadow-sm p-6 sm:p-10 text-center space-y-6">
             <div className="w-16 h-16 rounded-[4px] bg-emerald-50 border border-emerald-200 text-[#0F7640] flex items-center justify-center mx-auto">
@@ -627,16 +648,16 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
 
             <div className="space-y-1.5">
               <h2 className="text-2xl font-bold text-slate-900">
-                {autoSubmittedByProctor
+                {result.reason === 'PROCTOR_LIMIT'
                   ? 'Exam Submitted Automatically'
-                  : autoSubmittedByTimeout
-                  ? 'Time Expired — Exam Submitted'
-                  : 'Entrance CBT Screening Submitted'}
+                  : result.reason === 'TIME_UP'
+                  ? 'Time Is Up. Exam Submitted'
+                  : 'Entrance CBT Submitted'}
               </h2>
               <p className="text-xs sm:text-sm text-slate-500">
-                {autoSubmittedByProctor
+                {result.reason === 'PROCTOR_LIMIT'
                   ? 'You left the exam screen 3 times, so your exam was submitted automatically.'
-                  : autoSubmittedByTimeout
+                  : result.reason === 'TIME_UP'
                   ? 'Your exam time finished, so your answers were submitted automatically.'
                   : 'Your answers have been submitted and sent to the Admissions Office.'}
               </p>
@@ -645,18 +666,21 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
             <div className="p-5 bg-slate-50 border border-slate-200 rounded-[4px] flex flex-col sm:flex-row items-center justify-center gap-4">
               <div className="text-center sm:text-left">
                 <span className="text-[11px] uppercase tracking-wider font-semibold text-slate-400 block">
-                  Official Screening Score
+                  Your Score
                 </span>
-                <span className="text-3xl font-extrabold text-[#0F7640]">{finalScore}%</span>
+                <span className="text-3xl font-extrabold text-[#0F7640]">{result.score}%</span>
+                <span className="text-[11px] text-slate-500 block mt-0.5">
+                  {result.correct} of {result.total} correct
+                </span>
               </div>
               <div className="hidden sm:block h-10 w-px bg-slate-200" />
-              <Badge variant={finalScore >= effectiveCutoff ? 'success' : 'warning'} size="md">
-                {finalScore >= effectiveCutoff ? 'MEETS CUT-OFF' : `BELOW ${effectiveCutoff}% CUT-OFF`}
+              <Badge variant={result.score >= effectiveCutoff ? 'success' : 'warning'} size="md">
+                {result.score >= effectiveCutoff ? 'MEETS CUT-OFF' : `BELOW ${effectiveCutoff}% CUT-OFF`}
               </Badge>
             </div>
 
             <p className="text-xs text-slate-600 leading-relaxed">
-              Candidate: <strong>{candidateName}</strong> ({applicationNumber}). You can monitor your admission status and next steps directly on your Applicant Portal.
+              Candidate: <strong>{candidateName}</strong> ({applicationNumber}). You can follow your admission status on your Applicant Portal.
             </p>
 
             <div className="pt-2">
@@ -673,7 +697,7 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
       ) : (
         <>
           <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden relative">
-            {/* Subtle Anti-Leak Candidate Watermark */}
+            {/* Subtle candidate watermark */}
             <div
               aria-hidden="true"
               className="pointer-events-none select-none absolute inset-0 overflow-hidden opacity-[0.03] grid grid-cols-3 gap-12 p-10 -rotate-12 z-0"
@@ -685,13 +709,13 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
               ))}
             </div>
 
-            {/* LEFT / CENTER: QUESTION CANVAS */}
+            {/* QUESTION AREA */}
             <main className="flex-1 overflow-y-auto p-4 sm:p-8 lg:p-10 relative z-10">
               <div className="max-w-3xl mx-auto space-y-5">
-                {activeSuite.instructions && (
+                {instructions && (
                   <div className="px-4 py-2.5 bg-emerald-50/70 border border-emerald-200/80 rounded-[4px] text-xs text-emerald-950">
                     <span className="font-bold text-[#0F7640]">Instructions: </span>
-                    <span>{activeSuite.instructions}</span>
+                    <span>{instructions}</span>
                   </div>
                 )}
 
@@ -700,9 +724,9 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
                     <div className="flex items-start gap-2.5 text-xs text-amber-950">
                       <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                       <div>
-                        <p className="font-bold">Submit Entrance CBT Examination?</p>
+                        <p className="font-bold">Submit your exam?</p>
                         <p className="text-amber-800 mt-0.5">
-                          You have answered {answeredCount} of {examQuestions.length} questions. Once submitted, this single official attempt cannot be reopened.
+                          You have answered {answeredCount} of {questions.length} questions. After you submit, you cannot take this exam again.
                         </p>
                       </div>
                     </div>
@@ -715,7 +739,7 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
                         size="sm"
                         isLoading={isSubmitting}
                         className="bg-[#0F7640] hover:bg-[#093322]"
-                        onClick={handleSubmitCbt}
+                        onClick={() => void submitExam('MANUAL')}
                       >
                         Confirm &amp; Submit
                       </Button>
@@ -723,18 +747,17 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
                   </div>
                 )}
 
-                {/* Question Card */}
                 {activeQ && (
                   <div className="bg-white border border-slate-200 rounded-[4px] shadow-sm p-5 sm:p-8 space-y-6">
                     <div className="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-slate-100">
                       <div className="flex items-center gap-2">
                         <Badge variant="neutral" size="sm">{activeQ.subject}</Badge>
                         <span className="text-xs font-bold text-slate-600">
-                          Question {currentIdx + 1} of {examQuestions.length}
+                          Question {currentIdx + 1} of {questions.length}
                         </span>
                       </div>
                       <span className="text-[11px] text-slate-400 hidden sm:inline">
-                        Tip: Press A–D to answer, Left/Right arrows to navigate
+                        Tip: Press A–D to answer, Left/Right arrows to move
                       </span>
                     </div>
 
@@ -743,7 +766,7 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
                     </p>
 
                     <div className="space-y-3 pt-1">
-                      {activeQ.shuffledOptions.map((opt, idx) => {
+                      {activeQ.options.map((opt, idx) => {
                         const selected = answers[activeQ.id] === idx;
                         return (
                           <button
@@ -765,7 +788,7 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
                             >
                               {String.fromCharCode(65 + idx)}
                             </span>
-                            <span className="text-sm leading-snug">{opt.text}</span>
+                            <span className="text-sm leading-snug">{opt}</span>
                           </button>
                         );
                       })}
@@ -775,20 +798,17 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
               </div>
             </main>
 
-            {/* RIGHT SIDEBAR: QUESTION NAVIGATOR */}
+            {/* QUESTION LIST */}
             <aside className="w-full lg:w-80 xl:w-96 bg-white border-t lg:border-t-0 lg:border-l border-slate-200 flex flex-col shrink-0 max-h-[34vh] lg:max-h-none relative z-10">
               <div className="p-4 sm:p-5 border-b border-slate-100 space-y-3">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-slate-900 uppercase tracking-wider">Question Palette</span>
+                  <span className="font-bold text-slate-900 uppercase tracking-wider">Your Questions</span>
                   <span className="font-semibold text-[#0F7640]">
-                    {answeredCount}/{examQuestions.length} Answered
+                    {answeredCount}/{questions.length} Answered
                   </span>
                 </div>
                 <div className="w-full h-2 bg-slate-100 rounded-[4px] overflow-hidden">
-                  <div
-                    className="h-full bg-[#0F7640] transition-all duration-200"
-                    style={{ width: `${progressPct}%` }}
-                  />
+                  <div className="h-full bg-[#0F7640] transition-all duration-200" style={{ width: `${progressPct}%` }} />
                 </div>
                 <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500">
                   <span className="flex items-center gap-1.5">
@@ -798,14 +818,14 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
                     <span className="w-3 h-3 rounded-[4px] bg-emerald-100 border border-emerald-300 inline-block" /> Answered
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <span className="w-3 h-3 rounded-[4px] bg-white border border-slate-300 inline-block" /> Unanswered
+                    <span className="w-3 h-3 rounded-[4px] bg-white border border-slate-300 inline-block" /> Not answered
                   </span>
                 </div>
               </div>
 
               <div className="flex-1 overflow-y-auto p-4 sm:p-5">
                 <div className="grid grid-cols-5 sm:grid-cols-10 lg:grid-cols-5 gap-2">
-                  {examQuestions.map((q, idx) => {
+                  {questions.map((q, idx) => {
                     const isAnswered = answers[q.id] !== undefined;
                     const isCurrent = idx === currentIdx;
                     return (
@@ -830,7 +850,7 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
             </aside>
           </div>
 
-          {/* ─── STICKY BOTTOM CONTROLS ─── */}
+          {/* BOTTOM BUTTONS */}
           <footer className="bg-white border-t border-slate-200 px-4 sm:px-8 py-3 flex items-center justify-between gap-3 shrink-0 z-10">
             <Button
               type="button"
@@ -843,17 +863,17 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
             </Button>
 
             <span className="text-xs font-semibold text-slate-500 hidden sm:inline">
-              Question {currentIdx + 1} of {examQuestions.length}
+              Question {currentIdx + 1} of {questions.length}
             </span>
 
             <div className="flex items-center gap-2">
-              {currentIdx < examQuestions.length - 1 ? (
+              {currentIdx < questions.length - 1 ? (
                 <Button
                   type="button"
                   variant="primary"
                   rightIcon={<ChevronRight className="w-4 h-4" />}
                   className="bg-[#0F7640] hover:bg-[#093322]"
-                  onClick={() => setCurrentIdx((i) => Math.min(examQuestions.length - 1, i + 1))}
+                  onClick={() => setCurrentIdx((i) => Math.min(questions.length - 1, i + 1))}
                 >
                   Next Question
                 </Button>

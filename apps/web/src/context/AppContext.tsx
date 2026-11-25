@@ -115,6 +115,11 @@ export interface AdmissionCandidateItem {
   olevelDocumentUrl?: string;
   olevelDocumentName?: string;
   cbtScore: number;
+  cbtTaken?: boolean;
+  cbtMode?: 'ONLINE' | 'PHYSICAL';
+  cbtSubmitReason?: 'MANUAL' | 'TIME_UP' | 'PROCTOR_LIMIT';
+  cbtStrikes?: number;
+  cbtAttemptId?: string;
   utmeScore?: number;
   cbtDate: string;
   status: 'APPLIED' | 'SCREENED' | 'ADMITTED' | 'ENROLLED';
