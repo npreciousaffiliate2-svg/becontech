@@ -134,7 +134,17 @@ export const DashboardView: React.FC = () => {
               </p>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              {!(Number(candidateData.cbtScore) > 0) && !isAdmitted && schoolProfile?.onlineCbtEnabled !== false && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  className="bg-amber-400 text-slate-950 hover:bg-amber-300 border-amber-400 text-xs font-bold"
+                  onClick={() => setIsOnlineCbtOpen(true)}
+                >
+                  Start Online Entrance CBT
+                </Button>
+              )}
               <Button
                 variant="secondary"
                 size="sm"
@@ -254,33 +264,68 @@ export const DashboardView: React.FC = () => {
             </Card>
           </div>
 
-          {/* Configurable Entrance CBT Action Banner (Online CBT vs Physical CBT Centre) */}
-          {candidateData.cbtScore === 0 && candidateData.status === 'APPLIED' && (
-            <div className="p-4 sm:p-5 bg-white border border-emerald-200 rounded-[4px] shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <span className="text-xs font-bold text-[#0F7640] uppercase tracking-wider block">
-                  {schoolProfile?.onlineCbtEnabled !== false
-                    ? 'Online Entrance CBT Screening Ready'
-                    : 'Physical College CBT Centre Screening'}
-                </span>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  {schoolProfile?.onlineCbtEnabled !== false
-                    ? `You can take your timed ${schoolProfile?.activeSession?.replace(/\s*Academic Session\s*/i, '').trim() || '2026/2027'} Entrance CBT online right now. Minimum pass cut-off is ${schoolProfile?.minimumCutoffScore || 50}%.`
-                    : `Online entrance CBT is currently disabled by the institution. Please print your Application Slip and report to the College CBT Centre for your physical screening exam.`}
-                </p>
-              </div>
-              {schoolProfile?.onlineCbtEnabled !== false && (
-                <Button
-                  size="sm"
-                  variant="primary"
-                  className="bg-[#0F7640] hover:bg-[#093322] text-xs font-bold rounded-[4px] shrink-0"
-                  onClick={() => setIsOnlineCbtOpen(true)}
-                >
-                  Start Online Entrance CBT
-                </Button>
-              )}
-            </div>
-          )}
+          {/* Configurable Entrance CBT Action Banner (Online CBT vs Physical CBT Centre vs Completed) */}
+          {(() => {
+            const numericCbtScore = Number(candidateData.cbtScore) || 0;
+            const cutoff = schoolProfile?.minimumCutoffScore || 50;
+            const sessionLabel =
+              schoolProfile?.activeSession?.replace(/\s*Academic Session\s*/i, '').trim() || '2026/2027';
+
+            if (numericCbtScore > 0) {
+              return (
+                <div className="p-4 sm:p-5 bg-emerald-50/60 border border-emerald-200 rounded-[4px] shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-bold text-[#0F7640] uppercase tracking-wider">
+                        Entrance CBT Screening Completed
+                      </span>
+                      <Badge variant={numericCbtScore >= cutoff ? 'success' : 'warning'} size="sm">
+                        {numericCbtScore >= cutoff ? 'MEETS CUT-OFF' : `BELOW ${cutoff}% CUT-OFF`}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      Your official {sessionLabel} Entrance CBT score of <strong>{numericCbtScore}%</strong> has been recorded and forwarded to the Admissions Office.
+                    </p>
+                  </div>
+                  <div className="px-4 py-2 bg-white border border-emerald-200 rounded-[4px] text-center shrink-0">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">CBT Score</span>
+                    <span className="text-xl font-extrabold text-[#0F7640]">{numericCbtScore}%</span>
+                  </div>
+                </div>
+              );
+            }
+
+            if (!isAdmitted) {
+              return (
+                <div className="p-4 sm:p-5 bg-white border border-emerald-200 rounded-[4px] shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <span className="text-xs font-bold text-[#0F7640] uppercase tracking-wider block">
+                      {schoolProfile?.onlineCbtEnabled !== false
+                        ? 'Online Entrance CBT Screening Ready'
+                        : 'Physical College CBT Centre Screening'}
+                    </span>
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      {schoolProfile?.onlineCbtEnabled !== false
+                        ? `You can take your timed ${sessionLabel} Entrance CBT online right now in full-screen mode. Minimum pass cut-off is ${cutoff}%.`
+                        : `Online entrance CBT is currently disabled by the institution. Please print your Application Slip and report to the College CBT Centre for your physical screening exam.`}
+                    </p>
+                  </div>
+                  {schoolProfile?.onlineCbtEnabled !== false && (
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      className="bg-[#0F7640] hover:bg-[#093322] text-xs font-bold rounded-[4px] shrink-0"
+                      onClick={() => setIsOnlineCbtOpen(true)}
+                    >
+                      Start Online Entrance CBT
+                    </Button>
+                  )}
+                </div>
+              );
+            }
+
+            return null;
+          })()}
 
           {/* Admission Progress Stepper */}
           <Card
