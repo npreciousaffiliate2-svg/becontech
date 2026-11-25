@@ -1790,12 +1790,53 @@ export const AdminView: React.FC = () => {
                   <Badge variant="success" size="sm">ACTIVE</Badge>
                 </div>
 
-                <div className="flex items-center justify-between p-3 border border-slate-200 rounded-[4px] bg-slate-50">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 border border-slate-200 rounded-[4px] bg-slate-50">
                   <div>
                     <span className="font-bold text-slate-900 block text-xs">Auto Session Timeout</span>
-                    <p className="text-slate-500 text-[11px]">Automatic logoff after 15 minutes of inactivity</p>
+                    <p className="text-slate-500 text-[11px]">
+                      Automatic logoff after{' '}
+                      {(schoolProfile?.sessionTimeoutMins && schoolProfile.sessionTimeoutMins >= 30
+                        ? schoolProfile.sessionTimeoutMins
+                        : 120) >= 60
+                        ? `${Math.round(
+                            (schoolProfile?.sessionTimeoutMins && schoolProfile.sessionTimeoutMins >= 30
+                              ? schoolProfile.sessionTimeoutMins
+                              : 120) / 60
+                          )} hour(s)`
+                        : `${schoolProfile?.sessionTimeoutMins || 120} minutes`}{' '}
+                      of inactivity
+                    </p>
                   </div>
-                  <span className="font-bold text-slate-800 text-xs font-sans">15 Minutes</span>
+                  <div className="w-40 shrink-0">
+                    <Select
+                      value={String(
+                        schoolProfile?.sessionTimeoutMins && schoolProfile.sessionTimeoutMins >= 30
+                          ? schoolProfile.sessionTimeoutMins
+                          : 120
+                      )}
+                      onChange={async (val) => {
+                        const mins = parseInt(val, 10) || 120;
+                        await updateSchoolProfile({ sessionTimeoutMins: mins });
+                        recordAudit('SESSION_TIMEOUT_UPDATED', 'SECURITY_POLICY', 'default', {
+                          sessionTimeoutMins: mins,
+                        });
+                        showToast({
+                          type: 'success',
+                          title: 'Session Timeout Updated',
+                          message: `Dashboard idle timeout set to ${
+                            mins >= 60 ? `${mins / 60} hour(s)` : `${mins} minutes`
+                          }.`,
+                        });
+                      }}
+                      options={[
+                        { value: '30', label: '30 Minutes' },
+                        { value: '60', label: '1 Hour' },
+                        { value: '120', label: '2 Hours' },
+                        { value: '240', label: '4 Hours' },
+                        { value: '480', label: '8 Hours' },
+                      ]}
+                    />
+                  </div>
                 </div>
               </div>
             </Card>

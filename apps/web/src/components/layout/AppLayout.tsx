@@ -67,21 +67,34 @@ export const AppLayout: React.FC = () => {
 
   useEffect(() => {
     if (!isAuthenticated) return;
-    const minutes = Math.max(5, Number(schoolProfile?.sessionTimeoutMins) || 15);
+    const configured = Number(schoolProfile?.sessionTimeoutMins);
+    const minutes = configured && configured >= 30 ? configured : 120;
     let timer = 0;
+    let lastActivity = 0;
+
     const arm = () => {
+      const now = Date.now();
+      if (now - lastActivity < 15000 && timer !== 0) return;
+      lastActivity = now;
       window.clearTimeout(timer);
       timer = window.setTimeout(() => {
         void signOutRef.current();
       }, minutes * 60 * 1000);
     };
+
     arm();
-    window.addEventListener('pointerdown', arm);
-    window.addEventListener('keydown', arm);
+    window.addEventListener('pointerdown', arm, { passive: true });
+    window.addEventListener('keydown', arm, { passive: true });
+    window.addEventListener('mousemove', arm, { passive: true });
+    window.addEventListener('scroll', arm, { passive: true, capture: true });
+    window.addEventListener('touchstart', arm, { passive: true });
     return () => {
       window.clearTimeout(timer);
       window.removeEventListener('pointerdown', arm);
       window.removeEventListener('keydown', arm);
+      window.removeEventListener('mousemove', arm);
+      window.removeEventListener('scroll', arm, true);
+      window.removeEventListener('touchstart', arm);
     };
   }, [isAuthenticated, schoolProfile?.sessionTimeoutMins]);
 

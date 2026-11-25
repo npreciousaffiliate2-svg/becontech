@@ -338,7 +338,7 @@ const DEFAULT_SCHOOL_PROFILE: SchoolProfile = {
   caWeightPct: 30,
   examWeightPct: 70,
   twoFactorEnforced: true,
-  sessionTimeoutMins: 15,
+  sessionTimeoutMins: 120,
   admissionsOpen: true,
   admissionBatch: 'Merit List (Batch 1)',
   applicationFeeKobo: 1000000, // N10,000
