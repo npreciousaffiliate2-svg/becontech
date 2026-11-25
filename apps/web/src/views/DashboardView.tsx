@@ -113,6 +113,11 @@ export const DashboardView: React.FC = () => {
       const candidateData = matchingCandidate;
       const isAdmitted = candidateData.status === 'ADMITTED';
       const isScreened = candidateData.status === 'SCREENED' || isAdmitted;
+      const numericCbtScore = Number(candidateData.cbtScore) || 0;
+      const hasTakenCbt =
+        numericCbtScore > 0 ||
+        Boolean((candidateData as any).cbtTaken) ||
+        (candidateData as any).cbtMode === 'ONLINE';
 
       return (
         <div className="flex flex-col gap-6 font-sans">
@@ -135,7 +140,7 @@ export const DashboardView: React.FC = () => {
             </div>
 
             <div className="flex flex-wrap items-center gap-2 shrink-0">
-              {!(Number(candidateData.cbtScore) > 0) && !isAdmitted && schoolProfile?.onlineCbtEnabled !== false && (
+              {!hasTakenCbt && !isAdmitted && schoolProfile?.onlineCbtEnabled !== false && (
                 <Button
                   variant="secondary"
                   size="sm"
@@ -226,16 +231,16 @@ export const DashboardView: React.FC = () => {
               </div>
               <div className="mt-2 flex items-baseline gap-2">
                 <span className="text-2xl font-bold text-slate-900 font-sans">
-                  {candidateData.cbtScore > 0 ? `${candidateData.cbtScore}%` : 'Pending'}
+                  {hasTakenCbt ? `${numericCbtScore}%` : 'Pending'}
                 </span>
-                {candidateData.cbtScore > 0 && (
-                  <span className="text-xs text-emerald-700 font-semibold font-sans">
+                {hasTakenCbt && (
+                  <span className={`text-xs font-semibold font-sans ${numericCbtScore >= (schoolProfile?.minimumCutoffScore || 50) ? 'text-emerald-700' : 'text-red-600'}`}>
                     Pass Cut-off ≥ {schoolProfile?.minimumCutoffScore || 50}%
                   </span>
                 )}
               </div>
               <p className="text-[11px] text-slate-500 mt-1 font-sans">
-                {candidateData.cbtScore > 0
+                {hasTakenCbt
                   ? 'Recorded CBT entrance score'
                   : schoolProfile?.onlineCbtEnabled !== false
                   ? 'Online CBT available below'
@@ -266,12 +271,11 @@ export const DashboardView: React.FC = () => {
 
           {/* Configurable Entrance CBT Action Banner (Online CBT vs Physical CBT Centre vs Completed) */}
           {(() => {
-            const numericCbtScore = Number(candidateData.cbtScore) || 0;
             const cutoff = schoolProfile?.minimumCutoffScore || 50;
             const sessionLabel =
               schoolProfile?.activeSession?.replace(/\s*Academic Session\s*/i, '').trim() || '2026/2027';
 
-            if (numericCbtScore > 0) {
+            if (hasTakenCbt) {
               return (
                 <div className="p-4 sm:p-5 bg-emerald-50/60 border border-emerald-200 rounded-[4px] shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="space-y-1">
@@ -451,10 +455,12 @@ export const DashboardView: React.FC = () => {
             schoolLogoUrl={schoolProfile?.logoUrl}
             cutoffScore={schoolProfile?.minimumCutoffScore || 50}
             onCompleted={(score) => {
+              const cutoff = schoolProfile?.minimumCutoffScore || 50;
               updateCandidate(candidateData.id, {
                 cbtScore: score,
                 cbtDate: new Date().toISOString().split('T')[0],
-                status: candidateData.status === 'APPLIED' ? 'SCREENED' : candidateData.status,
+                status: candidateData.status === 'APPLIED' && score >= cutoff ? 'SCREENED' : candidateData.status,
+                ...({ cbtTaken: true, cbtMode: 'ONLINE' } as any),
               });
               recordAudit('APPLICANT_ONLINE_CBT_COMPLETED', 'ADMISSION_CANDIDATE', candidateData.applicationNumber, {
                 score,

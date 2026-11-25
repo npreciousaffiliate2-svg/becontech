@@ -89,6 +89,7 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
   const [lastViolationReason, setLastViolationReason] = useState<string | null>(null);
   const [violations, setViolations] = useState<{ type: string; at: string }[]>([]);
   const [autoSubmittedByProctor, setAutoSubmittedByProctor] = useState(false);
+  const [autoSubmittedByTimeout, setAutoSubmittedByTimeout] = useState(false);
   const [isIdentityVerified, setIsIdentityVerified] = useState(false);
   const [identityError, setIdentityError] = useState<string | null>(null);
 
@@ -104,6 +105,7 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
     setConfirmSubmit(false);
     setIsSubmitting(false);
     setAutoSubmittedByProctor(false);
+    setAutoSubmittedByTimeout(false);
     setLastViolationReason(null);
     setIdentityError(null);
 
@@ -309,6 +311,7 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
 
   useEffect(() => {
     if (isOpen && isIdentityVerified && secondsLeft === 0 && finalScore === null && !submittingRef.current) {
+      setAutoSubmittedByTimeout(true);
       void submitFnRef.current();
     }
   }, [secondsLeft, isOpen, isIdentityVerified, finalScore]);
@@ -625,12 +628,16 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
             <div className="space-y-1.5">
               <h2 className="text-2xl font-bold text-slate-900">
                 {autoSubmittedByProctor
-                  ? 'Exam Auto-Submitted (Proctoring Limit)'
+                  ? 'Exam Submitted Automatically'
+                  : autoSubmittedByTimeout
+                  ? 'Time Expired — Exam Submitted'
                   : 'Entrance CBT Screening Submitted'}
               </h2>
               <p className="text-xs sm:text-sm text-slate-500">
                 {autoSubmittedByProctor
-                  ? 'Your examination was automatically submitted after reaching the maximum proctoring violation threshold.'
+                  ? 'Your exam was submitted automatically because you left the exam window 3 times.'
+                  : autoSubmittedByTimeout
+                  ? 'Your exam time ran out, so all answered questions were graded and submitted automatically.'
                   : 'Your screening score has been securely recorded and forwarded to the Admissions Office.'}
               </p>
             </div>
