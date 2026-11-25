@@ -399,6 +399,9 @@ export const DashboardView: React.FC = () => {
             candidateId={candidateData.id}
             candidateName={candidateData.fullName}
             candidateEmail={candidateData.email}
+            candidateDepartment={candidateData.department}
+            candidateProgrammeCode={candidateData.programmeCode}
+            activeSession={schoolProfile?.activeSession}
             cutoffScore={schoolProfile?.minimumCutoffScore || 50}
             onCompleted={(score) => {
               updateCandidate(candidateData.id, {

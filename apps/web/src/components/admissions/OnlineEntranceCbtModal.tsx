@@ -15,10 +15,10 @@ import { Button, Badge, useToast } from '@campusone/ui';
 import { supabase } from '../../lib/supabase.ts';
 import { useSharedRecords } from '../../lib/sharedRecords.ts';
 import {
-  DEFAULT_ENTRANCE_CBT_CONFIG,
-  DEFAULT_ENTRANCE_CBT_QUESTIONS,
-  EntranceCbtConfig,
+  DEFAULT_ENTRANCE_EXAM_SUITES,
   EntranceCbtQuestion,
+  EntranceExamSuite,
+  resolveApplicantEntranceExam,
 } from '../../lib/entranceCbt.ts';
 
 export interface OnlineEntranceCbtModalProps {
@@ -28,6 +28,9 @@ export interface OnlineEntranceCbtModalProps {
   candidateId: string;
   candidateName: string;
   candidateEmail: string;
+  candidateDepartment?: string;
+  candidateProgrammeCode?: string;
+  activeSession?: string;
   cutoffScore: number;
   onCompleted: (score: number) => void;
 }
@@ -38,42 +41,51 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
   applicationNumber,
   candidateName,
   candidateEmail,
+  candidateDepartment,
+  candidateProgrammeCode,
+  activeSession,
   cutoffScore,
   onCompleted,
 }) => {
   const { showToast } = useToast();
-  const [storedQuestions] = useSharedRecords<EntranceCbtQuestion>(
-    'admissions.cbt_questions',
-    DEFAULT_ENTRANCE_CBT_QUESTIONS
-  );
-  const [storedConfigs] = useSharedRecords<EntranceCbtConfig>(
-    'admissions.cbt_config',
-    [DEFAULT_ENTRANCE_CBT_CONFIG]
+  const [suites] = useSharedRecords<EntranceExamSuite>(
+    'admissions.cbt_suites',
+    DEFAULT_ENTRANCE_EXAM_SUITES
   );
 
-  const examConfig = storedConfigs[0] || DEFAULT_ENTRANCE_CBT_CONFIG;
-  const [examQuestions, setExamQuestions] = useState<EntranceCbtQuestion[]>(DEFAULT_ENTRANCE_CBT_QUESTIONS);
+  const [activeSuite, setActiveSuite] = useState<EntranceExamSuite>(DEFAULT_ENTRANCE_EXAM_SUITES[0]);
+  const [examQuestions, setExamQuestions] = useState<EntranceCbtQuestion[]>(
+    DEFAULT_ENTRANCE_EXAM_SUITES[0].questions
+  );
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number>>({});
-  const [secondsLeft, setSecondsLeft] = useState((examConfig.durationMinutes || 15) * 60);
+  const [secondsLeft, setSecondsLeft] = useState(20 * 60);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [finalScore, setFinalScore] = useState<number | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [confirmSubmit, setConfirmSubmit] = useState(false);
 
-  // Snapshot configured questions & duration whenever the exam workspace opens
+  // Resolve and snapshot the exact session + department entrance exam when opened
   useEffect(() => {
     if (!isOpen) return;
-    const validPool = (storedQuestions.length > 0 ? storedQuestions : DEFAULT_ENTRANCE_CBT_QUESTIONS).filter(
+    const resolved = resolveApplicantEntranceExam(
+      suites.length > 0 ? suites : DEFAULT_ENTRANCE_EXAM_SUITES,
+      activeSession,
+      candidateDepartment,
+      candidateProgrammeCode
+    );
+    const validPool = (resolved.questions || []).filter(
       (q) => Boolean(q && q.question && Array.isArray(q.options) && q.options.length > 0)
     );
-    const ordered = examConfig.randomizeQuestions
+    const ordered = resolved.randomizeQuestions
       ? [...validPool].sort(() => Math.random() - 0.5)
       : validPool;
+
+    setActiveSuite(resolved);
     setExamQuestions(ordered);
     setCurrentIdx(0);
     setAnswers({});
-    setSecondsLeft(Math.max(1, Number(examConfig.durationMinutes) || 15) * 60);
+    setSecondsLeft(Math.max(1, Number(resolved.durationMinutes) || 20) * 60);
     setFinalScore(null);
     setConfirmSubmit(false);
     setIsSubmitting(false);
@@ -205,6 +217,7 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
 
   if (!isOpen) return null;
 
+  const effectiveCutoff = activeSuite.cutoffScore || cutoffScore || 50;
   const mins = Math.floor(secondsLeft / 60);
   const secs = secondsLeft % 60;
   const activeQ = examQuestions[currentIdx];
@@ -229,10 +242,10 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <h1 className="text-sm sm:text-base font-bold tracking-tight truncate">
-                {examConfig.examTitle || 'Online Entrance CBT Screening'}
+                {activeSuite.examTitle || 'Online Entrance CBT Screening'}
               </h1>
-              <span className="hidden md:inline-block px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-white/10 text-emerald-200 rounded-[4px]">
-                Single Official Attempt
+              <span className="hidden md:inline-block px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-white/10 text-emerald-200 rounded-[4px] shrink-0">
+                {activeSuite.session} &bull; {activeSuite.departmentCode === 'ALL' ? 'All Departments' : activeSuite.departmentCode}
               </span>
             </div>
             <p className="text-[11px] text-emerald-200/80 truncate">
@@ -305,8 +318,8 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
                 <span className="text-3xl font-extrabold text-[#0F7640]">{finalScore}%</span>
               </div>
               <div className="hidden sm:block h-10 w-px bg-slate-200" />
-              <Badge variant={finalScore >= cutoffScore ? 'success' : 'warning'} size="md">
-                {finalScore >= cutoffScore ? 'MEETS CUT-OFF' : `BELOW ${cutoffScore}% CUT-OFF`}
+              <Badge variant={finalScore >= effectiveCutoff ? 'success' : 'warning'} size="md">
+                {finalScore >= effectiveCutoff ? 'MEETS CUT-OFF' : `BELOW ${effectiveCutoff}% CUT-OFF`}
               </Badge>
             </div>
 
@@ -331,10 +344,10 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
             {/* LEFT / CENTER: QUESTION CANVAS */}
             <main className="flex-1 overflow-y-auto p-4 sm:p-8 lg:p-10">
               <div className="max-w-3xl mx-auto space-y-5">
-                {examConfig.instructions && (
+                {activeSuite.instructions && (
                   <div className="px-4 py-2.5 bg-emerald-50/70 border border-emerald-200/80 rounded-[4px] text-xs text-emerald-950">
                     <span className="font-bold text-[#0F7640]">Instructions: </span>
-                    <span>{examConfig.instructions}</span>
+                    <span>{activeSuite.instructions}</span>
                   </div>
                 )}
 

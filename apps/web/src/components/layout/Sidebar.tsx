@@ -120,6 +120,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           subItems: [
             { name: 'All Applications', path: '/admissions' },
             { name: 'Screening & Tests', path: '/admissions/screening' },
+            { name: 'Entrance Exam CBT', path: '/admissions/cbt' },
             { name: 'Admission Lists', path: '/admissions/lists' },
             { name: 'Accepted & Enrolled', path: '/admissions/enrolled' },
           ],
