@@ -5,6 +5,10 @@
   "outputDirectory": "apps/web/dist",
   "rewrites": [
     {
+      "source": "/api/useoneid/lookup",
+      "destination": "https://useoneid.com/api/v1/verify/lookup-user"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }

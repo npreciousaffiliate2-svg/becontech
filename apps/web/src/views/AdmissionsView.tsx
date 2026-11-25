@@ -1347,33 +1347,35 @@ export const AdmissionsView: React.FC = () => {
         }
       >
         <form onSubmit={handleAddNewApplication} className="space-y-3.5 text-xs">
-          {/* Fast-Track with UseOneID */}
-          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-[4px] flex items-center justify-between gap-2.5">
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="w-7 h-7 rounded-[4px] bg-white border border-slate-200 flex items-center justify-center shrink-0 shadow-xs p-1">
-                <img
-                  src="https://useoneid.com/favicon.png"
-                  alt="UseOneID"
-                  className="w-full h-full object-contain"
-                />
+          {/* Fast-Track with UseOneID (hidden once verified) */}
+          {!newAppForm.oneIdVerified && (
+            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-[4px] flex items-center justify-between gap-2.5">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-7 h-7 rounded-[4px] bg-white border border-slate-200 flex items-center justify-center shrink-0 shadow-xs p-1">
+                  <img
+                    src="https://useoneid.com/favicon.png"
+                    alt="UseOneID"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-xs font-bold text-slate-900 block font-sans truncate">
+                    Fast-Track with UseOneID
+                  </span>
+                  <span className="text-[11px] text-slate-500 block truncate">
+                    Auto-fill verified details in 1-click
+                  </span>
+                </div>
               </div>
-              <div className="min-w-0">
-                <span className="text-xs font-bold text-slate-900 block font-sans truncate">
-                  Fast-Track with UseOneID
-                </span>
-                <span className="text-[11px] text-slate-500 block truncate">
-                  Auto-fill verified details in 1-click
-                </span>
-              </div>
+              <UseOneIDLookup
+                lookupEmail={newAppForm.email}
+                lookupPhone={newAppForm.phone}
+                onFill={handleCandidateAutoFill}
+                reuseText="Authorize 1-Click ID"
+                firstTimeText="Verify with UseOneID"
+              />
             </div>
-            <UseOneIDLookup
-              lookupEmail={newAppForm.email}
-              lookupPhone={newAppForm.phone}
-              onFill={handleCandidateAutoFill}
-              reuseText="Authorize 1-Click ID"
-              firstTimeText="Verify with UseOneID"
-            />
-          </div>
+          )}
 
           {newAppForm.oneIdVerified && (
             <div className="p-2 bg-emerald-100/70 border border-emerald-300 rounded-[4px] flex items-center justify-between text-xs text-emerald-950 font-sans">

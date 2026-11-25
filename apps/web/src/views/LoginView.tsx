@@ -66,7 +66,12 @@ export const LoginView: React.FC = () => {
   const [gender, setGender] = useState<'Female' | 'Male'>(initialDraft.gender || 'Female');
   const [stateOfOrigin, setStateOfOrigin] = useState<string>(initialDraft.stateOfOrigin || 'Oyo');
   const [lga, setLga] = useState<string>(initialDraft.lga || 'Ibadan North');
-  const [olevelBody, setOlevelBody] = useState<string>(initialDraft.olevelBody || 'WAEC (SSCE)');
+  const normalizeExamBody = (val?: string) => {
+    if (!val || val === 'WAEC') return 'WAEC (SSCE)';
+    if (val === 'NECO') return 'NECO (SSCE)';
+    return val;
+  };
+  const [olevelBody, setOlevelBody] = useState<string>(normalizeExamBody(initialDraft.olevelBody));
   const [olevelYear, setOlevelYear] = useState<string>(initialDraft.olevelYear || String(new Date().getFullYear() - 1));
   const [englishGrade, setEnglishGrade] = useState<string>(initialDraft.englishGrade || 'B3');
   const [mathsGrade, setMathsGrade] = useState<string>(initialDraft.mathsGrade || 'C4');
@@ -440,37 +445,39 @@ export const LoginView: React.FC = () => {
             </form>
           ) : (
             <form onSubmit={handleRegister} className="space-y-3.5">
-              {/* UseOneID Official Fast-Track KYC & Auto-Fill */}
-              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-[4px] flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-8 h-8 rounded-[4px] bg-white border border-slate-200 flex items-center justify-center shrink-0 shadow-xs p-1">
-                    <img
-                      src="https://useoneid.com/favicon.png"
-                      alt="UseOneID"
-                      className="w-full h-full object-contain"
-                    />
+              {/* UseOneID Official Fast-Track KYC & Auto-Fill (hidden once verified) */}
+              {!verifiedOneId && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-[4px] flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-[4px] bg-white border border-slate-200 flex items-center justify-center shrink-0 shadow-xs p-1">
+                      <img
+                        src="https://useoneid.com/favicon.png"
+                        alt="UseOneID"
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-xs font-bold text-slate-900 block font-sans truncate">
+                        {hasOneIdWallet ? 'UseOneID Wallet Found' : 'Fast-Track with UseOneID'}
+                      </span>
+                      <span className="text-[11px] text-slate-500 block truncate">
+                        {hasOneIdWallet
+                          ? 'Authorize in 1 click to auto-fill verified details'
+                          : 'Complete KYC or enter email/phone to reuse wallet'}
+                      </span>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <span className="text-xs font-bold text-slate-900 block font-sans truncate">
-                      {hasOneIdWallet ? 'UseOneID Wallet Found' : 'Fast-Track with UseOneID'}
-                    </span>
-                    <span className="text-[11px] text-slate-500 block truncate">
-                      {hasOneIdWallet
-                        ? 'Authorize in 1 click to auto-fill verified details'
-                        : 'Complete KYC or enter email/phone to reuse wallet'}
-                    </span>
-                  </div>
+                  <UseOneIDLookup
+                    lookupEmail={regEmail}
+                    lookupPhone={phone}
+                    onLookupComplete={(res) => setHasOneIdWallet(Boolean(res?.found))}
+                    onFill={handleUseOneIdFill}
+                    onError={(err) => showToast({ type: 'danger', title: 'UseOneID Error', message: err })}
+                    reuseText="Authorize 1-Click ID"
+                    firstTimeText="Verify with UseOneID"
+                  />
                 </div>
-                <UseOneIDLookup
-                  lookupEmail={regEmail}
-                  lookupPhone={phone}
-                  onLookupComplete={(res) => setHasOneIdWallet(Boolean(res?.found))}
-                  onFill={handleUseOneIdFill}
-                  onError={(err) => showToast({ type: 'danger', title: 'UseOneID Error', message: err })}
-                  reuseText="Authorize 1-Click ID"
-                  firstTimeText="Verify with UseOneID"
-                />
-              </div>
+              )}
 
               {verifiedOneId && (
                 <div className="p-2.5 bg-emerald-100/80 border border-emerald-300 rounded-[4px] flex items-center justify-between text-xs text-emerald-950 font-sans">
@@ -516,27 +523,15 @@ export const LoginView: React.FC = () => {
                   required
                 />
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Select
-                  label="Gender"
-                  value={gender}
-                  onChange={(v) => setGender(v as 'Female' | 'Male')}
-                  options={[
-                    { value: 'Female', label: 'Female' },
-                    { value: 'Male', label: 'Male' },
-                  ]}
-                />
-                <Select
-                  label="O'Level Examination Body"
-                  value={olevelBody}
-                  onChange={(v) => setOlevelBody(v as 'WAEC' | 'NECO' | 'NABTEB')}
-                  options={[
-                    { value: 'WAEC', label: 'WAEC' },
-                    { value: 'NECO', label: 'NECO' },
-                    { value: 'NABTEB', label: 'NABTEB' },
-                  ]}
-                />
-              </div>
+              <Select
+                label="Gender"
+                value={gender}
+                onChange={(v) => setGender(v as 'Female' | 'Male')}
+                options={[
+                  { value: 'Female', label: 'Female' },
+                  { value: 'Male', label: 'Male' },
+                ]}
+              />
               <StateLgaSelect
                 stateValue={stateOfOrigin}
                 lgaValue={lga}

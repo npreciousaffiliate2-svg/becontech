@@ -14,5 +14,12 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     host: true,
+    proxy: {
+      '/api/useoneid/lookup': {
+        target: 'https://useoneid.com',
+        changeOrigin: true,
+        rewrite: () => '/api/v1/verify/lookup-user',
+      },
+    },
   },
 });

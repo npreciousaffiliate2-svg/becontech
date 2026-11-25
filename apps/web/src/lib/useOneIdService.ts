@@ -134,24 +134,37 @@ export const useOneIdService = {
       return { found: false };
     }
 
-    // 1. Live server-side UseOneID wallet lookup via Vercel serverless route (zero CORS)
-    try {
-      const res = await fetch('/api/useoneid/lookup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, phone }),
-      });
-
-      if (res.ok) {
+    // 1. Live concurrent UseOneID wallet lookup via same-origin /api/useoneid/lookup proxy (zero CORS, works on Vercel & localhost)
+    const runLookup = async (payload: Record<string, string>): Promise<LookupResult | null> => {
+      try {
+        const res = await fetch('/api/useoneid/lookup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) return null;
         const data = await res.json();
-        return {
-          found: Boolean(data.found),
-          matchedIdentifier: data.matchedIdentifier || email || phone,
-          user: data.user,
-        };
+        if (data?.found || data?.exists || data?.verified) {
+          return {
+            found: true,
+            matchedIdentifier: data.matchedIdentifier || payload.email || payload.phone,
+            user: data.user,
+          };
+        }
+        return null;
+      } catch {
+        return null;
       }
-    } catch {
-      // Fall through only if /api/useoneid/lookup is unavailable (e.g. local Vite dev without serverless proxy)
+    };
+
+    const checks: Promise<LookupResult | null>[] = [];
+    if (email && email.includes('@')) checks.push(runLookup({ email }));
+    if (phone && phone.length >= 10) checks.push(runLookup({ phone }));
+
+    if (checks.length > 0) {
+      const results = await Promise.all(checks);
+      const hit = results.find((r) => r && r.found);
+      if (hit) return hit;
     }
 
     // 2. Fallback to custom proxy base if configured
