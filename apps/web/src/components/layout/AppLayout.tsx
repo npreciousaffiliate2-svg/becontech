@@ -68,33 +68,43 @@ export const AppLayout: React.FC = () => {
   useEffect(() => {
     if (!isAuthenticated) return;
     const configured = Number(schoolProfile?.sessionTimeoutMins);
-    const minutes = configured && configured >= 30 ? configured : 120;
-    let timer = 0;
-    let lastActivity = 0;
+    const minutes = configured && configured >= 60 ? configured : 480;
+    const timeoutMs = minutes * 60 * 1000;
+    let lastActivityAt = Date.now();
 
-    const arm = () => {
-      const now = Date.now();
-      if (now - lastActivity < 15000 && timer !== 0) return;
-      lastActivity = now;
-      window.clearTimeout(timer);
-      timer = window.setTimeout(() => {
-        void signOutRef.current();
-      }, minutes * 60 * 1000);
+    const recordActivity = () => {
+      lastActivityAt = Date.now();
     };
 
-    arm();
-    window.addEventListener('pointerdown', arm, { passive: true });
-    window.addEventListener('keydown', arm, { passive: true });
-    window.addEventListener('mousemove', arm, { passive: true });
-    window.addEventListener('scroll', arm, { passive: true, capture: true });
-    window.addEventListener('touchstart', arm, { passive: true });
+    const interval = window.setInterval(() => {
+      if (Date.now() - lastActivityAt >= timeoutMs) {
+        void signOutRef.current();
+      }
+    }, 60000);
+
+    const onVisibilityChange = () => {
+      if (!document.hidden) {
+        // Keep session alive when user actively returns to the tab within the timeout window
+        if (Date.now() - lastActivityAt < timeoutMs) {
+          lastActivityAt = Date.now();
+        }
+      }
+    };
+
+    window.addEventListener('pointerdown', recordActivity, { passive: true });
+    window.addEventListener('keydown', recordActivity, { passive: true });
+    window.addEventListener('mousemove', recordActivity, { passive: true });
+    window.addEventListener('scroll', recordActivity, { passive: true, capture: true });
+    window.addEventListener('touchstart', recordActivity, { passive: true });
+    document.addEventListener('visibilitychange', onVisibilityChange);
     return () => {
-      window.clearTimeout(timer);
-      window.removeEventListener('pointerdown', arm);
-      window.removeEventListener('keydown', arm);
-      window.removeEventListener('mousemove', arm);
-      window.removeEventListener('scroll', arm, true);
-      window.removeEventListener('touchstart', arm);
+      window.clearInterval(interval);
+      window.removeEventListener('pointerdown', recordActivity);
+      window.removeEventListener('keydown', recordActivity);
+      window.removeEventListener('mousemove', recordActivity);
+      window.removeEventListener('scroll', recordActivity, true);
+      window.removeEventListener('touchstart', recordActivity);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, [isAuthenticated, schoolProfile?.sessionTimeoutMins]);
 

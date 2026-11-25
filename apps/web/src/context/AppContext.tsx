@@ -338,7 +338,7 @@ const DEFAULT_SCHOOL_PROFILE: SchoolProfile = {
   caWeightPct: 30,
   examWeightPct: 70,
   twoFactorEnforced: true,
-  sessionTimeoutMins: 120,
+  sessionTimeoutMins: 480,
   admissionsOpen: true,
   admissionBatch: 'Merit List (Batch 1)',
   applicationFeeKobo: 1000000, // N10,000
@@ -1359,37 +1359,99 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     let active = true;
-    const timer = window.setTimeout(() => {
+    const safetyTimer = window.setTimeout(() => {
       if (active) setAuthReady(true);
-    }, 6000);
-    supabase.auth.getSession().then(async ({ data }) => {
-      const email = data.session?.user?.email;
-      setAuthUserEmail(email || null);
+    }, 15000);
+
+    const resolveSessionRole = async (supaSession: { user?: { email?: string | null; user_metadata?: Record<string, any> } } | null) => {
+      const email = supaSession?.user?.email || null;
+      if (!active) return;
+      setAuthUserEmail(email);
+
       if (!email) {
-        if (active) {
-          setAuthenticatedRole(null);
-          setAuthReady(true);
-        }
+        setAuthenticatedRole(null);
+        try {
+          localStorage.removeItem('campusone_auth_role');
+        } catch {}
+        window.clearTimeout(safetyTimer);
+        setAuthReady(true);
         return;
       }
-      const { data: profile } = await supabase.from('profiles').select('role').eq('email', email).maybeSingle();
-      if (!active) return;
-      if (profile?.role) {
-        setAuthenticatedRole(profile.role as RoleCode);
-      } else {
-        await supabase.auth.signOut();
-        setAuthenticatedRole(null);
+
+      // Immediately restore cached role if available so reloads never flicker or drop session
+      let cachedRole: RoleCode | null = null;
+      try {
+        const stored = localStorage.getItem('campusone_auth_role') as RoleCode | null;
+        if (stored) cachedRole = stored;
+      } catch {}
+      if (cachedRole) {
+        setAuthenticatedRole(cachedRole);
       }
-      setAuthReady(true);
-    }).catch(() => {
-      if (active) {
+
+      try {
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('role')
+          .ilike('email', email)
+          .maybeSingle();
+
+        if (!active) return;
+
+        if (!error && profile?.role) {
+          const verifiedRole = profile.role as RoleCode;
+          setAuthenticatedRole(verifiedRole);
+          try {
+            localStorage.setItem('campusone_auth_role', verifiedRole);
+            localStorage.setItem('campusone_current_user_email', email);
+          } catch {}
+        } else {
+          // Never call supabase.auth.signOut() on transient profile fetch errors or slow token refresh!
+          const metaRole = (supaSession?.user?.user_metadata?.role as RoleCode | undefined) || cachedRole || 'STU';
+          setAuthenticatedRole(metaRole);
+          try {
+            localStorage.setItem('campusone_auth_role', metaRole);
+            localStorage.setItem('campusone_current_user_email', email);
+          } catch {}
+        }
+      } catch {
+        if (!active) return;
+        const metaRole = (supaSession?.user?.user_metadata?.role as RoleCode | undefined) || cachedRole || 'STU';
+        setAuthenticatedRole(metaRole);
+      }
+
+      window.clearTimeout(safetyTimer);
+      if (active) setAuthReady(true);
+    };
+
+    supabase.auth
+      .getSession()
+      .then(({ data }) => resolveSessionRole(data.session))
+      .catch(() => {
+        if (active) {
+          window.clearTimeout(safetyTimer);
+          setAuthReady(true);
+        }
+      });
+
+    const { data: authSubscription } = supabase.auth.onAuthStateChange((event, supaSession) => {
+      if (!active) return;
+      if (event === 'SIGNED_OUT') {
+        setAuthUserEmail(null);
         setAuthenticatedRole(null);
+        setImpersonatedRole(null);
+        try {
+          localStorage.removeItem('campusone_auth_role');
+        } catch {}
         setAuthReady(true);
+      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
+        void resolveSessionRole(supaSession);
       }
     });
+
     return () => {
       active = false;
-      window.clearTimeout(timer);
+      window.clearTimeout(safetyTimer);
+      authSubscription?.subscription?.unsubscribe();
     };
   }, []);
 
@@ -2094,7 +2156,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     try {
       sessionStorage.removeItem('campusone_impersonated_role');
-      localStorage.removeItem('campusone_auth_role');
+      localStorage.setItem('campusone_auth_role', role);
     } catch (e) {}
     recordAudit('USER_LOGIN', 'USER_SESSION', role, { role }, {
       userId: `usr-${role.toLowerCase()}-01`,
