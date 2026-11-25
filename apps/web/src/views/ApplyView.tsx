@@ -100,6 +100,79 @@ export const ApplyView: React.FC = () => {
     token?: string;
   } | null>(initialDraft.verifiedOneId || null);
   const [hasOneIdWallet, setHasOneIdWallet] = useState(false);
+  const [existingAccountNotice, setExistingAccountNotice] = useState<{
+    applicationNumber?: string;
+    status?: string;
+    matchedEmail?: string;
+  } | null>(null);
+
+  const checkForDuplicateAccount = async (emailVal: string, phoneVal: string, oneIdVal?: string) => {
+    const cleanEmail = emailVal.trim().toLowerCase();
+    const cleanPhoneDigits = phoneVal.replace(/[^0-9]/g, '');
+    const phoneTail = cleanPhoneDigits.length >= 10 ? cleanPhoneDigits.slice(-10) : '';
+    const cleanOneId = (oneIdVal || '').trim().toLowerCase();
+
+    if (!cleanEmail && !phoneTail && !cleanOneId) {
+      setExistingAccountNotice(null);
+      return null;
+    }
+
+    // 1. Check live Supabase database (covers all devices & enrolled profiles)
+    try {
+      const { data } = await supabase.rpc('check_existing_account', {
+        p_email: cleanEmail || null,
+        p_phone: phoneVal || null,
+        p_one_id: cleanOneId || null,
+      });
+      if (data?.exists) {
+        const info = {
+          applicationNumber: data.applicationNumber,
+          status: data.status,
+          matchedEmail: cleanEmail || phoneVal,
+        };
+        setExistingAccountNotice(info);
+        return info;
+      }
+    } catch {}
+
+    // 2. Check in-memory candidates registry
+    const localDup = (candidates || []).find((c) => {
+      const cPhone = (c.phone || '').replace(/[^0-9]/g, '');
+      const cTail = cPhone.length >= 10 ? cPhone.slice(-10) : '';
+      return (
+        (cleanEmail && c.email?.toLowerCase() === cleanEmail) ||
+        (cleanOneId && c.oneIdNumber?.toLowerCase() === cleanOneId) ||
+        (phoneTail && cTail && cTail === phoneTail)
+      );
+    });
+
+    if (localDup) {
+      const info = {
+        applicationNumber: localDup.applicationNumber,
+        status: localDup.status,
+        matchedEmail: localDup.email,
+      };
+      setExistingAccountNotice(info);
+      return info;
+    }
+
+    setExistingAccountNotice(null);
+    return null;
+  };
+
+  // Debounced duplicate check as email or phone is entered
+  useEffect(() => {
+    const emailOk = regEmail.includes('@') && regEmail.includes('.');
+    const phoneOk = phone.replace(/[^0-9]/g, '').length >= 10;
+    if (!emailOk && !phoneOk) {
+      setExistingAccountNotice(null);
+      return;
+    }
+    const timer = setTimeout(() => {
+      checkForDuplicateAccount(regEmail, phone, verifiedOneId?.id);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [regEmail, phone, verifiedOneId?.id]);
 
   // Persist draft across page refreshes (never store password)
   useEffect(() => {
@@ -209,7 +282,7 @@ export const ApplyView: React.FC = () => {
     }
   };
 
-  const handleUseOneIdFill = (data: {
+  const handleUseOneIdFill = async (data: {
     fullName: string;
     email: string;
     phone: string;
@@ -226,11 +299,23 @@ export const ApplyView: React.FC = () => {
     if (data.lga) setLga(data.lga);
     if (data.avatarUrl) setAvatarUrl(data.avatarUrl);
 
+    const oneIdKey = data.email || data.phone;
     setVerifiedOneId({
-      id: data.email || data.phone,
+      id: oneIdKey,
       name: data.fullName,
       tier: data.kycStatus || 'Tier 3 (NIMC Verified)',
     });
+
+    // Immediately detect if this UseOneID user already has a CampusOne account
+    const existing = await checkForDuplicateAccount(data.email || '', data.phone || '', oneIdKey);
+    if (existing) {
+      showToast({
+        type: 'warning',
+        title: 'Existing Account Detected',
+        message: 'You already have an account on this portal. Please sign in to your existing account.',
+      });
+      return;
+    }
 
     showToast({
       type: 'success',
@@ -252,6 +337,18 @@ export const ApplyView: React.FC = () => {
 
     setIsLoading(true);
 
+    // Enforce one-account-per-person before creating any record
+    const duplicate = await checkForDuplicateAccount(regEmail, phone, verifiedOneId?.id);
+    if (duplicate) {
+      setIsLoading(false);
+      showToast({
+        type: 'danger',
+        title: 'Account Already Exists',
+        message: 'An application or account already exists for this email, phone, or UseOneID. Please sign in instead.',
+      });
+      return;
+    }
+
     const nextSerial = (candidates?.length || 10) + 142;
     let finalAppNumber = `APP/${new Date().getFullYear()}/0${nextSerial}`;
     const matchedProg =
@@ -266,9 +363,9 @@ export const ApplyView: React.FC = () => {
       { subject: 'Physics', grade: physicsGrade },
     ];
 
-    // 1. Persist via tamper-proof Supabase RPC (enforces APPLIED, CBT=0, PENDING O'Level, UNPAID server-side)
+    // 1. Persist via tamper-proof Supabase RPC (enforces duplicate check + APPLIED/PENDING/UNPAID invariants)
     try {
-      const { data: rpcRow } = await supabase.rpc('submit_admission_application', {
+      const { data: rpcRow, error: rpcError } = await supabase.rpc('submit_admission_application', {
         p_application_number: finalAppNumber,
         p_full_name: fullName.trim(),
         p_email: regEmail.trim(),
@@ -289,6 +386,16 @@ export const ApplyView: React.FC = () => {
         p_olevel_document_url: olevelDocumentUrl || null,
         p_olevel_document_name: olevelDocumentName || null,
       });
+      if (rpcError?.message?.includes('DUPLICATE_ACCOUNT')) {
+        setIsLoading(false);
+        setExistingAccountNotice({ matchedEmail: regEmail.trim() });
+        showToast({
+          type: 'danger',
+          title: 'Account Already Exists',
+          message: 'You already have an existing account on this portal. Please sign in.',
+        });
+        return;
+      }
       if (rpcRow?.applicationNumber) {
         finalAppNumber = rpcRow.applicationNumber;
       }
@@ -437,6 +544,32 @@ export const ApplyView: React.FC = () => {
                 </span>
               </div>
               <Badge variant="success" size="sm">VERIFIED</Badge>
+            </div>
+          )}
+
+          {/* Existing Account Gate (Prevents Duplicate Accounts) */}
+          {existingAccountNotice && (
+            <div className="bg-amber-50 border border-amber-300 rounded-[4px] p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-950">
+              <div className="space-y-1">
+                <span className="font-bold text-amber-900 block">
+                  Existing Account Detected
+                </span>
+                <p className="text-[11px] text-amber-800 leading-relaxed">
+                  An account or admission application
+                  {existingAccountNotice.applicationNumber
+                    ? ` (${existingAccountNotice.applicationNumber})`
+                    : ''}{' '}
+                  already exists on {institutionName} for this identity. Each person can only hold one account. Please sign in to your existing account.
+                </p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                className="bg-[#0F7640] hover:bg-[#093322] text-xs font-bold rounded-[4px] shrink-0"
+                onClick={() => navigate('/login')}
+              >
+                Sign In to Existing Account
+              </Button>
             </div>
           )}
 
@@ -723,6 +856,7 @@ export const ApplyView: React.FC = () => {
                 <Button
                   type="submit"
                   isLoading={isLoading}
+                  disabled={Boolean(existingAccountNotice)}
                   className="w-full sm:w-auto px-7 h-10 text-xs font-bold bg-[#0F7640] hover:bg-[#093322] rounded-[4px] shrink-0"
                 >
                   Submit Online Application

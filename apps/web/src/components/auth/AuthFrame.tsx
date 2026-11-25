@@ -3,7 +3,7 @@ import { ShieldCheck, FileCheck, LockKeyhole } from 'lucide-react';
 import { useApp } from '../../context/AppContext.tsx';
 
 export const AUTH_SECURITY_LINE =
-  'Official portal of Bethsaida College of Health Technology. Your account and personal records are kept safe and private.';
+  'Official institutional portal. Your account and personal records are kept safe and private.';
 
 export const AuthFrame: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { schoolProfile } = useApp();
@@ -83,7 +83,12 @@ export const AuthFrame: React.FC<{ children: React.ReactNode }> = ({ children })
 
           <div className="flex items-center justify-between border-t border-white/10 pt-4 text-xs text-emerald-100/70">
             <span>{schoolProfile?.officialPhone || '+234 907 578 9045'}</span>
-            <span className="text-white font-medium">Academic Session: {schoolProfile?.activeSession || '2026/2027'}</span>
+            <span className="text-white font-medium">
+              Academic Session:{' '}
+              {(schoolProfile?.activeSession || '2026/2027')
+                .replace(/\s*Academic Session\s*/i, '')
+                .trim()}
+            </span>
           </div>
         </div>
       </div>
