@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Printer, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { Printer, CheckCircle2, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 import { Button, Input, Select, Modal, Badge, useToast } from '@campusone/ui';
 import { ACCREDITED_HEALTH_PROGRAMMES, ACCREDITED_COLLEGE_DEPARTMENTS } from '@campusone/contracts';
 import { useApp, type AdmissionCandidateItem } from '../context/AppContext.tsx';
@@ -84,6 +84,7 @@ export const ApplyView: React.FC = () => {
   const [physicsGrade, setPhysicsGrade] = useState<string>(initialDraft.physicsGrade || 'C5');
   const [avatarUrl, setAvatarUrl] = useState<string>(initialDraft.avatarUrl || '');
   const [regPassword, setRegPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [submittedApplication, setSubmittedApplication] = useState<AdmissionCandidateItem | null>(null);
 
@@ -297,74 +298,89 @@ export const ApplyView: React.FC = () => {
     setSubmittedApplication(createdCandidate);
   };
 
+  const selectedProgrammeMeta =
+    ACCREDITED_HEALTH_PROGRAMMES.find((p) => p.code === programme) ||
+    ACCREDITED_HEALTH_PROGRAMMES[0];
+
   return (
     <PortalShell>
-      <main className="flex-1 bg-slate-50 py-10 px-4 sm:px-6">
-        <div className="max-w-3xl mx-auto space-y-6">
-          {/* Page Header */}
-          <div className="space-y-1">
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-              {sessionYear} Online Admission Application
-            </h1>
-            <p className="text-xs text-slate-600">
-              Complete all sections below to submit your application to {institutionName}. Your progress is automatically saved while you fill the form.
-            </p>
-          </div>
+      {/* Unified Institutional Hero Banner (matches PortalHomeView) */}
+      <section className="relative bg-[#093322] text-white py-12 sm:py-16 px-4 sm:px-6 overflow-hidden">
+        <img
+          src="/portal-hero.jpg"
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 w-full h-full object-cover object-center opacity-35"
+        />
+        <div className="absolute inset-0 bg-[#093322]/75" aria-hidden="true" />
+        <div className="relative z-10 max-w-3xl mx-auto text-center space-y-2.5">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight leading-snug">
+            {sessionYear} Online Admission Application
+          </h1>
+          <p className="text-sm text-emerald-50/90 max-w-xl mx-auto leading-relaxed">
+            Submit your application for an accredited health technology programme at {institutionName}.
+          </p>
+        </div>
+      </section>
 
-          <form
-            onSubmit={handleSubmit}
-            className="bg-white border border-slate-200 rounded-[4px] p-6 sm:p-8 space-y-6"
-          >
-            {/* UseOneID Fast-Track (hidden automatically once verified) */}
-            {!verifiedOneId ? (
-              <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-[4px] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-8 h-8 rounded-[4px] bg-white border border-slate-200 flex items-center justify-center shrink-0 p-1">
-                    <img
-                      src="https://useoneid.com/favicon.png"
-                      alt="UseOneID"
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <span className="text-xs font-bold text-slate-900 block">
-                      {hasOneIdWallet ? 'UseOneID Wallet Found' : 'Fast-Track with UseOneID'}
-                    </span>
-                    <span className="text-[11px] text-slate-600 block">
-                      {hasOneIdWallet
-                        ? 'Authorize in 1 click to auto-fill your verified details'
-                        : 'Enter your email or phone below to check for a wallet, or verify now'}
-                    </span>
-                  </div>
+      <main className="flex-1 bg-slate-50 py-10 px-4 sm:px-6">
+        <form onSubmit={handleSubmit} className="max-w-3xl mx-auto space-y-5">
+          {/* UseOneID Fast-Track Banner (hides cleanly once verified) */}
+          {!verifiedOneId ? (
+            <div className="bg-white border border-emerald-200 rounded-[4px] p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-[4px] bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0 p-1.5">
+                  <img
+                    src="https://useoneid.com/favicon.png"
+                    alt="UseOneID"
+                    className="w-full h-full object-contain"
+                  />
                 </div>
-                <UseOneIDLookup
-                  lookupEmail={regEmail}
-                  lookupPhone={phone}
-                  onLookupComplete={(res) => setHasOneIdWallet(Boolean(res?.found))}
-                  onFill={handleUseOneIdFill}
-                  onError={(err) => showToast({ type: 'danger', title: 'UseOneID Error', message: err })}
-                  reuseText="Authorize 1-Click ID"
-                  firstTimeText="Verify with UseOneID"
-                />
-              </div>
-            ) : (
-              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-[4px] flex items-center justify-between text-xs text-emerald-950">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 size={16} className="text-[#0F7640] shrink-0" />
-                  <span>
-                    <strong>UseOneID Verified:</strong> {verifiedOneId.name}
+                <div className="min-w-0">
+                  <span className="text-xs font-bold text-slate-900 block">
+                    {hasOneIdWallet ? 'UseOneID Wallet Found' : 'Fast-Track with UseOneID'}
+                  </span>
+                  <span className="text-[11px] text-slate-600 block">
+                    {hasOneIdWallet
+                      ? 'Authorize in 1 click to auto-fill your verified details'
+                      : 'Enter your email or phone below to check for a wallet, or verify now'}
                   </span>
                 </div>
-                <Badge variant="success" size="sm">VERIFIED</Badge>
               </div>
-            )}
+              <UseOneIDLookup
+                lookupEmail={regEmail}
+                lookupPhone={phone}
+                onLookupComplete={(res) => setHasOneIdWallet(Boolean(res?.found))}
+                onFill={handleUseOneIdFill}
+                onError={(err) => showToast({ type: 'danger', title: 'UseOneID Error', message: err })}
+                reuseText="Authorize 1-Click ID"
+                firstTimeText="Verify with UseOneID"
+              />
+            </div>
+          ) : (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-[4px] p-3.5 sm:px-5 flex items-center justify-between text-xs text-emerald-950">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={16} className="text-[#0F7640] shrink-0" />
+                <span>
+                  <strong>UseOneID Verified:</strong> {verifiedOneId.name}
+                </span>
+              </div>
+              <Badge variant="success" size="sm">VERIFIED</Badge>
+            </div>
+          )}
 
-            {/* Section 1: Personal Information */}
-            <section className="space-y-4">
-              <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider pb-2 border-b border-slate-100">
-                1. Personal Information
-              </h2>
+          {/* Section 1: Personal Information */}
+          <section className="bg-white border border-slate-200 rounded-[4px] shadow-sm overflow-hidden">
+            <div className="px-6 py-4 bg-slate-50/70 border-b border-slate-200 flex items-center justify-between gap-2">
+              <div>
+                <h2 className="text-sm font-bold text-slate-900">1. Personal Information</h2>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Enter your legal bio-data exactly as it appears on your credentials.
+                </p>
+              </div>
+            </div>
 
+            <div className="p-6 space-y-4">
               <PhotoUploadControl
                 label="Applicant Passport Photograph"
                 name={fullName}
@@ -419,14 +435,19 @@ export const ApplyView: React.FC = () => {
                   />
                 </div>
               </div>
-            </section>
+            </div>
+          </section>
 
-            {/* Section 2: Programme Selection */}
-            <section className="space-y-4">
-              <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider pb-2 border-b border-slate-100">
-                2. Academic Department &amp; Programme Choice
-              </h2>
+          {/* Section 2: Programme Selection */}
+          <section className="bg-white border border-slate-200 rounded-[4px] shadow-sm overflow-hidden">
+            <div className="px-6 py-4 bg-slate-50/70 border-b border-slate-200">
+              <h2 className="text-sm font-bold text-slate-900">2. Academic Department &amp; Programme Choice</h2>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Choose the department and accredited health programme you are applying for.
+              </p>
+            </div>
 
+            <div className="p-6 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Select
                   label="Academic Department"
@@ -455,23 +476,45 @@ export const ApplyView: React.FC = () => {
                     (p) => p.departmentCode === selectedDeptCode
                   ).map((p) => ({
                     value: p.code,
-                    label: `${p.name} [${p.regulatoryBody}]`,
+                    label: p.name,
                   }))}
                 />
               </div>
-            </section>
 
-            {/* Section 3: O'Level Examination & Core Subjects */}
-            <section className="space-y-4">
-              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                  3. O&apos;Level Examination &amp; Core Subjects
-                </h2>
-                <span className="text-[11px] text-slate-500 font-medium">
-                  {olevelBody} ({olevelYear})
-                </span>
+              {selectedProgrammeMeta && (
+                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-[4px] grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                  <div>
+                    <span className="text-[10px] font-semibold uppercase text-slate-400 block">Regulatory Council</span>
+                    <span className="font-semibold text-slate-800">{selectedProgrammeMeta.regulatoryBody}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-semibold uppercase text-slate-400 block">Duration</span>
+                    <span className="font-semibold text-slate-800">{selectedProgrammeMeta.duration}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-semibold uppercase text-slate-400 block">Credential Awarded</span>
+                    <span className="font-semibold text-slate-800">{selectedProgrammeMeta.credentialAwarded}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* Section 3: O'Level Examination & Core Subjects */}
+          <section className="bg-white border border-slate-200 rounded-[4px] shadow-sm overflow-hidden">
+            <div className="px-6 py-4 bg-slate-50/70 border-b border-slate-200 flex items-center justify-between gap-2">
+              <div>
+                <h2 className="text-sm font-bold text-slate-900">3. O&apos;Level Examination &amp; Core Subjects</h2>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Select your examination body, sitting year, and science subject grades.
+                </p>
               </div>
+              <span className="text-xs font-semibold text-[#0F7640] shrink-0">
+                {olevelBody} ({olevelYear})
+              </span>
+            </div>
 
+            <div className="p-6 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Select
                   label="Examination Body"
@@ -487,41 +530,71 @@ export const ApplyView: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                <Select label="English" value={englishGrade} onChange={setEnglishGrade} options={OLEVEL_GRADES} />
-                <Select label="Mathematics" value={mathsGrade} onChange={setMathsGrade} options={OLEVEL_GRADES} />
-                <Select label="Biology" value={biologyGrade} onChange={setBiologyGrade} options={OLEVEL_GRADES} />
-                <Select label="Chemistry" value={chemistryGrade} onChange={setChemistryGrade} options={OLEVEL_GRADES} />
-                <Select label="Physics" value={physicsGrade} onChange={setPhysicsGrade} options={OLEVEL_GRADES} />
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-[4px] space-y-3">
+                <span className="text-[11px] font-semibold text-slate-700 block">
+                  Core Science &amp; Entry Subject Grades
+                </span>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                  <Select label="English" value={englishGrade} onChange={setEnglishGrade} options={OLEVEL_GRADES} />
+                  <Select label="Mathematics" value={mathsGrade} onChange={setMathsGrade} options={OLEVEL_GRADES} />
+                  <Select label="Biology" value={biologyGrade} onChange={setBiologyGrade} options={OLEVEL_GRADES} />
+                  <Select label="Chemistry" value={chemistryGrade} onChange={setChemistryGrade} options={OLEVEL_GRADES} />
+                  <Select label="Physics" value={physicsGrade} onChange={setPhysicsGrade} options={OLEVEL_GRADES} />
+                </div>
               </div>
-            </section>
-
-            {/* Section 4: Applicant Portal Account */}
-            <section className="space-y-4">
-              <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider pb-2 border-b border-slate-100">
-                4. Create Applicant Portal Password
-              </h2>
-              <Input
-                label="Portal Password"
-                type="password"
-                value={regPassword}
-                onChange={(e) => setRegPassword(e.target.value)}
-                placeholder="At least 8 characters (used to sign in and track admission)"
-                required
-              />
-            </section>
-
-            <div className="pt-2 flex justify-end">
-              <Button
-                type="submit"
-                isLoading={isLoading}
-                className="w-full sm:w-auto px-8 h-10 text-xs font-bold bg-[#0F7640] hover:bg-[#093322] rounded-[4px]"
-              >
-                Submit Online Application
-              </Button>
             </div>
-          </form>
-        </div>
+          </section>
+
+          {/* Section 4: Applicant Portal Account & Submit */}
+          <section className="bg-white border border-slate-200 rounded-[4px] shadow-sm overflow-hidden">
+            <div className="px-6 py-4 bg-slate-50/70 border-b border-slate-200">
+              <h2 className="text-sm font-bold text-slate-900">4. Create Applicant Portal Password</h2>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                You will use your email and this password to sign in and track your admission status.
+              </p>
+            </div>
+
+            <div className="p-6 space-y-5">
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                  Portal Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={regPassword}
+                    onChange={(e) => setRegPassword(e.target.value)}
+                    placeholder="At least 8 characters"
+                    required
+                    minLength={8}
+                    className="w-full h-9 px-3 pr-9 text-xs bg-white border border-slate-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#0F7640] focus:border-[#0F7640]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <p className="text-[11px] text-slate-500">
+                  By submitting, you confirm that all credentials entered are genuine and accurate.
+                </p>
+                <Button
+                  type="submit"
+                  isLoading={isLoading}
+                  className="w-full sm:w-auto px-7 h-10 text-xs font-bold bg-[#0F7640] hover:bg-[#093322] rounded-[4px] shrink-0"
+                >
+                  Submit Online Application
+                </Button>
+              </div>
+            </div>
+          </section>
+        </form>
 
         {/* Post-Submission Application Slip Modal */}
         <Modal
