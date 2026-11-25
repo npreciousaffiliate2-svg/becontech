@@ -398,9 +398,24 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
           onClose();
           return;
         }
+        submittingRef.current = false;
+        setIsSubmitting(false);
+        showToast({
+          type: 'danger',
+          title: 'Submission Failed',
+          message: error.message || 'Could not record your CBT score in the database. Please try submitting again.',
+        });
+        return;
       }
-    } catch {
-      // Continue syncing via unified AppContext
+    } catch (err: any) {
+      submittingRef.current = false;
+      setIsSubmitting(false);
+      showToast({
+        type: 'danger',
+        title: 'Network Error',
+        message: err?.message || 'Unable to reach the examination server. Your answers are preserved — please retry.',
+      });
+      return;
     }
 
     try {
