@@ -656,20 +656,44 @@ export const LearningView: React.FC = () => {
 
   useEffect(() => {
     if (!isCbtModalOpen || isSubmitted) return;
-    const handleVisibilityOrBlur = () => {
-      if (document.hidden && !finishingRef.current) {
-        setProctorWarnings((prev) => {
-          const next = prev + 1;
-          if (next >= 3 && !finishingRef.current) {
-            finishingRef.current = true;
-            finishExamRef.current();
-          }
-          return next;
-        });
+    let lastStrikeTs = 0;
+    const triggerStrike = () => {
+      const now = Date.now();
+      if (now - lastStrikeTs < 1500 || finishingRef.current) return;
+      lastStrikeTs = now;
+      setProctorWarnings((prev) => {
+        const next = prev + 1;
+        if (next >= 3 && !finishingRef.current) {
+          finishingRef.current = true;
+          finishExamRef.current();
+        }
+        return next;
+      });
+    };
+    const handleVisibility = () => {
+      if (document.hidden) triggerStrike();
+    };
+    const handleKeyGuard = (e: KeyboardEvent) => {
+      const k = e.key.toLowerCase();
+      const mod = e.ctrlKey || e.metaKey;
+      if (
+        e.key === 'F12' ||
+        e.key === 'PrintScreen' ||
+        (mod && e.shiftKey && ['i', 'j', 'c'].includes(k)) ||
+        (mod && ['u', 'p', 's', 'c', 'v', 'x', 'a'].includes(k))
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
       }
     };
-    document.addEventListener('visibilitychange', handleVisibilityOrBlur);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityOrBlur);
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('blur', triggerStrike);
+    window.addEventListener('keydown', handleKeyGuard, true);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('blur', triggerStrike);
+      window.removeEventListener('keydown', handleKeyGuard, true);
+    };
   }, [isCbtModalOpen, isSubmitted]);
 
   useEffect(() => {

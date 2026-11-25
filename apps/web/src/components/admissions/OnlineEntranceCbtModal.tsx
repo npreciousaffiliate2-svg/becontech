@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Clock,
   CheckCircle2,
@@ -8,7 +8,7 @@ import {
   ChevronRight,
   Maximize2,
   Minimize2,
-  ShieldCheck,
+  ShieldAlert,
   X,
 } from 'lucide-react';
 import { Button, Badge, useToast } from '@campusone/ui';
@@ -21,6 +21,20 @@ import {
   resolveApplicantEntranceExam,
 } from '../../lib/entranceCbt.ts';
 
+interface ShuffledEntranceQuestion extends EntranceCbtQuestion {
+  shuffledOptions: { text: string; isCorrect: boolean }[];
+}
+
+interface PersistedExamState {
+  suiteId: string;
+  startedAt: number;
+  durationSeconds: number;
+  answers: Record<string, number>;
+  proctorWarnings: number;
+  violations: { type: string; at: string }[];
+  questions: ShuffledEntranceQuestion[];
+}
+
 export interface OnlineEntranceCbtModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -31,9 +45,12 @@ export interface OnlineEntranceCbtModalProps {
   candidateDepartment?: string;
   candidateProgrammeCode?: string;
   activeSession?: string;
+  schoolLogoUrl?: string;
   cutoffScore: number;
   onCompleted: (score: number) => void;
 }
+
+const MAX_PROCTOR_STRIKES = 3;
 
 export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
   isOpen,
@@ -44,6 +61,7 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
   candidateDepartment,
   candidateProgrammeCode,
   activeSession,
+  schoolLogoUrl,
   cutoffScore,
   onCompleted,
 }) => {
@@ -53,10 +71,9 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
     DEFAULT_ENTRANCE_EXAM_SUITES
   );
 
+  const lockStorageKey = `campusone_cbt_lock_${applicationNumber}`;
   const [activeSuite, setActiveSuite] = useState<EntranceExamSuite>(DEFAULT_ENTRANCE_EXAM_SUITES[0]);
-  const [examQuestions, setExamQuestions] = useState<EntranceCbtQuestion[]>(
-    DEFAULT_ENTRANCE_EXAM_SUITES[0].questions
-  );
+  const [examQuestions, setExamQuestions] = useState<ShuffledEntranceQuestion[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [secondsLeft, setSecondsLeft] = useState(20 * 60);
@@ -64,50 +81,173 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
   const [finalScore, setFinalScore] = useState<number | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [confirmSubmit, setConfirmSubmit] = useState(false);
+  const [proctorWarnings, setProctorWarnings] = useState(0);
+  const [lastViolationReason, setLastViolationReason] = useState<string | null>(null);
+  const [violations, setViolations] = useState<{ type: string; at: string }[]>([]);
+  const [autoSubmittedByProctor, setAutoSubmittedByProctor] = useState(false);
 
-  // Resolve and snapshot the exact session + department entrance exam when opened
+  const lastStrikeTsRef = useRef(0);
+  const submittingRef = useRef(false);
+  const submitFnRef = useRef<() => Promise<void>>(async () => {});
+
+  // Resolve and snapshot (or resume tamper-proof locked state) when opened
   useEffect(() => {
     if (!isOpen) return;
+    submittingRef.current = false;
+    setFinalScore(null);
+    setConfirmSubmit(false);
+    setIsSubmitting(false);
+    setAutoSubmittedByProctor(false);
+    setLastViolationReason(null);
+
     const resolved = resolveApplicantEntranceExam(
       suites.length > 0 ? suites : DEFAULT_ENTRANCE_EXAM_SUITES,
       activeSession,
       candidateDepartment,
       candidateProgrammeCode
     );
+    setActiveSuite(resolved);
+
+    // Try resuming existing locked exam attempt so refreshing NEVER resets the timer or clears strikes
+    try {
+      const savedRaw = localStorage.getItem(lockStorageKey);
+      if (savedRaw) {
+        const saved = JSON.parse(savedRaw) as PersistedExamState;
+        if (saved && saved.suiteId === resolved.id && Array.isArray(saved.questions) && saved.questions.length > 0) {
+          const elapsedSec = Math.floor((Date.now() - saved.startedAt) / 1000);
+          const remaining = Math.max(0, saved.durationSeconds - elapsedSec);
+          setExamQuestions(saved.questions);
+          setAnswers(saved.answers || {});
+          setProctorWarnings(saved.proctorWarnings || 0);
+          setViolations(saved.violations || []);
+          setSecondsLeft(remaining);
+          setCurrentIdx(0);
+          return;
+        }
+      }
+    } catch {
+      // Fall through to fresh attempt
+    }
+
     const validPool = (resolved.questions || []).filter(
       (q) => Boolean(q && q.question && Array.isArray(q.options) && q.options.length > 0)
     );
-    const ordered = resolved.randomizeQuestions
+    const orderedPool = resolved.randomizeQuestions
       ? [...validPool].sort(() => Math.random() - 0.5)
       : validPool;
 
-    setActiveSuite(resolved);
-    setExamQuestions(ordered);
+    // Shuffle A-D options per candidate to prevent side-by-side collusion
+    const shuffledQuestions: ShuffledEntranceQuestion[] = orderedPool.map((q) => {
+      const tagged = q.options.map((text, idx) => ({
+        text,
+        isCorrect: idx === q.correctIndex,
+      }));
+      const shuffledOptions = resolved.randomizeQuestions
+        ? [...tagged].sort(() => Math.random() - 0.5)
+        : tagged;
+      return { ...q, shuffledOptions };
+    });
+
+    const durationSeconds = Math.max(1, Number(resolved.durationMinutes) || 20) * 60;
+    const initialState: PersistedExamState = {
+      suiteId: resolved.id,
+      startedAt: Date.now(),
+      durationSeconds,
+      answers: {},
+      proctorWarnings: 0,
+      violations: [],
+      questions: shuffledQuestions,
+    };
+    try {
+      localStorage.setItem(lockStorageKey, JSON.stringify(initialState));
+    } catch {}
+
+    setExamQuestions(shuffledQuestions);
     setCurrentIdx(0);
     setAnswers({});
-    setSecondsLeft(Math.max(1, Number(resolved.durationMinutes) || 20) * 60);
-    setFinalScore(null);
-    setConfirmSubmit(false);
-    setIsSubmitting(false);
+    setProctorWarnings(0);
+    setViolations([]);
+    setSecondsLeft(durationSeconds);
   }, [isOpen]);
 
-  // Lock background page scroll & track native browser fullscreen state
+  // Persist answers & violations continuously to anti-refresh lock
+  useEffect(() => {
+    if (!isOpen || finalScore !== null || examQuestions.length === 0) return;
+    try {
+      const savedRaw = localStorage.getItem(lockStorageKey);
+      if (savedRaw) {
+        const saved = JSON.parse(savedRaw) as PersistedExamState;
+        saved.answers = answers;
+        saved.proctorWarnings = proctorWarnings;
+        saved.violations = violations;
+        localStorage.setItem(lockStorageKey, JSON.stringify(saved));
+      }
+    } catch {}
+  }, [isOpen, finalScore, answers, proctorWarnings, violations, examQuestions.length, lockStorageKey]);
+
+  // Lock background page scroll, track native fullscreen, and enforce anti-cheat proctoring
   useEffect(() => {
     if (!isOpen) return;
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
-    const onFsChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    const recordStrike = (type: string, label: string) => {
+      if (submittingRef.current || finalScore !== null) return;
+      const now = Date.now();
+      // Debounce rapid duplicate events (e.g. blur + visibilitychange firing together)
+      if (now - lastStrikeTsRef.current < 1500) return;
+      lastStrikeTsRef.current = now;
+
+      setLastViolationReason(label);
+      setViolations((prev) => [...prev, { type, at: new Date().toISOString() }]);
+      setProctorWarnings((prev) => {
+        const next = prev + 1;
+        if (next >= MAX_PROCTOR_STRIKES && !submittingRef.current) {
+          setAutoSubmittedByProctor(true);
+          void submitFnRef.current();
+        }
+        return next;
+      });
+    };
+
+    const onFsChange = () => {
+      const nowFs = Boolean(document.fullscreenElement);
+      setIsFullscreen(nowFs);
+    };
+
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        recordStrike('TAB_SWITCH', 'Switched browser tab or minimized examination window');
+      }
+    };
+
+    const onWindowBlur = () => {
+      recordStrike('WINDOW_BLUR', 'Moved focus outside the proctored examination window');
+    };
+
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (finalScore === null) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+
     document.addEventListener('fullscreenchange', onFsChange);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('blur', onWindowBlur);
+    window.addEventListener('beforeunload', onBeforeUnload);
 
     return () => {
       document.body.style.overflow = prevOverflow;
       document.removeEventListener('fullscreenchange', onFsChange);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('blur', onWindowBlur);
+      window.removeEventListener('beforeunload', onBeforeUnload);
       if (document.fullscreenElement) {
         document.exitFullscreen().catch(() => {});
       }
     };
-  }, [isOpen]);
+  }, [isOpen, finalScore]);
 
   const toggleBrowserFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -132,42 +272,59 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
   }, [isOpen, finalScore]);
 
   useEffect(() => {
-    if (isOpen && secondsLeft === 0 && finalScore === null && !isSubmitting) {
-      handleSubmitCbt();
+    if (isOpen && secondsLeft === 0 && finalScore === null && !submittingRef.current) {
+      void submitFnRef.current();
     }
-  }, [secondsLeft, isOpen, finalScore, isSubmitting]);
+  }, [secondsLeft, isOpen, finalScore]);
 
-  // Keyboard navigation (ArrowLeft / ArrowRight / A-D / 1-4)
+  // Keyboard navigation + Anti-Cheat Shortcut Blocking (DevTools, Print, View Source, Copy/Paste)
   useEffect(() => {
     if (!isOpen || finalScore !== null || examQuestions.length === 0) return;
     const handleKeyDown = (e: KeyboardEvent) => {
+      const keyLower = e.key.toLowerCase();
+      const isCtrlOrMeta = e.ctrlKey || e.metaKey;
+
+      // Block DevTools, Print, Save, View Source, Copy, Paste, Select All, PrintScreen
+      if (
+        e.key === 'F12' ||
+        e.key === 'PrintScreen' ||
+        (isCtrlOrMeta && e.shiftKey && ['i', 'j', 'c'].includes(keyLower)) ||
+        (isCtrlOrMeta && ['u', 'p', 's', 'c', 'v', 'x', 'a'].includes(keyLower))
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+
       if (e.key === 'ArrowRight') {
         setCurrentIdx((i) => Math.min(examQuestions.length - 1, i + 1));
       } else if (e.key === 'ArrowLeft') {
         setCurrentIdx((i) => Math.max(0, i - 1));
-      } else {
+      } else if (!isCtrlOrMeta && !e.altKey) {
         const keyMap: Record<string, number> = { a: 0, b: 1, c: 2, d: 3, '1': 0, '2': 1, '3': 2, '4': 3 };
-        const idx = keyMap[e.key.toLowerCase()];
+        const idx = keyMap[keyLower];
         if (idx !== undefined) {
           const q = examQuestions[currentIdx];
-          if (q && idx < q.options.length) {
+          if (q && idx < q.shuffledOptions.length) {
             setAnswers((prev) => ({ ...prev, [q.id]: idx }));
           }
         }
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [isOpen, finalScore, currentIdx, examQuestions]);
 
   const handleSubmitCbt = async () => {
-    if (isSubmitting || finalScore !== null) return;
+    if (submittingRef.current || finalScore !== null) return;
+    submittingRef.current = true;
     setIsSubmitting(true);
     setConfirmSubmit(false);
 
     let correct = 0;
     for (const q of examQuestions) {
-      if (answers[q.id] === q.correctIndex) {
+      const selectedIdx = answers[q.id];
+      if (selectedIdx !== undefined && q.shuffledOptions[selectedIdx]?.isCorrect) {
         correct += 1;
       }
     }
@@ -181,6 +338,7 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
       });
       if (error) {
         if (error.message?.includes('ONLINE_CBT_DISABLED')) {
+          submittingRef.current = false;
           setIsSubmitting(false);
           showToast({
             type: 'danger',
@@ -191,6 +349,10 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
           return;
         }
         if (error.message?.includes('CBT_ALREADY_TAKEN')) {
+          try {
+            localStorage.removeItem(lockStorageKey);
+          } catch {}
+          submittingRef.current = false;
           setIsSubmitting(false);
           showToast({
             type: 'warning',
@@ -205,15 +367,21 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
       // Continue syncing via unified AppContext
     }
 
+    try {
+      localStorage.removeItem(lockStorageKey);
+    } catch {}
+
     setFinalScore(pct);
     onCompleted(pct);
     setIsSubmitting(false);
     showToast({
-      type: 'success',
-      title: 'Entrance CBT Completed',
+      type: autoSubmittedByProctor ? 'warning' : 'success',
+      title: autoSubmittedByProctor ? 'Exam Auto-Submitted (Proctoring)' : 'Entrance CBT Completed',
       message: `Your screening score (${pct}%) has been submitted to the Admissions Office.`,
     });
   };
+
+  submitFnRef.current = handleSubmitCbt;
 
   if (!isOpen) return null;
 
@@ -230,14 +398,23 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
       onContextMenu={(e) => e.preventDefault()}
       onCopy={(e) => e.preventDefault()}
       onCut={(e) => e.preventDefault()}
+      onPaste={(e) => e.preventDefault()}
+      onDragStart={(e) => e.preventDefault()}
       role="region"
       aria-label="Full-Screen Online Entrance CBT Screening"
     >
       {/* ─── TOP INSTITUTIONAL EXAM BAR ─── */}
-      <header className="bg-[#093322] text-white px-4 sm:px-6 lg:px-8 py-3 border-b border-emerald-950/60 flex items-center justify-between gap-3 shrink-0">
+      <header className="bg-[#093322] text-white px-4 sm:px-6 lg:px-8 py-3 border-b border-emerald-950/60 flex items-center justify-between gap-3 shrink-0 z-10">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-8 h-8 rounded-[4px] bg-[#0F7640] border border-emerald-400/30 flex items-center justify-center shrink-0">
-            <ShieldCheck className="w-4 h-4 text-white" />
+          <div className="w-9 h-9 rounded-[4px] bg-white p-1 border border-emerald-400/30 flex items-center justify-center shrink-0">
+            <img
+              src={schoolLogoUrl || '/BeonTech-Logo.png'}
+              alt="College Crest"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = '/BeonTech-Logo.png';
+              }}
+              className="w-full h-full object-contain"
+            />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -246,6 +423,9 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
               </h1>
               <span className="hidden md:inline-block px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-white/10 text-emerald-200 rounded-[4px] shrink-0">
                 {activeSuite.session} &bull; {activeSuite.departmentCode === 'ALL' ? 'All Departments' : activeSuite.departmentCode}
+              </span>
+              <span className="hidden xl:inline-block px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-emerald-900/80 border border-emerald-700/60 text-emerald-200 rounded-[4px] shrink-0">
+                Proctored &bull; Anti-Fraud Active
               </span>
             </div>
             <p className="text-[11px] text-emerald-200/80 truncate">
@@ -295,6 +475,22 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
         </div>
       </header>
 
+      {/* ─── PROCTORING VIOLATION STRIP ─── */}
+      {finalScore === null && proctorWarnings > 0 && (
+        <div className="bg-red-50 border-b border-red-200 px-4 sm:px-8 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs text-red-900 shrink-0 z-10">
+          <div className="flex items-center gap-2 font-semibold">
+            <ShieldAlert className="w-4 h-4 text-red-600 shrink-0" />
+            <span>
+              Proctoring Alert (Strike {proctorWarnings} of {MAX_PROCTOR_STRIKES}):{' '}
+              {lastViolationReason || 'Leaving the examination window is strictly prohibited.'}
+            </span>
+          </div>
+          <Badge variant="danger" size="sm">
+            Auto-Submit at {MAX_PROCTOR_STRIKES}/{MAX_PROCTOR_STRIKES}
+          </Badge>
+        </div>
+      )}
+
       {/* ─── MAIN WORKSPACE ─── */}
       {finalScore !== null ? (
         <main className="flex-1 overflow-y-auto flex items-center justify-center p-4 sm:p-8">
@@ -304,9 +500,15 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
             </div>
 
             <div className="space-y-1.5">
-              <h2 className="text-2xl font-bold text-slate-900">Entrance CBT Screening Submitted</h2>
+              <h2 className="text-2xl font-bold text-slate-900">
+                {autoSubmittedByProctor
+                  ? 'Exam Auto-Submitted (Proctoring Limit)'
+                  : 'Entrance CBT Screening Submitted'}
+              </h2>
               <p className="text-xs sm:text-sm text-slate-500">
-                Your screening score has been securely recorded and forwarded to the Admissions Office.
+                {autoSubmittedByProctor
+                  ? 'Your examination was automatically submitted after reaching the maximum proctoring violation threshold.'
+                  : 'Your screening score has been securely recorded and forwarded to the Admissions Office.'}
               </p>
             </div>
 
@@ -340,9 +542,21 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
         </main>
       ) : (
         <>
-          <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
+          <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden relative">
+            {/* Subtle Anti-Leak Candidate Watermark */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none select-none absolute inset-0 overflow-hidden opacity-[0.03] grid grid-cols-3 gap-12 p-10 -rotate-12 z-0"
+            >
+              {Array.from({ length: 9 }).map((_, idx) => (
+                <div key={idx} className="text-xs font-extrabold uppercase tracking-widest text-slate-900 whitespace-nowrap">
+                  {candidateName} &bull; {applicationNumber}
+                </div>
+              ))}
+            </div>
+
             {/* LEFT / CENTER: QUESTION CANVAS */}
-            <main className="flex-1 overflow-y-auto p-4 sm:p-8 lg:p-10">
+            <main className="flex-1 overflow-y-auto p-4 sm:p-8 lg:p-10 relative z-10">
               <div className="max-w-3xl mx-auto space-y-5">
                 {activeSuite.instructions && (
                   <div className="px-4 py-2.5 bg-emerald-50/70 border border-emerald-200/80 rounded-[4px] text-xs text-emerald-950">
@@ -399,7 +613,7 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
                     </p>
 
                     <div className="space-y-3 pt-1">
-                      {activeQ.options.map((opt, idx) => {
+                      {activeQ.shuffledOptions.map((opt, idx) => {
                         const selected = answers[activeQ.id] === idx;
                         return (
                           <button
@@ -421,7 +635,7 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
                             >
                               {String.fromCharCode(65 + idx)}
                             </span>
-                            <span className="text-sm leading-snug">{opt}</span>
+                            <span className="text-sm leading-snug">{opt.text}</span>
                           </button>
                         );
                       })}
@@ -432,7 +646,7 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
             </main>
 
             {/* RIGHT SIDEBAR: QUESTION NAVIGATOR */}
-            <aside className="w-full lg:w-80 xl:w-96 bg-white border-t lg:border-t-0 lg:border-l border-slate-200 flex flex-col shrink-0 max-h-[34vh] lg:max-h-none">
+            <aside className="w-full lg:w-80 xl:w-96 bg-white border-t lg:border-t-0 lg:border-l border-slate-200 flex flex-col shrink-0 max-h-[34vh] lg:max-h-none relative z-10">
               <div className="p-4 sm:p-5 border-b border-slate-100 space-y-3">
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-bold text-slate-900 uppercase tracking-wider">Question Palette</span>
@@ -500,7 +714,7 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
           </div>
 
           {/* ─── STICKY BOTTOM CONTROLS ─── */}
-          <footer className="bg-white border-t border-slate-200 px-4 sm:px-8 py-3 flex items-center justify-between gap-3 shrink-0">
+          <footer className="bg-white border-t border-slate-200 px-4 sm:px-8 py-3 flex items-center justify-between gap-3 shrink-0 z-10">
             <Button
               type="button"
               variant="secondary"

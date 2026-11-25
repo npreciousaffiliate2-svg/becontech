@@ -139,7 +139,7 @@ export const DashboardView: React.FC = () => {
                 <Button
                   variant="primary"
                   size="sm"
-                  className="bg-amber-400 text-slate-950 hover:bg-amber-300 border-amber-400 text-xs font-bold"
+                  className="bg-white text-[#0F7640] hover:bg-emerald-50 border-white text-xs font-bold shadow-xs"
                   onClick={() => setIsOnlineCbtOpen(true)}
                 >
                   Start Online Entrance CBT
@@ -148,7 +148,7 @@ export const DashboardView: React.FC = () => {
               <Button
                 variant="secondary"
                 size="sm"
-                className="bg-white text-[#0F7640] hover:bg-emerald-50 border-white text-xs font-bold"
+                className="bg-white/10 text-white hover:bg-white/20 border-white/25 text-xs font-semibold"
                 leftIcon={<Printer className="w-3.5 h-3.5" />}
                 onClick={() => {
                   printInstitutionalDocument({
@@ -447,6 +447,7 @@ export const DashboardView: React.FC = () => {
             candidateDepartment={candidateData.department}
             candidateProgrammeCode={candidateData.programmeCode}
             activeSession={schoolProfile?.activeSession}
+            schoolLogoUrl={schoolProfile?.logoUrl}
             cutoffScore={schoolProfile?.minimumCutoffScore || 50}
             onCompleted={(score) => {
               updateCandidate(candidateData.id, {
