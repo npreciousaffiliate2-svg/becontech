@@ -137,9 +137,9 @@ export const DashboardView: React.FC = () => {
             <div className="flex flex-wrap items-center gap-2 shrink-0">
               {!(Number(candidateData.cbtScore) > 0) && !isAdmitted && schoolProfile?.onlineCbtEnabled !== false && (
                 <Button
-                  variant="primary"
+                  variant="secondary"
                   size="sm"
-                  className="bg-white text-[#0F7640] hover:bg-emerald-50 border-white text-xs font-bold shadow-xs"
+                  className="!bg-white !text-[#0F7640] hover:!bg-emerald-50 border-white text-xs font-bold shadow-xs"
                   onClick={() => setIsOnlineCbtOpen(true)}
                 >
                   Start Online Entrance CBT
@@ -148,7 +148,7 @@ export const DashboardView: React.FC = () => {
               <Button
                 variant="secondary"
                 size="sm"
-                className="bg-white/10 text-white hover:bg-white/20 border-white/25 text-xs font-semibold"
+                className="!bg-white/10 !text-white hover:!bg-white/20 !border-white/25 text-xs font-semibold"
                 leftIcon={<Printer className="w-3.5 h-3.5" />}
                 onClick={() => {
                   printInstitutionalDocument({
@@ -444,6 +444,7 @@ export const DashboardView: React.FC = () => {
             candidateId={candidateData.id}
             candidateName={candidateData.fullName}
             candidateEmail={candidateData.email}
+            candidatePhone={candidateData.phone}
             candidateDepartment={candidateData.department}
             candidateProgrammeCode={candidateData.programmeCode}
             activeSession={schoolProfile?.activeSession}

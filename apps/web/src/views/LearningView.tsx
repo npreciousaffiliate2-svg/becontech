@@ -44,6 +44,7 @@ import {
 } from 'lucide-react';
 import { escapeHtml, exportToCsv, printInstitutionalDocument } from '../utils/documentExport.ts';
 import { PersonAvatar, PhotoUploadControl, pluralize } from '../components/common/PersonAvatar.tsx';
+import { UseOneIDButton } from '../components/ui/index.ts';
 
 /* ─── TYPES ─── */
 type MaterialType = 'PDF_DOCUMENT' | 'LAB_MANUAL' | 'CLINICAL_VIDEO' | 'SLIDE_DECK';
@@ -170,6 +171,8 @@ export const LearningView: React.FC = () => {
   /* ─── INTERACTIVE LIVE CBT SIMULATOR STATE ─── */
   const [isCbtModalOpen, setIsCbtModalOpen] = useState(false);
   const [isCbtFullscreen, setIsCbtFullscreen] = useState(false);
+  const [isCbtIdentityVerified, setIsCbtIdentityVerified] = useState(false);
+  const [cbtIdentityError, setCbtIdentityError] = useState<string | null>(null);
   const [activeTest, setActiveTest] = useState<PracticeTest | null>(null);
   const [activeExamQuestions, setActiveExamQuestions] = useState<QuestionItem[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -647,15 +650,15 @@ export const LearningView: React.FC = () => {
 
   /* ─── TIMER & ANTI-CHEAT PROCTORING EFFECT FOR CBT SIMULATOR ─── */
   useEffect(() => {
-    if (!isCbtModalOpen || isSubmitted) return;
+    if (!isCbtModalOpen || !isCbtIdentityVerified || isSubmitted) return;
     const interval = window.setInterval(() => {
       setSecondsRemaining((prev) => (prev <= 1 ? 0 : prev - 1));
     }, 1000);
     return () => window.clearInterval(interval);
-  }, [isCbtModalOpen, isSubmitted]);
+  }, [isCbtModalOpen, isCbtIdentityVerified, isSubmitted]);
 
   useEffect(() => {
-    if (!isCbtModalOpen || isSubmitted) return;
+    if (!isCbtModalOpen || !isCbtIdentityVerified || isSubmitted) return;
     let lastStrikeTs = 0;
     const triggerStrike = () => {
       const now = Date.now();
@@ -694,13 +697,13 @@ export const LearningView: React.FC = () => {
       window.removeEventListener('blur', triggerStrike);
       window.removeEventListener('keydown', handleKeyGuard, true);
     };
-  }, [isCbtModalOpen, isSubmitted]);
+  }, [isCbtModalOpen, isCbtIdentityVerified, isSubmitted]);
 
   useEffect(() => {
-    if (!isCbtModalOpen || isSubmitted || secondsRemaining !== 0 || finishingRef.current) return;
+    if (!isCbtModalOpen || !isCbtIdentityVerified || isSubmitted || secondsRemaining !== 0 || finishingRef.current) return;
     finishingRef.current = true;
     finishExamRef.current();
-  }, [isCbtModalOpen, isSubmitted, secondsRemaining]);
+  }, [isCbtModalOpen, isCbtIdentityVerified, isSubmitted, secondsRemaining]);
 
   /* ─── CBT ACTIONS ─── */
   const startCbtExam = (test?: PracticeTest) => {
@@ -744,6 +747,8 @@ export const LearningView: React.FC = () => {
     setExitPrompt(false);
     finishingRef.current = false;
     setCbtResult(null);
+    setIsCbtIdentityVerified(false);
+    setCbtIdentityError(null);
     setIsCbtModalOpen(true);
   };
 
@@ -2325,7 +2330,92 @@ export const LearningView: React.FC = () => {
             )}
 
             {/* ─── MAIN WORKSPACE ─── */}
-            {!isSubmitted ? (
+            {!isCbtIdentityVerified && !isSubmitted ? (
+              <main className="flex-1 overflow-y-auto flex items-center justify-center p-4 sm:p-8">
+                <div className="w-full max-w-lg bg-white border border-slate-200 rounded-[4px] shadow-sm p-6 sm:p-8 space-y-5">
+                  <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
+                    <div className="w-11 h-11 rounded-[4px] bg-emerald-50 border border-emerald-200 flex items-center justify-center p-1.5 shrink-0">
+                      <img
+                        src={schoolProfile?.logoUrl || '/BeonTech-Logo.png'}
+                        alt="College Crest"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = '/BeonTech-Logo.png';
+                        }}
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                    <div>
+                      <Badge variant="success" size="sm">Anti-Impersonation Gate</Badge>
+                      <h2 className="text-lg font-bold text-slate-900 mt-1">
+                        Verify Identity with UseOneID to Begin Exam
+                      </h2>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-[4px] space-y-2 text-xs text-slate-700">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">Registered Student:</span>
+                      <span className="font-bold text-slate-900">{persona?.fullName || session.fullName}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">Examination:</span>
+                      <span className="font-semibold text-slate-800">{activeTest?.title}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">Course &amp; Duration:</span>
+                      <span className="font-semibold text-[#0F7640]">
+                        {activeTest?.courseCode} &bull; {activeTest?.durationMinutes || 30} mins ({examPool.length} Questions)
+                      </span>
+                    </div>
+                  </div>
+
+                  {cbtIdentityError && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-[4px] text-xs text-red-800 font-medium">
+                      {cbtIdentityError}
+                    </div>
+                  )}
+
+                  <div className="pt-1 space-y-2.5">
+                    <UseOneIDButton
+                      lookupEmail={persona?.email || ''}
+                      lookupPhone={persona?.phone || ''}
+                      reuseText="Verify & Unlock Exam with 1-Click UseOneID"
+                      firstTimeText="Verify Identity with UseOneID to Start Exam"
+                      theme="brand"
+                      onSuccess={(payload: any) => {
+                        const returnedEmail = String(payload?.email || '').trim().toLowerCase();
+                        const expectedEmail = String(persona?.email || '').trim().toLowerCase();
+                        if (returnedEmail && expectedEmail && returnedEmail !== expectedEmail) {
+                          setCbtIdentityError(
+                            `Impersonation Alert: UseOneID account (${returnedEmail}) does not match your student account (${expectedEmail}).`
+                          );
+                          return;
+                        }
+                        setCbtIdentityError(null);
+                        examStartedAtRef.current = Date.now();
+                        setIsCbtIdentityVerified(true);
+                        showToast({
+                          type: 'success',
+                          title: 'Identity Verified via UseOneID',
+                          message: 'Proctored CBT examination unlocked.',
+                        });
+                      }}
+                      onError={(err) => setCbtIdentityError(err || 'UseOneID verification cancelled or failed.')}
+                      className="w-full"
+                    />
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => setIsCbtModalOpen(false)}
+                    >
+                      Cancel &amp; Return
+                    </Button>
+                  </div>
+                </div>
+              </main>
+            ) : !isSubmitted ? (
               <>
                 <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
                   {/* LEFT / CENTER: QUESTION CANVAS */}

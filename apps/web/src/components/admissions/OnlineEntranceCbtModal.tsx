@@ -12,6 +12,7 @@ import {
   X,
 } from 'lucide-react';
 import { Button, Badge, useToast } from '@campusone/ui';
+import { UseOneIDButton } from '../ui/index.ts';
 import { supabase } from '../../lib/supabase.ts';
 import { useSharedRecords } from '../../lib/sharedRecords.ts';
 import {
@@ -42,6 +43,7 @@ export interface OnlineEntranceCbtModalProps {
   candidateId: string;
   candidateName: string;
   candidateEmail: string;
+  candidatePhone?: string;
   candidateDepartment?: string;
   candidateProgrammeCode?: string;
   activeSession?: string;
@@ -58,6 +60,7 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
   applicationNumber,
   candidateName,
   candidateEmail,
+  candidatePhone,
   candidateDepartment,
   candidateProgrammeCode,
   activeSession,
@@ -85,6 +88,9 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
   const [lastViolationReason, setLastViolationReason] = useState<string | null>(null);
   const [violations, setViolations] = useState<{ type: string; at: string }[]>([]);
   const [autoSubmittedByProctor, setAutoSubmittedByProctor] = useState(false);
+  const [isIdentityVerified, setIsIdentityVerified] = useState(false);
+  const [identityError, setIdentityError] = useState<string | null>(null);
+  const [verifiedHolderName, setVerifiedHolderName] = useState<string | null>(null);
 
   const lastStrikeTsRef = useRef(0);
   const submittingRef = useRef(false);
@@ -99,6 +105,7 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
     setIsSubmitting(false);
     setAutoSubmittedByProctor(false);
     setLastViolationReason(null);
+    setIdentityError(null);
 
     const resolved = resolveApplicantEntranceExam(
       suites.length > 0 ? suites : DEFAULT_ENTRANCE_EXAM_SUITES,
@@ -122,11 +129,12 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
           setViolations(saved.violations || []);
           setSecondsLeft(remaining);
           setCurrentIdx(0);
+          setIsIdentityVerified(true);
           return;
         }
       }
     } catch {
-      // Fall through to fresh attempt
+      // Fall through to fresh attempt requiring UseOneID check
     }
 
     const validPool = (resolved.questions || []).filter(
@@ -149,26 +157,49 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
     });
 
     const durationSeconds = Math.max(1, Number(resolved.durationMinutes) || 20) * 60;
-    const initialState: PersistedExamState = {
-      suiteId: resolved.id,
-      startedAt: Date.now(),
-      durationSeconds,
-      answers: {},
-      proctorWarnings: 0,
-      violations: [],
-      questions: shuffledQuestions,
-    };
-    try {
-      localStorage.setItem(lockStorageKey, JSON.stringify(initialState));
-    } catch {}
-
     setExamQuestions(shuffledQuestions);
     setCurrentIdx(0);
     setAnswers({});
     setProctorWarnings(0);
     setViolations([]);
     setSecondsLeft(durationSeconds);
+    setIsIdentityVerified(false);
+    setVerifiedHolderName(null);
   }, [isOpen]);
+
+  const handleUseOneIdExamAuthorized = (payload: any) => {
+    const returnedEmail = String(payload?.email || '').trim().toLowerCase();
+    const expectedEmail = String(candidateEmail || '').trim().toLowerCase();
+    if (returnedEmail && expectedEmail && returnedEmail !== expectedEmail) {
+      setIdentityError(
+        `Impersonation Alert: The authorized UseOneID account (${returnedEmail}) does not match the registered candidate email (${expectedEmail}). Please verify with your own UseOneID wallet.`
+      );
+      return;
+    }
+
+    setIdentityError(null);
+    setVerifiedHolderName(payload?.fullName || candidateName);
+    const durationSeconds = Math.max(1, Number(activeSuite.durationMinutes) || 20) * 60;
+    const initialState: PersistedExamState = {
+      suiteId: activeSuite.id,
+      startedAt: Date.now(),
+      durationSeconds,
+      answers: {},
+      proctorWarnings: 0,
+      violations: [],
+      questions: examQuestions,
+    };
+    try {
+      localStorage.setItem(lockStorageKey, JSON.stringify(initialState));
+    } catch {}
+    setSecondsLeft(durationSeconds);
+    setIsIdentityVerified(true);
+    showToast({
+      type: 'success',
+      title: 'Identity Verified via UseOneID',
+      message: 'Biometric / 1-Click identity confirmed. Your proctored Entrance CBT has started.',
+    });
+  };
 
   // Persist answers & violations continuously to anti-refresh lock
   useEffect(() => {
@@ -192,7 +223,7 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
     document.body.style.overflow = 'hidden';
 
     const recordStrike = (type: string, label: string) => {
-      if (submittingRef.current || finalScore !== null) return;
+      if (!isIdentityVerified || submittingRef.current || finalScore !== null) return;
       const now = Date.now();
       // Debounce rapid duplicate events (e.g. blur + visibilitychange firing together)
       if (now - lastStrikeTsRef.current < 1500) return;
@@ -247,7 +278,7 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
         document.exitFullscreen().catch(() => {});
       }
     };
-  }, [isOpen, finalScore]);
+  }, [isOpen, finalScore, isIdentityVerified]);
 
   const toggleBrowserFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -258,7 +289,7 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
   };
 
   useEffect(() => {
-    if (!isOpen || finalScore !== null) return;
+    if (!isOpen || !isIdentityVerified || finalScore !== null) return;
     const interval = setInterval(() => {
       setSecondsLeft((prev) => {
         if (prev <= 1) {
@@ -269,13 +300,13 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [isOpen, finalScore]);
+  }, [isOpen, isIdentityVerified, finalScore]);
 
   useEffect(() => {
-    if (isOpen && secondsLeft === 0 && finalScore === null && !submittingRef.current) {
+    if (isOpen && isIdentityVerified && secondsLeft === 0 && finalScore === null && !submittingRef.current) {
       void submitFnRef.current();
     }
-  }, [secondsLeft, isOpen, finalScore]);
+  }, [secondsLeft, isOpen, isIdentityVerified, finalScore]);
 
   // Keyboard navigation + Anti-Cheat Shortcut Blocking (DevTools, Print, View Source, Copy/Paste)
   useEffect(() => {
@@ -425,7 +456,7 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
                 {activeSuite.session} &bull; {activeSuite.departmentCode === 'ALL' ? 'All Departments' : activeSuite.departmentCode}
               </span>
               <span className="hidden xl:inline-block px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-emerald-900/80 border border-emerald-700/60 text-emerald-200 rounded-[4px] shrink-0">
-                Proctored &bull; Anti-Fraud Active
+                {verifiedHolderName ? `UseOneID Verified` : 'Proctored • Anti-Fraud Active'}
               </span>
             </div>
             <p className="text-[11px] text-emerald-200/80 truncate">
@@ -461,7 +492,7 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
             <span className="hidden sm:inline">{isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}</span>
           </button>
 
-          {finalScore !== null && (
+          {(finalScore !== null || !isIdentityVerified) && (
             <button
               type="button"
               onClick={onClose}
@@ -476,7 +507,7 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
       </header>
 
       {/* ─── PROCTORING VIOLATION STRIP ─── */}
-      {finalScore === null && proctorWarnings > 0 && (
+      {isIdentityVerified && finalScore === null && proctorWarnings > 0 && (
         <div className="bg-red-50 border-b border-red-200 px-4 sm:px-8 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs text-red-900 shrink-0 z-10">
           <div className="flex items-center gap-2 font-semibold">
             <ShieldAlert className="w-4 h-4 text-red-600 shrink-0" />
@@ -492,7 +523,89 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
       )}
 
       {/* ─── MAIN WORKSPACE ─── */}
-      {finalScore !== null ? (
+      {!isIdentityVerified && finalScore === null ? (
+        <main className="flex-1 overflow-y-auto flex items-center justify-center p-4 sm:p-8">
+          <div className="w-full max-w-lg bg-white border border-slate-200 rounded-[4px] shadow-sm p-6 sm:p-8 space-y-5">
+            <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
+              <div className="w-11 h-11 rounded-[4px] bg-emerald-50 border border-emerald-200 flex items-center justify-center p-1.5 shrink-0">
+                <img
+                  src={schoolLogoUrl || '/BeonTech-Logo.png'}
+                  alt="College Crest"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/BeonTech-Logo.png';
+                  }}
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <div>
+                <Badge variant="success" size="sm">Anti-Impersonation Gate</Badge>
+                <h2 className="text-lg font-bold text-slate-900 mt-1">
+                  Verify Identity with UseOneID to Begin Exam
+                </h2>
+              </div>
+            </div>
+
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-[4px] space-y-2 text-xs text-slate-700">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">Registered Candidate:</span>
+                <span className="font-bold text-slate-900">{candidateName}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">Application Number:</span>
+                <span className="font-bold text-[#0F7640]">{applicationNumber}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">Examination Suite:</span>
+                <span className="font-semibold text-slate-800">{activeSuite.examTitle}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">Duration &amp; Questions:</span>
+                <span className="font-semibold text-slate-800">
+                  {activeSuite.durationMinutes} mins &bull; {examQuestions.length} Questions
+                </span>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-[4px] text-xs text-amber-950 space-y-1">
+              <p className="font-bold">Mandatory Anti-Fraud Proctoring Rules:</p>
+              <p className="text-amber-900 leading-relaxed">
+                1. Your UseOneID identity must match your registered applicant email before the exam unlocks.<br />
+                2. Switching browser tabs or leaving the window triggers a strike — <strong>3 strikes auto-submits</strong> your exam.<br />
+                3. Copy, paste, print, DevTools, and page-refresh timer resets are disabled.
+              </p>
+            </div>
+
+            {identityError && (
+              <div className="p-3.5 bg-red-50 border border-red-200 rounded-[4px] text-xs text-red-800 font-medium flex items-start gap-2">
+                <ShieldAlert className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                <span>{identityError}</span>
+              </div>
+            )}
+
+            <div className="pt-1 space-y-2.5">
+              <UseOneIDButton
+                lookupEmail={candidateEmail}
+                lookupPhone={candidatePhone}
+                reuseText="Verify & Unlock Exam with 1-Click UseOneID"
+                firstTimeText="Verify Identity with UseOneID to Start Exam"
+                theme="brand"
+                onSuccess={handleUseOneIdExamAuthorized}
+                onError={(err) => setIdentityError(err || 'UseOneID verification was cancelled or failed.')}
+                className="w-full"
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="w-full"
+                onClick={onClose}
+              >
+                Cancel &amp; Return to Applicant Portal
+              </Button>
+            </div>
+          </div>
+        </main>
+      ) : finalScore !== null ? (
         <main className="flex-1 overflow-y-auto flex items-center justify-center p-4 sm:p-8">
           <div className="w-full max-w-xl bg-white border border-slate-200 rounded-[4px] shadow-sm p-6 sm:p-10 text-center space-y-6">
             <div className="w-16 h-16 rounded-[4px] bg-emerald-50 border border-emerald-200 text-[#0F7640] flex items-center justify-center mx-auto">
