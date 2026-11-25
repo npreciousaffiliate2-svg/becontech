@@ -1,6 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { Clock, CheckCircle2, Award, AlertCircle } from 'lucide-react';
-import { Modal, Button, Badge, useToast } from '@campusone/ui';
+import {
+  Clock,
+  CheckCircle2,
+  Award,
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  Maximize2,
+  Minimize2,
+  ShieldCheck,
+  X,
+} from 'lucide-react';
+import { Button, Badge, useToast } from '@campusone/ui';
 import { supabase } from '../../lib/supabase.ts';
 
 interface CbtQuestion {
@@ -115,6 +126,34 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
   const [secondsLeft, setSecondsLeft] = useState(10 * 60);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [finalScore, setFinalScore] = useState<number | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [confirmSubmit, setConfirmSubmit] = useState(false);
+
+  // Lock background page scroll & track native browser fullscreen state
+  useEffect(() => {
+    if (!isOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const onFsChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener('fullscreenchange', onFsChange);
+
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.removeEventListener('fullscreenchange', onFsChange);
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
+    };
+  }, [isOpen]);
+
+  const toggleBrowserFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen?.().catch(() => {});
+    } else {
+      document.exitFullscreen?.().catch(() => {});
+    }
+  };
 
   useEffect(() => {
     if (!isOpen || finalScore !== null) return;
@@ -136,9 +175,33 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
     }
   }, [secondsLeft, isOpen, finalScore, isSubmitting]);
 
+  // Keyboard navigation (ArrowLeft / ArrowRight / A-D / 1-4)
+  useEffect(() => {
+    if (!isOpen || finalScore !== null) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight') {
+        setCurrentIdx((i) => Math.min(ENTRANCE_CBT_QUESTIONS.length - 1, i + 1));
+      } else if (e.key === 'ArrowLeft') {
+        setCurrentIdx((i) => Math.max(0, i - 1));
+      } else {
+        const keyMap: Record<string, number> = { a: 0, b: 1, c: 2, d: 3, '1': 0, '2': 1, '3': 2, '4': 3 };
+        const idx = keyMap[e.key.toLowerCase()];
+        if (idx !== undefined) {
+          const q = ENTRANCE_CBT_QUESTIONS[currentIdx];
+          if (q && idx < q.options.length) {
+            setAnswers((prev) => ({ ...prev, [q.id]: idx }));
+          }
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, finalScore, currentIdx]);
+
   const handleSubmitCbt = async () => {
     if (isSubmitting || finalScore !== null) return;
     setIsSubmitting(true);
+    setConfirmSubmit(false);
 
     let correct = 0;
     for (const q of ENTRANCE_CBT_QUESTIONS) {
@@ -190,143 +253,302 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
     });
   };
 
+  if (!isOpen) return null;
+
   const mins = Math.floor(secondsLeft / 60);
   const secs = secondsLeft % 60;
   const activeQ = ENTRANCE_CBT_QUESTIONS[currentIdx];
   const answeredCount = Object.keys(answers).length;
+  const progressPct = Math.round((answeredCount / ENTRANCE_CBT_QUESTIONS.length) * 100);
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={finalScore !== null ? onClose : () => {}}
-      title="Online Entrance CBT Screening"
-      description={`${candidateName} (${applicationNumber}) — Single official screening attempt.`}
-      size="lg"
+    <div
+      className="fixed inset-0 z-[100] bg-slate-50 flex flex-col overflow-hidden font-sans select-none"
+      onContextMenu={(e) => e.preventDefault()}
+      onCopy={(e) => e.preventDefault()}
+      onCut={(e) => e.preventDefault()}
+      role="region"
+      aria-label="Full-Screen Online Entrance CBT Screening"
     >
-      {finalScore !== null ? (
-        <div className="py-6 text-center space-y-4 font-sans">
-          <div className="w-14 h-14 rounded-[4px] bg-emerald-50 border border-emerald-200 text-[#0F7640] flex items-center justify-center mx-auto">
-            <Award className="w-7 h-7" />
+      {/* ─── TOP INSTITUTIONAL EXAM BAR ─── */}
+      <header className="bg-[#093322] text-white px-4 sm:px-6 lg:px-8 py-3 border-b border-emerald-950/60 flex items-center justify-between gap-3 shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-8 h-8 rounded-[4px] bg-[#0F7640] border border-emerald-400/30 flex items-center justify-center shrink-0">
+            <ShieldCheck className="w-4 h-4 text-white" />
           </div>
-          <div>
-            <h3 className="text-xl font-bold text-slate-900">CBT Screening Submitted</h3>
-            <p className="text-xs text-slate-500 mt-1">
-              Your score has been recorded and forwarded to the Admissions Office.
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h1 className="text-sm sm:text-base font-bold tracking-tight truncate">
+                Online Entrance CBT Screening
+              </h1>
+              <span className="hidden md:inline-block px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-white/10 text-emerald-200 rounded-[4px]">
+                Single Official Attempt
+              </span>
+            </div>
+            <p className="text-[11px] text-emerald-200/80 truncate">
+              {candidateName} &bull; {applicationNumber}
             </p>
           </div>
-          <div className="inline-flex items-center gap-3 px-6 py-3 bg-slate-50 border border-slate-200 rounded-[4px]">
-            <span className="text-xs text-slate-500 font-semibold">Final Score:</span>
-            <span className="text-2xl font-extrabold text-[#0F7640]">{finalScore}%</span>
-            <Badge variant={finalScore >= cutoffScore ? 'success' : 'warning'} size="sm">
-              {finalScore >= cutoffScore ? 'MEETS CUT-OFF' : `BELOW ${cutoffScore}% CUT-OFF`}
-            </Badge>
-          </div>
-          <div className="pt-2">
-            <Button
-              variant="primary"
-              className="bg-[#0F7640] hover:bg-[#093322] text-xs rounded-[4px]"
-              onClick={onClose}
-            >
-              Return to Admission Portal
-            </Button>
-          </div>
         </div>
-      ) : (
-        <div className="space-y-5 text-xs font-sans">
-          {/* Status & Timer Bar */}
-          <div className="p-3 bg-slate-50 border border-slate-200 rounded-[4px] flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Badge variant="neutral" size="sm">{activeQ.subject}</Badge>
-              <span className="font-semibold text-slate-700">
-                Question {currentIdx + 1} of {ENTRANCE_CBT_QUESTIONS.length}
-              </span>
-              <span className="text-slate-400">&bull;</span>
-              <span className="text-slate-600">{answeredCount} answered</span>
-            </div>
-            <div className={`flex items-center gap-1.5 font-bold ${secondsLeft < 120 ? 'text-red-600' : 'text-[#0F7640]'}`}>
-              <Clock className="w-3.5 h-3.5" />
+
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          {finalScore === null && (
+            <div
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] border text-xs sm:text-sm font-bold ${
+                secondsLeft < 120
+                  ? 'bg-red-950/80 border-red-400/50 text-red-200'
+                  : 'bg-[#052015] border-emerald-700/60 text-amber-300'
+              }`}
+            >
+              <Clock className={`w-4 h-4 shrink-0 ${secondsLeft < 120 ? 'animate-pulse text-red-300' : 'text-amber-400'}`} />
               <span>
                 {String(mins).padStart(2, '0')}:{String(secs).padStart(2, '0')}
               </span>
             </div>
-          </div>
+          )}
 
-          {/* Question */}
-          <div className="space-y-3">
-            <p className="text-sm font-bold text-slate-900 leading-relaxed">
-              {currentIdx + 1}. {activeQ.question}
+          <button
+            type="button"
+            onClick={toggleBrowserFullscreen}
+            title={isFullscreen ? 'Exit browser fullscreen' : 'Enter browser fullscreen'}
+            aria-label={isFullscreen ? 'Exit browser fullscreen' : 'Enter browser fullscreen'}
+            className="px-2.5 py-1.5 rounded-[4px] bg-white/10 hover:bg-white/20 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors"
+          >
+            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+            <span className="hidden sm:inline">{isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}</span>
+          </button>
+
+          {finalScore !== null && (
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Return to portal"
+              className="px-2.5 py-1.5 rounded-[4px] bg-white/10 hover:bg-white/20 text-white text-xs font-semibold flex items-center gap-1 transition-colors"
+            >
+              <X className="w-4 h-4" />
+              <span className="hidden sm:inline">Close</span>
+            </button>
+          )}
+        </div>
+      </header>
+
+      {/* ─── MAIN WORKSPACE ─── */}
+      {finalScore !== null ? (
+        <main className="flex-1 overflow-y-auto flex items-center justify-center p-4 sm:p-8">
+          <div className="w-full max-w-xl bg-white border border-slate-200 rounded-[4px] shadow-sm p-6 sm:p-10 text-center space-y-6">
+            <div className="w-16 h-16 rounded-[4px] bg-emerald-50 border border-emerald-200 text-[#0F7640] flex items-center justify-center mx-auto">
+              <Award className="w-8 h-8" />
+            </div>
+
+            <div className="space-y-1.5">
+              <h2 className="text-2xl font-bold text-slate-900">Entrance CBT Screening Submitted</h2>
+              <p className="text-xs sm:text-sm text-slate-500">
+                Your screening score has been securely recorded and forwarded to the Admissions Office.
+              </p>
+            </div>
+
+            <div className="p-5 bg-slate-50 border border-slate-200 rounded-[4px] flex flex-col sm:flex-row items-center justify-center gap-4">
+              <div className="text-center sm:text-left">
+                <span className="text-[11px] uppercase tracking-wider font-semibold text-slate-400 block">
+                  Official Screening Score
+                </span>
+                <span className="text-3xl font-extrabold text-[#0F7640]">{finalScore}%</span>
+              </div>
+              <div className="hidden sm:block h-10 w-px bg-slate-200" />
+              <Badge variant={finalScore >= cutoffScore ? 'success' : 'warning'} size="md">
+                {finalScore >= cutoffScore ? 'MEETS CUT-OFF' : `BELOW ${cutoffScore}% CUT-OFF`}
+              </Badge>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Candidate: <strong>{candidateName}</strong> ({applicationNumber}). You can monitor your admission status and next steps directly on your Applicant Portal.
             </p>
-            <div className="space-y-2">
-              {activeQ.options.map((opt, idx) => {
-                const selected = answers[activeQ.id] === idx;
-                return (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => setAnswers((prev) => ({ ...prev, [activeQ.id]: idx }))}
-                    className={`w-full text-left p-3 rounded-[4px] border transition-colors flex items-center gap-3 ${
-                      selected
-                        ? 'bg-emerald-50 border-[#0F7640] text-emerald-950 font-semibold'
-                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span
-                      className={`w-5 h-5 rounded-[4px] border flex items-center justify-center text-[11px] font-bold shrink-0 ${
-                        selected
-                          ? 'bg-[#0F7640] border-[#0F7640] text-white'
-                          : 'border-slate-300 text-slate-500'
-                      }`}
-                    >
-                      {String.fromCharCode(65 + idx)}
-                    </span>
-                    <span>{opt}</span>
-                  </button>
-                );
-              })}
+
+            <div className="pt-2">
+              <Button
+                variant="primary"
+                className="bg-[#0F7640] hover:bg-[#093322] text-sm rounded-[4px] px-6"
+                onClick={onClose}
+              >
+                Return to Applicant Portal
+              </Button>
             </div>
           </div>
+        </main>
+      ) : (
+        <>
+          <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
+            {/* LEFT / CENTER: QUESTION CANVAS */}
+            <main className="flex-1 overflow-y-auto p-4 sm:p-8 lg:p-10">
+              <div className="max-w-3xl mx-auto space-y-6">
+                {confirmSubmit && (
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-[4px] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-start gap-2.5 text-xs text-amber-950">
+                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-bold">Submit Entrance CBT Examination?</p>
+                        <p className="text-amber-800 mt-0.5">
+                          You have answered {answeredCount} of {ENTRANCE_CBT_QUESTIONS.length} questions. Once submitted, this single official attempt cannot be reopened.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button variant="secondary" size="sm" onClick={() => setConfirmSubmit(false)}>
+                        Review Questions
+                      </Button>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        isLoading={isSubmitting}
+                        className="bg-[#0F7640] hover:bg-[#093322]"
+                        onClick={handleSubmitCbt}
+                      >
+                        Confirm &amp; Submit
+                      </Button>
+                    </div>
+                  </div>
+                )}
 
-          {/* Question Navigator Pills */}
-          <div className="flex flex-wrap gap-1.5 pt-2 border-t border-slate-100">
-            {ENTRANCE_CBT_QUESTIONS.map((q, idx) => {
-              const isAnswered = answers[q.id] !== undefined;
-              const isCurrent = idx === currentIdx;
-              return (
-                <button
-                  key={q.id}
+                {/* Question Card */}
+                <div className="bg-white border border-slate-200 rounded-[4px] shadow-sm p-5 sm:p-8 space-y-6">
+                  <div className="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="neutral" size="sm">{activeQ.subject}</Badge>
+                      <span className="text-xs font-bold text-slate-600">
+                        Question {currentIdx + 1} of {ENTRANCE_CBT_QUESTIONS.length}
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-slate-400 hidden sm:inline">
+                      Tip: Press A–D to answer, Left/Right arrows to navigate
+                    </span>
+                  </div>
+
+                  <p className="text-base sm:text-lg font-bold text-slate-900 leading-relaxed">
+                    {currentIdx + 1}. {activeQ.question}
+                  </p>
+
+                  <div className="space-y-3 pt-1">
+                    {activeQ.options.map((opt, idx) => {
+                      const selected = answers[activeQ.id] === idx;
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setAnswers((prev) => ({ ...prev, [activeQ.id]: idx }))}
+                          className={`w-full min-h-[52px] text-left px-4 py-3.5 rounded-[4px] border transition-colors flex items-center gap-3.5 ${
+                            selected
+                              ? 'bg-emerald-50 border-[#0F7640] text-emerald-950 font-semibold ring-1 ring-[#0F7640]'
+                              : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
+                          }`}
+                        >
+                          <span
+                            className={`w-7 h-7 rounded-[4px] border flex items-center justify-center text-xs font-bold shrink-0 ${
+                              selected
+                                ? 'bg-[#0F7640] border-[#0F7640] text-white'
+                                : 'border-slate-300 text-slate-600 bg-slate-50'
+                            }`}
+                          >
+                            {String.fromCharCode(65 + idx)}
+                          </span>
+                          <span className="text-sm leading-snug">{opt}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </main>
+
+            {/* RIGHT SIDEBAR: QUESTION NAVIGATOR */}
+            <aside className="w-full lg:w-80 xl:w-96 bg-white border-t lg:border-t-0 lg:border-l border-slate-200 flex flex-col shrink-0 max-h-[34vh] lg:max-h-none">
+              <div className="p-4 sm:p-5 border-b border-slate-100 space-y-3">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-slate-900 uppercase tracking-wider">Question Palette</span>
+                  <span className="font-semibold text-[#0F7640]">
+                    {answeredCount}/{ENTRANCE_CBT_QUESTIONS.length} Answered
+                  </span>
+                </div>
+                <div className="w-full h-2 bg-slate-100 rounded-[4px] overflow-hidden">
+                  <div
+                    className="h-full bg-[#0F7640] transition-all duration-200"
+                    style={{ width: `${progressPct}%` }}
+                  />
+                </div>
+                <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded-[4px] bg-[#0F7640] inline-block" /> Current
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded-[4px] bg-emerald-100 border border-emerald-300 inline-block" /> Answered
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded-[4px] bg-white border border-slate-300 inline-block" /> Unanswered
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+                <div className="grid grid-cols-5 sm:grid-cols-10 lg:grid-cols-5 gap-2">
+                  {ENTRANCE_CBT_QUESTIONS.map((q, idx) => {
+                    const isAnswered = answers[q.id] !== undefined;
+                    const isCurrent = idx === currentIdx;
+                    return (
+                      <button
+                        key={q.id}
+                        type="button"
+                        onClick={() => setCurrentIdx(idx)}
+                        className={`h-10 rounded-[4px] text-xs font-bold border transition-colors flex items-center justify-center ${
+                          isCurrent
+                            ? 'bg-[#0F7640] text-white border-[#0F7640] ring-2 ring-emerald-300'
+                            : isAnswered
+                            ? 'bg-emerald-50 text-[#0F7640] border-emerald-300'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        {idx + 1}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="hidden lg:block p-5 border-t border-slate-200 bg-slate-50/70">
+                <Button
                   type="button"
-                  onClick={() => setCurrentIdx(idx)}
-                  className={`w-7 h-7 rounded-[4px] text-[11px] font-bold border transition-colors ${
-                    isCurrent
-                      ? 'bg-[#0F7640] text-white border-[#0F7640]'
-                      : isAnswered
-                      ? 'bg-emerald-50 text-[#0F7640] border-emerald-300'
-                      : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
-                  }`}
+                  variant="primary"
+                  isLoading={isSubmitting}
+                  leftIcon={<CheckCircle2 className="w-4 h-4" />}
+                  className="w-full bg-[#0F7640] hover:bg-[#093322]"
+                  onClick={() => setConfirmSubmit(true)}
                 >
-                  {idx + 1}
-                </button>
-              );
-            })}
+                  Submit Entrance CBT
+                </Button>
+              </div>
+            </aside>
           </div>
 
-          {/* Footer Controls */}
-          <div className="pt-3 border-t border-slate-200 flex items-center justify-between gap-2">
+          {/* ─── STICKY BOTTOM CONTROLS ─── */}
+          <footer className="bg-white border-t border-slate-200 px-4 sm:px-8 py-3 flex items-center justify-between gap-3 shrink-0">
             <Button
               type="button"
-              size="sm"
               variant="secondary"
               disabled={currentIdx === 0}
+              leftIcon={<ChevronLeft className="w-4 h-4" />}
               onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
             >
               Previous
             </Button>
+
+            <span className="text-xs font-semibold text-slate-500 hidden sm:inline">
+              Question {currentIdx + 1} of {ENTRANCE_CBT_QUESTIONS.length}
+            </span>
+
             <div className="flex items-center gap-2">
               {currentIdx < ENTRANCE_CBT_QUESTIONS.length - 1 ? (
                 <Button
                   type="button"
-                  size="sm"
                   variant="primary"
+                  rightIcon={<ChevronRight className="w-4 h-4" />}
                   className="bg-[#0F7640] hover:bg-[#093322]"
                   onClick={() => setCurrentIdx((i) => Math.min(ENTRANCE_CBT_QUESTIONS.length - 1, i + 1))}
                 >
@@ -335,29 +557,19 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
               ) : (
                 <Button
                   type="button"
-                  size="sm"
                   variant="primary"
                   isLoading={isSubmitting}
-                  leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}
+                  leftIcon={<CheckCircle2 className="w-4 h-4" />}
                   className="bg-[#0F7640] hover:bg-[#093322]"
-                  onClick={handleSubmitCbt}
+                  onClick={() => setConfirmSubmit(true)}
                 >
                   Submit Entrance CBT
                 </Button>
               )}
             </div>
-          </div>
-
-          {answeredCount < ENTRANCE_CBT_QUESTIONS.length && currentIdx === ENTRANCE_CBT_QUESTIONS.length - 1 && (
-            <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-[4px] text-[11px] text-amber-900 flex items-center gap-2">
-              <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-              <span>
-                You have answered {answeredCount} of {ENTRANCE_CBT_QUESTIONS.length} questions. Review unanswered items before submitting.
-              </span>
-            </div>
-          )}
-        </div>
+          </footer>
+        </>
       )}
-    </Modal>
+    </div>
   );
 };

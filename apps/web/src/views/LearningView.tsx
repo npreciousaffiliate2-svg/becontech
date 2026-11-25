@@ -39,6 +39,8 @@ import {
   Flag,
   Printer,
   ShieldCheck,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import { escapeHtml, exportToCsv, printInstitutionalDocument } from '../utils/documentExport.ts';
 import { PersonAvatar, PhotoUploadControl, pluralize } from '../components/common/PersonAvatar.tsx';
@@ -167,6 +169,7 @@ export const LearningView: React.FC = () => {
 
   /* ─── INTERACTIVE LIVE CBT SIMULATOR STATE ─── */
   const [isCbtModalOpen, setIsCbtModalOpen] = useState(false);
+  const [isCbtFullscreen, setIsCbtFullscreen] = useState(false);
   const [activeTest, setActiveTest] = useState<PracticeTest | null>(null);
   const [activeExamQuestions, setActiveExamQuestions] = useState<QuestionItem[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -611,6 +614,32 @@ export const LearningView: React.FC = () => {
       passed: false,
     },
   ]);
+
+  /* ─── FULLSCREEN & BODY LOCK EFFECT FOR CBT WORKSPACE ─── */
+  useEffect(() => {
+    if (!isCbtModalOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const onFsChange = () => setIsCbtFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener('fullscreenchange', onFsChange);
+
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.removeEventListener('fullscreenchange', onFsChange);
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
+    };
+  }, [isCbtModalOpen]);
+
+  const toggleCbtBrowserFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen?.().catch(() => {});
+    } else {
+      document.exitFullscreen?.().catch(() => {});
+    }
+  };
 
   /* ─── TIMER & ANTI-CHEAT PROCTORING EFFECT FOR CBT SIMULATOR ─── */
   useEffect(() => {
@@ -2103,289 +2132,393 @@ export const LearningView: React.FC = () => {
         )}
       </Modal>
 
-      {/* ─── MODAL 3: FULL-SCREEN INTERACTIVE LIVE CBT PRACTICE SIMULATOR ─── */}
-      <Modal
-        isOpen={isCbtModalOpen}
-        onClose={() => {
-          if (!isSubmitted) {
-            setExitPrompt(true);
-            return;
-          }
-          setExitPrompt(false);
-          setIsCbtModalOpen(false);
-        }}
-        title={activeTest ? `${activeTest.title}` : 'CBT Practice Simulator'}
-        size="lg"
-      >
-        <div
-          className="space-y-4 text-xs text-slate-800 select-none"
-          onContextMenu={(e) => e.preventDefault()}
-          onCopy={(e) => e.preventDefault()}
-          onCut={(e) => e.preventDefault()}
-        >
-          {exitPrompt && !isSubmitted && (
-            <div className="border border-amber-200 bg-amber-50 p-3 rounded-[4px] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <p className="text-slate-800">Leave this examination? Unsubmitted answers will be closed.</p>
-              <div className="flex items-center gap-2 shrink-0">
-                <Button variant="secondary" size="sm" onClick={() => setExitPrompt(false)}>
-                  Stay
-                </Button>
-                <Button
-                  variant="danger"
-                  size="sm"
+      {/* ─── FULL-SCREEN INTERACTIVE LIVE CBT & EXAMINATION WORKSPACE ─── */}
+      {isCbtModalOpen && (() => {
+        const examPool = activeExamQuestions.length > 0 ? activeExamQuestions : cbtQuestions;
+        const currentQuestion = examPool[currentQuestionIndex];
+        const answeredCount = Object.keys(userAnswers).length;
+        const flaggedCount = Object.values(flaggedQuestions).filter(Boolean).length;
+        const progressPct = examPool.length > 0 ? Math.round((answeredCount / examPool.length) * 100) : 0;
+
+        return (
+          <div
+            className="fixed inset-0 z-[100] bg-slate-50 flex flex-col overflow-hidden font-sans select-none"
+            onContextMenu={(e) => e.preventDefault()}
+            onCopy={(e) => e.preventDefault()}
+            onCut={(e) => e.preventDefault()}
+            role="region"
+            aria-label={activeTest ? `${activeTest.title} Full-Screen Examination` : 'Full-Screen CBT Examination'}
+          >
+            {/* ─── TOP INSTITUTIONAL EXAMINATION BAR ─── */}
+            <header className="bg-[#093322] text-white px-4 sm:px-6 lg:px-8 py-3 border-b border-emerald-950/60 flex items-center justify-between gap-3 shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="font-bold text-xs bg-[#0F7640] border border-emerald-400/30 px-2.5 py-1 rounded-[4px] shrink-0">
+                  {activeTest?.courseCode || 'CBT'}
+                </span>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-sm sm:text-base font-bold tracking-tight truncate">
+                      {activeTest ? activeTest.title : 'Computer-Based Examination'}
+                    </h1>
+                    <span className="hidden md:inline-block text-[10px] bg-white/10 text-emerald-200 px-2 py-0.5 rounded-[4px] font-semibold uppercase tracking-wider shrink-0">
+                      Proctored &bull; Randomized
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-emerald-200/80 truncate">
+                    {persona?.fullName || session.fullName} {!isSubmitted && `\u2022 Question ${currentQuestionIndex + 1} of ${examPool.length}`}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                {!isSubmitted && (
+                  <div
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] border text-xs sm:text-sm font-bold ${
+                      secondsRemaining < 120
+                        ? 'bg-red-950/80 border-red-400/50 text-red-200'
+                        : 'bg-[#052015] border-emerald-700/60 text-amber-300'
+                    }`}
+                  >
+                    <Clock className={`w-4 h-4 shrink-0 ${secondsRemaining < 120 ? 'animate-pulse text-red-300' : 'text-amber-400'}`} />
+                    <span className="tracking-wider">{formatTimer(secondsRemaining)}</span>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={toggleCbtBrowserFullscreen}
+                  title={isCbtFullscreen ? 'Exit browser fullscreen' : 'Enter browser fullscreen'}
+                  aria-label={isCbtFullscreen ? 'Exit browser fullscreen' : 'Enter browser fullscreen'}
+                  className="px-2.5 py-1.5 rounded-[4px] bg-white/10 hover:bg-white/20 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                >
+                  {isCbtFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                  <span className="hidden sm:inline">{isCbtFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => {
+                    if (!isSubmitted) {
+                      setExitPrompt(true);
+                      return;
+                    }
                     setExitPrompt(false);
                     setIsCbtModalOpen(false);
                   }}
+                  aria-label="Leave examination"
+                  className="px-2.5 py-1.5 rounded-[4px] bg-white/10 hover:bg-red-600/80 text-white text-xs font-semibold flex items-center gap-1 transition-colors"
                 >
-                  Leave examination
-                </Button>
+                  <X className="w-4 h-4" />
+                  <span className="hidden sm:inline">{isSubmitted ? 'Close' : 'Exit'}</span>
+                </button>
               </div>
-            </div>
-          )}
-          {!isSubmitted ? (
-            (() => {
-              const examPool = activeExamQuestions.length > 0 ? activeExamQuestions : cbtQuestions;
-              const currentQuestion = examPool[currentQuestionIndex];
-              return (
-                <>
-                  {/* CBT Top Bar: Timer, Course Badge, Proctoring Shield, Flag Button */}
-                  <div className="p-3 bg-slate-900 text-white rounded-[4px] flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-xs bg-[#0F7640] px-2 py-0.5 rounded-[4px]">
-                        {activeTest?.courseCode}
-                      </span>
-                      <span className="text-slate-300 text-xs hidden sm:inline">
-                        Question {currentQuestionIndex + 1} of {examPool.length}
-                      </span>
-                      <span className="text-[10px] bg-slate-800 text-emerald-300 px-2 py-0.5 rounded-[4px] border border-slate-700 hidden md:inline">
-                        Proctored &bull; Randomized
-                      </span>
-                    </div>
+            </header>
 
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-1.5 bg-slate-800 px-3 py-1 rounded-[4px] border border-slate-700">
-                        <Clock className="w-4 h-4 text-amber-400 animate-pulse shrink-0" />
-                        <span className="font-bold text-sm tracking-wider text-amber-300">
-                          {formatTimer(secondsRemaining)}
-                        </span>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={toggleFlagQuestion}
-                        className={`px-2.5 py-1 rounded-[4px] text-xs font-semibold flex items-center gap-1 transition-colors ${
-                          flaggedQuestions[currentQuestionIndex]
-                            ? 'bg-amber-500 text-white'
-                            : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                        }`}
+            {/* ─── EXIT / PROCTORING ALERTS STRIP ─── */}
+            {((exitPrompt && !isSubmitted) || (proctorWarnings > 0 && !isSubmitted)) && (
+              <div className="px-4 sm:px-8 pt-3 space-y-2 shrink-0 bg-slate-50">
+                {exitPrompt && !isSubmitted && (
+                  <div className="max-w-5xl mx-auto border border-amber-200 bg-amber-50 p-3 rounded-[4px] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                    <p className="text-slate-800 font-medium">
+                      Leave this examination? Unsubmitted answers will be closed and discarded.
+                    </p>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button variant="secondary" size="sm" onClick={() => setExitPrompt(false)}>
+                        Stay in Exam
+                      </Button>
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        onClick={() => {
+                          setExitPrompt(false);
+                          setIsCbtModalOpen(false);
+                        }}
                       >
-                        <Flag className="w-3 h-3" />
-                        <span className="hidden sm:inline">Flag</span>
-                      </button>
+                        Leave Examination
+                      </Button>
                     </div>
                   </div>
+                )}
 
-                  {proctorWarnings > 0 && (
-                    <div className="p-2.5 bg-red-50 border border-red-200 rounded-[4px] flex items-center justify-between text-red-800 text-xs font-semibold">
-                      <span>
-                        Proctoring Alert (Strike {proctorWarnings} of 3): Switching tabs or leaving the examination window is strictly prohibited.
-                      </span>
-                      <Badge variant="danger" size="sm">Auto-Submit at 3/3</Badge>
-                    </div>
-                  )}
-
-                  {/* Question Navigation Palette */}
-                  <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-[4px] flex flex-wrap items-center gap-1.5">
-                    {examPool.map((_, idx) => {
-                      const isAnswered = userAnswers[idx] !== undefined;
-                      const isCurrent = idx === currentQuestionIndex;
-                      const isFlagged = flaggedQuestions[idx];
-
-                      let btnClass = 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100';
-                      if (isCurrent) {
-                        btnClass = 'bg-[#0F7640] text-white border-[#0F7640] ring-2 ring-emerald-300';
-                      } else if (isFlagged) {
-                        btnClass = 'bg-amber-500 text-white border-amber-500';
-                      } else if (isAnswered) {
-                        btnClass = 'bg-emerald-100 text-emerald-900 border-emerald-300 font-bold';
-                      }
-
-                      return (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => setCurrentQuestionIndex(idx)}
-                          className={`w-7 h-7 rounded-[4px] border text-xs font-semibold flex items-center justify-center transition-all ${btnClass}`}
-                        >
-                          {idx + 1}
-                        </button>
-                      );
-                    })}
+                {proctorWarnings > 0 && !isSubmitted && (
+                  <div className="max-w-5xl mx-auto p-3 bg-red-50 border border-red-200 rounded-[4px] flex flex-wrap items-center justify-between gap-2 text-red-800 text-xs font-semibold">
+                    <span>
+                      Proctoring Alert (Strike {proctorWarnings} of 3): Switching tabs or leaving the examination window is strictly prohibited.
+                    </span>
+                    <Badge variant="danger" size="sm">Auto-Submit at 3/3</Badge>
                   </div>
+                )}
+              </div>
+            )}
 
-                  {/* Question Body */}
-                  <div className="p-5 bg-white border border-slate-200 rounded-[4px] space-y-4">
-                    <div className="space-y-2">
-                      <span className="text-slate-400 text-[11px] font-semibold uppercase">
-                        Question {currentQuestionIndex + 1} ({currentQuestion?.difficulty})
-                      </span>
-                      <p className="font-bold text-slate-900 text-sm leading-relaxed">
-                        {currentQuestion?.questionText}
-                      </p>
-                      {currentQuestion?.imageUrl && (
-                        <div className="p-3 bg-slate-50 border border-slate-200 rounded-[4px]">
-                          <img
-                            src={currentQuestion.imageUrl}
-                            alt="Clinical Examination Figure"
-                            className="max-h-60 w-auto mx-auto rounded-[4px] object-contain"
-                          />
-                        </div>
-                      )}
-                    </div>
+            {/* ─── MAIN WORKSPACE ─── */}
+            {!isSubmitted ? (
+              <>
+                <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
+                  {/* LEFT / CENTER: QUESTION CANVAS */}
+                  <main className="flex-1 overflow-y-auto p-4 sm:p-8 lg:p-10">
+                    <div className="max-w-3xl mx-auto">
+                      <div className="p-5 sm:p-8 bg-white border border-slate-200 rounded-[4px] shadow-sm space-y-6">
+                        <div className="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-slate-100">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-slate-900">
+                              Question {currentQuestionIndex + 1} of {examPool.length}
+                            </span>
+                            {currentQuestion?.difficulty && (
+                              <Badge variant="neutral" size="sm">{currentQuestion.difficulty}</Badge>
+                            )}
+                          </div>
 
-                    {/* Options List */}
-                    <div className="space-y-2 pt-2">
-                      {currentQuestion?.options.map((opt) => {
-                        const isSelected = userAnswers[currentQuestionIndex] === opt.id;
-                        return (
-                          <div
-                            key={opt.id}
-                            onClick={() => handleSelectAnswer(opt.id)}
-                            className={`p-3 rounded-[4px] border cursor-pointer flex items-center gap-3 transition-colors ${
-                              isSelected
-                                ? 'bg-emerald-50 border-[#0F7640] text-slate-900 ring-1 ring-[#0F7640]'
-                                : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
+                          <button
+                            type="button"
+                            onClick={toggleFlagQuestion}
+                            className={`px-3 py-1.5 rounded-[4px] text-xs font-semibold flex items-center gap-1.5 border transition-colors ${
+                              flaggedQuestions[currentQuestionIndex]
+                                ? 'bg-amber-500 text-white border-amber-500'
+                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                             }`}
                           >
-                            <div
-                              className={`w-6 h-6 rounded-[4px] border flex items-center justify-center text-xs font-bold shrink-0 ${
-                                isSelected
-                                  ? 'bg-[#0F7640] text-white border-[#0F7640]'
-                                  : 'border-slate-300 text-slate-600'
-                              }`}
-                            >
-                              {opt.id}
+                            <Flag className="w-3.5 h-3.5" />
+                            <span>{flaggedQuestions[currentQuestionIndex] ? 'Flagged for Review' : 'Flag Question'}</span>
+                          </button>
+                        </div>
+
+                        <div className="space-y-4">
+                          <p className="font-bold text-slate-900 text-base sm:text-lg leading-relaxed">
+                            {currentQuestion?.questionText}
+                          </p>
+                          {currentQuestion?.imageUrl && (
+                            <div className="p-4 bg-slate-50 border border-slate-200 rounded-[4px]">
+                              <img
+                                src={currentQuestion.imageUrl}
+                                alt="Clinical Examination Figure"
+                                className="max-h-72 w-auto mx-auto rounded-[4px] object-contain"
+                              />
                             </div>
-                            <span className="text-xs font-medium leading-relaxed">{opt.text}</span>
-                          </div>
-                        );
-                      })}
+                          )}
+                        </div>
+
+                        {/* Options List */}
+                        <div className="space-y-3 pt-1">
+                          {currentQuestion?.options.map((opt) => {
+                            const isSelected = userAnswers[currentQuestionIndex] === opt.id;
+                            return (
+                              <button
+                                key={opt.id}
+                                type="button"
+                                onClick={() => handleSelectAnswer(opt.id)}
+                                className={`w-full min-h-[52px] text-left px-4 py-3.5 rounded-[4px] border flex items-center gap-3.5 transition-colors ${
+                                  isSelected
+                                    ? 'bg-emerald-50 border-[#0F7640] text-slate-900 ring-1 ring-[#0F7640] font-semibold'
+                                    : 'bg-white border-slate-200 hover:bg-slate-50 hover:border-slate-300 text-slate-700'
+                                }`}
+                              >
+                                <span
+                                  className={`w-7 h-7 rounded-[4px] border flex items-center justify-center text-xs font-bold shrink-0 ${
+                                    isSelected
+                                      ? 'bg-[#0F7640] text-white border-[#0F7640]'
+                                      : 'border-slate-300 text-slate-600 bg-slate-50'
+                                  }`}
+                                >
+                                  {opt.id}
+                                </span>
+                                <span className="text-sm leading-snug">{opt.text}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </main>
+
+                  {/* RIGHT SIDEBAR: QUESTION NAVIGATOR */}
+                  <aside className="w-full lg:w-80 xl:w-96 bg-white border-t lg:border-t-0 lg:border-l border-slate-200 flex flex-col shrink-0 max-h-[34vh] lg:max-h-none">
+                    <div className="p-4 sm:p-5 border-b border-slate-100 space-y-3">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-slate-900 uppercase tracking-wider">Question Palette</span>
+                        <span className="font-semibold text-[#0F7640]">
+                          {answeredCount}/{examPool.length} Answered
+                        </span>
+                      </div>
+                      <div className="w-full h-2 bg-slate-100 rounded-[4px] overflow-hidden">
+                        <div
+                          className="h-full bg-[#0F7640] transition-all duration-200"
+                          style={{ width: `${progressPct}%` }}
+                        />
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500">
+                        <span className="flex items-center gap-1.5">
+                          <span className="w-3 h-3 rounded-[4px] bg-[#0F7640] inline-block" /> Current
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          <span className="w-3 h-3 rounded-[4px] bg-emerald-100 border border-emerald-300 inline-block" /> Answered
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          <span className="w-3 h-3 rounded-[4px] bg-amber-500 inline-block" /> Flagged ({flaggedCount})
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+                      <div className="grid grid-cols-5 sm:grid-cols-10 lg:grid-cols-5 gap-2">
+                        {examPool.map((_, idx) => {
+                          const isAnswered = userAnswers[idx] !== undefined;
+                          const isCurrent = idx === currentQuestionIndex;
+                          const isFlagged = flaggedQuestions[idx];
+
+                          let btnClass = 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100';
+                          if (isCurrent) {
+                            btnClass = 'bg-[#0F7640] text-white border-[#0F7640] ring-2 ring-emerald-300';
+                          } else if (isFlagged) {
+                            btnClass = 'bg-amber-500 text-white border-amber-500';
+                          } else if (isAnswered) {
+                            btnClass = 'bg-emerald-100 text-emerald-900 border-emerald-300 font-bold';
+                          }
+
+                          return (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => setCurrentQuestionIndex(idx)}
+                              className={`h-10 rounded-[4px] border text-xs font-semibold flex items-center justify-center transition-all ${btnClass}`}
+                            >
+                              {idx + 1}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="hidden lg:block p-5 border-t border-slate-200 bg-slate-50/70">
+                      <Button
+                        variant="primary"
+                        onClick={handleSubmitCbt}
+                        leftIcon={<Check className="w-4 h-4" />}
+                        className="w-full whitespace-nowrap bg-[#0F7640] hover:bg-[#093322]"
+                      >
+                        Submit Exam ({answeredCount}/{examPool.length})
+                      </Button>
+                    </div>
+                  </aside>
+                </div>
+
+                {/* ─── STICKY BOTTOM CONTROLS ─── */}
+                <footer className="bg-white border-t border-slate-200 px-4 sm:px-8 py-3 flex items-center justify-between gap-3 shrink-0">
+                  <Button
+                    variant="secondary"
+                    disabled={currentQuestionIndex === 0}
+                    onClick={() => setCurrentQuestionIndex((prev) => Math.max(0, prev - 1))}
+                    leftIcon={<ChevronLeft className="w-4 h-4" />}
+                    className="whitespace-nowrap"
+                  >
+                    Previous
+                  </Button>
+
+                  <span className="text-xs font-semibold text-slate-500 hidden sm:inline">
+                    Question {currentQuestionIndex + 1} of {examPool.length}
+                  </span>
+
+                  <div className="flex items-center gap-2">
+                    {currentQuestionIndex < examPool.length - 1 ? (
+                      <Button
+                        variant="primary"
+                        onClick={() => setCurrentQuestionIndex((prev) => Math.min(examPool.length - 1, prev + 1))}
+                        rightIcon={<ChevronRight className="w-4 h-4" />}
+                        className="whitespace-nowrap bg-[#0F7640] hover:bg-[#093322]"
+                      >
+                        Next Question
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="primary"
+                        onClick={handleSubmitCbt}
+                        leftIcon={<Check className="w-4 h-4" />}
+                        className="whitespace-nowrap bg-emerald-700 hover:bg-emerald-800"
+                      >
+                        Submit Exam
+                      </Button>
+                    )}
+                  </div>
+                </footer>
+              </>
+            ) : (
+              /* ─── FULL-SCREEN CBT SCORE REPORT & DIAGNOSTICS ─── */
+              <main className="flex-1 overflow-y-auto flex items-center justify-center p-4 sm:p-8">
+                <div className="w-full max-w-xl bg-white border border-slate-200 rounded-[4px] shadow-sm p-6 sm:p-10 space-y-6 text-center">
+                  <div className="w-16 h-16 mx-auto rounded-[4px] bg-emerald-50 border border-emerald-200 text-[#0F7640] flex items-center justify-center">
+                    <Award className="w-8 h-8" />
+                  </div>
+
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-900">
+                      Computer-Based Test Completed
+                    </h2>
+                    <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                      Official diagnostic assessment report for {activeTest?.title}
+                    </p>
+                  </div>
+
+                  <div className="p-5 bg-slate-50 border border-slate-200 rounded-[4px] grid grid-cols-3 gap-4 text-left">
+                    <div>
+                      <span className="text-slate-400 text-[11px] uppercase tracking-wider font-semibold block">Your Score</span>
+                      <span className="text-2xl font-bold text-slate-900">
+                        {cbtResult?.score} / {examPool.length}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 text-[11px] uppercase tracking-wider font-semibold block">Percentage</span>
+                      <span className={`text-2xl font-bold ${cbtResult?.passed ? 'text-[#13A348]' : 'text-[#F83A20]'}`}>
+                        {cbtResult?.percentage}%
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 text-[11px] uppercase tracking-wider font-semibold block">Time Taken</span>
+                      <span className="text-lg font-bold text-slate-900 block mt-0.5">
+                        {formatElapsedDuration(cbtResult?.timeSpentMinutes || 1, cbtResult?.timeSpentSeconds)}
+                      </span>
                     </div>
                   </div>
 
-                  {/* CBT Footer Controls */}
-                  <div className="flex items-center justify-between pt-2 border-t border-slate-200">
+                  <div className="inline-block">
+                    <Badge variant={cbtResult?.passed ? 'success' : 'danger'} size="md">
+                      {cbtResult?.passed ? 'QUALIFIED (50% or higher)' : 'BELOW PASS MARK'}
+                    </Badge>
+                  </div>
+
+                  <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                    {cbtResult?.passed
+                      ? 'Congratulations! You have satisfied the statutory 50% pass mark for this licensing simulation. Your score and time taken have been logged in Student Results.'
+                      : 'You scored below the 50% pass mark. It is recommended to review the course materials and re-attempt this practice exam.'}
+                  </p>
+
+                  <div className="flex flex-wrap items-center justify-center gap-3 pt-4 border-t border-slate-200">
                     <Button
                       variant="secondary"
-                      disabled={currentQuestionIndex === 0}
-                      onClick={() => setCurrentQuestionIndex((prev) => Math.max(0, prev - 1))}
-                      leftIcon={<ChevronLeft className="w-3.5 h-3.5" />}
+                      onClick={() => {
+                        setIsSubmitted(false);
+                        startCbtExam(activeTest || practiceTests[0]);
+                      }}
+                      leftIcon={<RotateCcw className="w-4 h-4" />}
                       className="whitespace-nowrap"
                     >
-                      Previous
+                      Retake Practice Exam
                     </Button>
-
-                    <div className="flex items-center gap-2">
-                      {currentQuestionIndex < examPool.length - 1 ? (
-                        <Button
-                          variant="primary"
-                          onClick={() => setCurrentQuestionIndex((prev) => Math.min(examPool.length - 1, prev + 1))}
-                          rightIcon={<ChevronRight className="w-3.5 h-3.5" />}
-                          className="whitespace-nowrap bg-[#0F7640] hover:bg-[#093322]"
-                        >
-                          Next Question
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="primary"
-                          onClick={handleSubmitCbt}
-                          leftIcon={<Check className="w-3.5 h-3.5" />}
-                          className="whitespace-nowrap bg-emerald-700 hover:bg-emerald-800"
-                        >
-                          Submit Exam
-                        </Button>
-                      )}
-                    </div>
+                    <Button
+                      onClick={() => {
+                        setIsCbtModalOpen(false);
+                        handleTabChange('results');
+                      }}
+                      className="whitespace-nowrap bg-[#0F7640] hover:bg-[#093322]"
+                    >
+                      View in Student Results
+                    </Button>
                   </div>
-                </>
-              );
-            })()
-          ) : (
-            /* ─── CBT SCORE REPORT & DIAGNOSTICS ─── */
-            <div className="space-y-5 text-center py-4">
-              <div className="w-16 h-16 mx-auto rounded-[4px] bg-emerald-50 text-[#0F7640] flex items-center justify-center shadow-sm">
-                <Award className="w-8 h-8" />
-              </div>
-
-              <div>
-                <h3 className="text-xl font-bold text-slate-900">
-                  Computer-Based Test Completed
-                </h3>
-                <p className="text-xs text-slate-500 mt-1">
-                  Official diagnostic assessment report for {activeTest?.title}
-                </p>
-              </div>
-
-              <div className="max-w-md mx-auto p-4 bg-slate-50 border border-slate-200 rounded-[4px] grid grid-cols-3 gap-3 text-left">
-                <div>
-                  <span className="text-slate-400 text-[11px] block">Your Score</span>
-                  <span className="text-xl font-bold text-slate-900">
-                    {cbtResult?.score} of {(activeExamQuestions.length || cbtQuestions.length)}
-                  </span>
                 </div>
-                <div>
-                  <span className="text-slate-400 text-[11px] block">Percentage</span>
-                  <span className={`text-xl font-bold ${cbtResult?.passed ? 'text-[#13A348]' : 'text-[#F83A20]'}`}>
-                    {cbtResult?.percentage}%
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-400 text-[11px] block">Time Taken</span>
-                  <span className="text-base font-bold text-slate-900 block mt-0.5">
-                    {formatElapsedDuration(cbtResult?.timeSpentMinutes || 1, cbtResult?.timeSpentSeconds)}
-                  </span>
-                </div>
-              </div>
-
-              <div className="inline-block">
-                <Badge variant={cbtResult?.passed ? 'success' : 'danger'}>
-                  {cbtResult?.passed ? 'QUALIFIED (50% or higher)' : 'BELOW PASS MARK'}
-                </Badge>
-              </div>
-
-              <p className="text-xs text-slate-600 max-w-md mx-auto leading-relaxed">
-                {cbtResult?.passed
-                  ? 'Congratulations! You have satisfied the statutory 50% pass mark for this licensing simulation. Your score and time taken have been logged in Student Results.'
-                  : 'You scored below the 50% pass mark. It is recommended to review the course materials and re-attempt this practice exam.'}
-              </p>
-
-              <div className="flex items-center justify-center gap-2 pt-4 border-t border-slate-200">
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    setIsSubmitted(false);
-                    startCbtExam(activeTest || practiceTests[0]);
-                  }}
-                  leftIcon={<RotateCcw className="w-3.5 h-3.5" />}
-                  className="whitespace-nowrap"
-                >
-                  Retake Practice Exam
-                </Button>
-                <Button
-                  onClick={() => {
-                    setIsCbtModalOpen(false);
-                    handleTabChange('results');
-                  }}
-                  className="whitespace-nowrap bg-[#0F7640] hover:bg-[#093322]"
-                >
-                  View in Student Results
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
-      </Modal>
+              </main>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 };
