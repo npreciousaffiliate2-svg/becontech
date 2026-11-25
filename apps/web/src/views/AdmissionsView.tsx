@@ -1367,8 +1367,11 @@ export const AdmissionsView: React.FC = () => {
               </div>
             </div>
             <UseOneIDLookup
+              lookupEmail={newAppForm.email}
+              lookupPhone={newAppForm.phone}
               onFill={handleCandidateAutoFill}
-              buttonText="1-Click Auto-Fill"
+              reuseText="Authorize 1-Click ID"
+              firstTimeText="Verify with UseOneID"
             />
           </div>
 

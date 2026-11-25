@@ -75,6 +75,7 @@ export const LoginView: React.FC = () => {
     tier: string;
     token?: string;
   } | null>(null);
+  const [hasOneIdWallet, setHasOneIdWallet] = useState(false);
 
   const handleUseOneIdFill = (data: {
     fullName: string;
@@ -391,17 +392,23 @@ export const LoginView: React.FC = () => {
                   </div>
                   <div className="min-w-0">
                     <span className="text-xs font-bold text-slate-900 block font-sans truncate">
-                      Fast-Track with UseOneID
+                      {hasOneIdWallet ? 'UseOneID Wallet Found' : 'Fast-Track with UseOneID'}
                     </span>
                     <span className="text-[11px] text-slate-500 block truncate">
-                      Auto-fill verified details in 1-click
+                      {hasOneIdWallet
+                        ? 'Authorize in 1 click to auto-fill verified details'
+                        : 'Complete KYC or enter email/phone to reuse wallet'}
                     </span>
                   </div>
                 </div>
                 <UseOneIDLookup
+                  lookupEmail={regEmail}
+                  lookupPhone={phone}
+                  onLookupComplete={(res) => setHasOneIdWallet(Boolean(res?.found))}
                   onFill={handleUseOneIdFill}
                   onError={(err) => showToast({ type: 'danger', title: 'UseOneID Error', message: err })}
-                  buttonText="1-Click Auto-Fill"
+                  reuseText="Authorize 1-Click ID"
+                  firstTimeText="Verify with UseOneID"
                 />
               </div>
 

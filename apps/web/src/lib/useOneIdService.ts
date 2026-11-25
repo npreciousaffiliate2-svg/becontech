@@ -121,79 +121,44 @@ export const useOneIdService = {
   },
 
   /**
-   * Look up an account by email or phone (checks UseOneID vault)
+   * Look up an account by email or phone (checks live UseOneID vault via server-side /api/useoneid/lookup)
    */
   async lookupUser(
     identifier: string | { email?: string; phone?: string },
     secretKey?: string
   ): Promise<LookupResult> {
-    const email = (typeof identifier === 'string' ? identifier : identifier.email || '').trim().toLowerCase();
-    const phone = (typeof identifier === 'string' ? identifier : identifier.phone || '').trim().replace(/[\s-]/g, '');
+    const email = (typeof identifier === 'string' ? (identifier.includes('@') ? identifier : '') : identifier.email || '').trim().toLowerCase();
+    const phone = (typeof identifier === 'string' ? (!identifier.includes('@') ? identifier : '') : identifier.phone || '').trim().replace(/[\s-]/g, '');
 
-    // 1. High-speed local cache & verified admissions candidates registry (zero CORS)
-    try {
-      const savedCandidatesRaw = localStorage.getItem('campusone_admissions_candidates');
-      if (savedCandidatesRaw) {
-        const list = JSON.parse(savedCandidatesRaw);
-        const match = list.find((c: any) => 
-          (email && c.email && c.email.toLowerCase() === email) ||
-          (phone && c.phone && c.phone.replace(/[\s-]/g, '') === phone)
-        );
-        if (match) {
-          return {
-            found: true,
-            matchedIdentifier: email || phone,
-            user: {
-              id: match.oneIdNumber || `oneid_${match.id}`,
-              name: match.fullName,
-              email: match.email,
-              phone: match.phone,
-              stateOfOrigin: match.stateOfOrigin,
-              lga: match.lga,
-              tier: 'Tier 3 (NIMC Verified)',
-              avatarUrl: match.avatarUrl,
-            },
-          };
-        }
-      }
-    } catch (e) {}
-
-    // 2. High-performance client-side cache & known pre-seeded checks
-    const verifiedKnownList = [
-      { email: 'amina.adebayo@gmail.com', phone: '+2348034567890', name: 'Amina Adebayo', state: 'Oyo', lga: 'Ibadan North' },
-      { email: 'blessing.adeyemi@becohtech.edu.ng', phone: '+2348134901284', name: 'Blessing Adeyemi', state: 'Oyo', lga: 'Ogbomoso North' },
-      { email: 'victoria.olusola@yahoo.com', phone: '+2348123456789', name: 'Victoria Olusola', state: 'Osun', lga: 'Osogbo' },
-      { email: 'faruk.danladi@outlook.com', phone: '+2348028881234', name: 'Faruk Danladi', state: 'Kano', lga: 'Nassarawa' },
-      { email: 'admin@becohtech.edu.ng', phone: '+2348020000001', name: 'Engr. Dapo Williams', state: 'Lagos', lga: 'Ikeja' },
-    ];
-
-    const match = verifiedKnownList.find(
-      (k) =>
-        (email && k.email.toLowerCase() === email) ||
-        (phone && (k.phone === phone || k.phone.replace(/[\s+-]/g, '').endsWith(phone.slice(-10))))
-    );
-
-    if (match) {
-      return {
-        found: true,
-        matchedIdentifier: email || phone,
-        user: {
-          id: `oneid_${match.name.toLowerCase().replace(/\s+/g, '_')}`,
-          name: match.name,
-          email: match.email,
-          phone: match.phone,
-          stateOfOrigin: match.state,
-          lga: match.lga,
-          tier: 'Tier 3 (NIMC Verified)',
-        },
-      };
+    if (!email && !phone) {
+      return { found: false };
     }
 
-    // 3. Fallback to server lookup only if custom proxy base is configured
+    // 1. Live server-side UseOneID wallet lookup via Vercel serverless route (zero CORS)
+    try {
+      const res = await fetch('/api/useoneid/lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, phone }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        return {
+          found: Boolean(data.found),
+          matchedIdentifier: data.matchedIdentifier || email || phone,
+          user: data.user,
+        };
+      }
+    } catch {
+      // Fall through only if /api/useoneid/lookup is unavailable (e.g. local Vite dev without serverless proxy)
+    }
+
+    // 2. Fallback to custom proxy base if configured
     const proxyBase = (import.meta.env.VITE_USEONEID_PROXY_URL as string) || '';
     if (proxyBase) {
       try {
-        const payload = typeof identifier === 'string' ? { identifier } : identifier;
+        const payload = typeof identifier === 'string' ? { identifier } : { email, phone };
         const res = await fetch(`${proxyBase}/verify/lookup-user`, {
           method: 'POST',
           headers: {
@@ -211,7 +176,7 @@ export const useOneIdService = {
             user: data.user,
           };
         }
-      } catch (err) {}
+      } catch {}
     }
 
     return { found: false, matchedIdentifier: email || phone };
