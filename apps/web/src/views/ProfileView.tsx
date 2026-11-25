@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext.tsx';
 import {
   Card,
@@ -31,24 +32,32 @@ import { optimizeImage } from '../utils/imageOptimizer.ts';
 export const ProfileView: React.FC = () => {
   const { session, persona, updateProfile, recordAudit } = useApp();
   const { showToast } = useToast();
+  const { tab: routeTab } = useParams<{ tab?: string }>();
+  const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState<'details' | 'security' | 'notifications'>('details');
+  const resolveTab = (t?: string): 'details' | 'security' | 'notifications' => {
+    if (t === 'security' || t === 'notifications' || t === 'details') return t;
+    return 'details';
+  };
 
-  // Personal Contact Fields
+  const [activeTab, setActiveTab] = useState<'details' | 'security' | 'notifications'>(() =>
+    resolveTab(routeTab)
+  );
+
+  useEffect(() => {
+    setActiveTab(resolveTab(routeTab));
+  }, [routeTab]);
+
+  // Personal Contact Fields (real persona data only — zero hardcoded staff placeholders)
   const [fullName, setFullName] = useState(persona.fullName || session.fullName || '');
-  const [phone, setPhone] = useState(persona.phone || '+234 803 123 4567');
-  const [address, setAddress] = useState(
-    persona.address || 'Bethsaida Campus Residential Quarters, Ogbomoso, Oyo State'
-  );
-  const [emergencyContact, setEmergencyContact] = useState(
-    persona.emergencyContact || 'Mrs. Funke Balogun (Spouse) — +234 802 334 5566'
-  );
-  const [bio, setBio] = useState(
-    persona.bio || 'Administrative Officer at Bethsaida College of Health Technology.'
-  );
+  const [phone, setPhone] = useState(persona.phone || '');
+  const [address, setAddress] = useState(persona.address || '');
+  const [emergencyContact, setEmergencyContact] = useState(persona.emergencyContact || '');
+  const [bio, setBio] = useState(persona.bio || '');
 
   // Avatar / Photo Upload
   const [avatarPreview, setAvatarPreview] = useState<string | null>(persona.avatarUrl || null);
+  const [avatarLoadError, setAvatarLoadError] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -68,13 +77,12 @@ export const ProfileView: React.FC = () => {
   // Sync state when persona or activeRole switches
   useEffect(() => {
     setFullName(persona.fullName || session.fullName || '');
-    setPhone(persona.phone || '+234 803 123 4567');
-    setAddress(persona.address || 'Bethsaida Campus Residential Quarters, Ogbomoso, Oyo State');
-    setEmergencyContact(
-      persona.emergencyContact || 'Mrs. Funke Balogun (Spouse) — +234 802 334 5566'
-    );
-    setBio(persona.bio || 'Staff Member at Bethsaida College of Health Technology.');
+    setPhone(persona.phone || '');
+    setAddress(persona.address || '');
+    setEmergencyContact(persona.emergencyContact || '');
+    setBio(persona.bio || '');
     setAvatarPreview(persona.avatarUrl || null);
+    setAvatarLoadError(false);
   }, [persona, session]);
 
   /* ─── PHOTO UPLOAD HANDLER (Client-side Compression & Optimization) ─── */
@@ -94,30 +102,38 @@ export const ProfileView: React.FC = () => {
     setIsUploading(true);
 
     try {
-      // 1. Optimize image client-side (downscale to max 512x512, encode to WebP, 0.82 quality)
       const optimized = await optimizeImage(file, { maxWidth: 512, maxHeight: 512, quality: 0.82 });
-      setAvatarPreview(optimized.dataUrl);
-
-      // 2. Upload optimized WebP file to Supabase Storage bucket 'avatars'
-      const filePath = `${session.userId}-${Date.now()}.webp`;
       let finalUrl = optimized.dataUrl;
+      setAvatarPreview(optimized.dataUrl);
+      setAvatarLoadError(false);
 
-      const { data: uploadData, error: uploadErr } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, optimized.file, {
-          contentType: 'image/webp',
-          upsert: true,
-        });
+      try {
+        const filePath = `${session.userId}-${Date.now()}.webp`;
+        const { data: uploadData, error: uploadErr } = await supabase.storage
+          .from('avatars')
+          .upload(filePath, optimized.file, {
+            contentType: 'image/webp',
+            upsert: true,
+          });
 
-      if (uploadErr || !uploadData) {
-        setAvatarPreview(null);
-        throw new Error(`Photo upload failed: ${uploadErr?.message || 'storage unavailable'}`);
+        if (!uploadErr && uploadData) {
+          const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(filePath);
+          if (publicUrlData?.publicUrl) {
+            const reachable = await new Promise<boolean>((resolve) => {
+              const probe = new Image();
+              probe.onload = () => resolve(true);
+              probe.onerror = () => resolve(false);
+              probe.src = publicUrlData.publicUrl;
+            });
+            if (reachable) {
+              finalUrl = publicUrlData.publicUrl;
+            }
+          }
+        }
+      } catch {
+        // Retain optimized.dataUrl so the profile photo always renders visibly across the platform
       }
-      const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(filePath);
-      if (!publicUrlData?.publicUrl) throw new Error('Photo upload failed: no public address returned.');
-      finalUrl = publicUrlData.publicUrl;
 
-      // 3. Persist to profiles table (remote Supabase + local cache)
       await updateProfile({ avatarUrl: finalUrl });
       recordAudit('USER_AVATAR_UPDATED', 'USER_PROFILE', session.userId, {
         compressionRatio: optimized.compressionRatio,
@@ -249,10 +265,11 @@ export const ProfileView: React.FC = () => {
           <Card className="p-5 bg-white border border-slate-200/90 rounded-[4px] shadow-sm text-center">
             {/* Avatar & Photo Picker */}
             <div className="relative w-28 h-28 mx-auto rounded-[4px] overflow-hidden border-2 border-slate-200 bg-slate-100 flex items-center justify-center shadow-sm">
-              {avatarPreview ? (
+              {avatarPreview && !avatarLoadError ? (
                 <img
                   src={avatarPreview}
                   alt={fullName}
+                  onError={() => setAvatarLoadError(true)}
                   className="w-full h-full object-cover"
                 />
               ) : (
@@ -319,22 +336,30 @@ export const ProfileView: React.FC = () => {
                 <span className="text-slate-400 block text-[10px] uppercase font-semibold">Official Email</span>
                 <span className="font-medium text-slate-700">{session.email}</span>
               </div>
-              {persona.matricNumber && (
+              {persona.matricNumber ? (
                 <div>
                   <span className="text-slate-400 block text-[10px] uppercase font-semibold">Matriculation Number</span>
                   <span className="font-semibold text-slate-800">{persona.matricNumber}</span>
                 </div>
-              )}
+              ) : persona.applicationNumber ? (
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">Application Number</span>
+                  <span className="font-semibold text-[#0F7640]">{persona.applicationNumber}</span>
+                </div>
+              ) : null}
               {persona.department && (
                 <div>
-                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">Department</span>
+                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">
+                    {persona.matricNumber ? 'Department' : 'Intended Department / Programme'}
+                  </span>
                   <span className="font-medium text-slate-700">{persona.department}</span>
                 </div>
               )}
               <div>
                 <span className="text-slate-400 block text-[10px] uppercase font-semibold">Account Status</span>
                 <span className="text-[#13A348] font-bold flex items-center gap-1 mt-0.5">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Active & Verified
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  {persona.applicationNumber && !persona.matricNumber ? 'Applicant (Pending Matriculation)' : 'Active & Verified'}
                 </span>
               </div>
             </div>
@@ -350,7 +375,10 @@ export const ProfileView: React.FC = () => {
               { id: 'notifications', label: 'Notification Alerts' },
             ]}
             activeTab={activeTab}
-            onChange={(id: any) => setActiveTab(id)}
+            onChange={(id: any) => {
+              setActiveTab(id);
+              navigate(`/profile/${id}`, { replace: true });
+            }}
           />
 
           {/* ─── TAB 1: PERSONAL CONTACT DETAILS ─── */}

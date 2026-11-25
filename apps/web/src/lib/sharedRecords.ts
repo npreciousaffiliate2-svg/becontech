@@ -55,6 +55,16 @@ export async function persistRecords<T>(kind: string, rows: T[]) {
     localStorage.setItem(`campusone_shared_${kind}`, JSON.stringify(rows));
   } catch (e) {}
 
+  // Skip remote table upserts when there is no authenticated Supabase JWT (prevents 401/403 RLS noise on public forms)
+  try {
+    const { data: authData } = await supabase.auth.getSession();
+    if (!authData?.session?.access_token) {
+      return;
+    }
+  } catch {
+    return;
+  }
+
   const generation = (writes.get(kind) || 0) + 1;
   writes.set(kind, generation);
 

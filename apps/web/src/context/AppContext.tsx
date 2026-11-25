@@ -1054,33 +1054,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ...(isApplicantRole
       ? {
           fullName:
+            personaOverrides.fullName ||
             matchedCandidate?.fullName ||
             (currentEmailToMatch ? currentEmailToMatch.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()) : basePersona.fullName),
           email: matchedCandidate?.email || currentEmailToMatch || basePersona.email,
-          phone: matchedCandidate?.phone || basePersona.phone,
-          department: matchedCandidate?.department || matchedCandidate?.programme || 'Department of Community Health',
-          matricNumber: matchedCandidate?.matricNumber || matchedCandidate?.applicationNumber || 'APP/2026/0145',
+          phone: personaOverrides.phone || matchedCandidate?.phone || '',
+          address: personaOverrides.address || (matchedCandidate ? `${matchedCandidate.lga || ''}${matchedCandidate.lga && matchedCandidate.stateOfOrigin ? ', ' : ''}${matchedCandidate.stateOfOrigin || ''}` : ''),
+          emergencyContact: personaOverrides.emergencyContact || '',
+          department: matchedCandidate?.department || matchedCandidate?.programme || '',
+          // Applicants NEVER receive a Matriculation Number until admitted & acceptance fees are cleared
+          matricNumber: undefined,
+          applicationNumber: matchedCandidate?.applicationNumber,
           scopeBadge:
             matchedCandidate?.status === 'ADMITTED'
               ? 'Admitted Candidate'
               : 'Admission Applicant',
-          bio: matchedCandidate
-            ? `${matchedCandidate.programme} • Application: ${matchedCandidate.applicationNumber}`
-            : 'Candidate Admission & Entrance Screening Profile',
-          avatarUrl: matchedCandidate?.avatarUrl || basePersona.avatarUrl,
+          bio:
+            personaOverrides.bio ||
+            (matchedCandidate
+              ? `${matchedCandidate.programme} • Application: ${matchedCandidate.applicationNumber}`
+              : 'Candidate Admission & Entrance Screening Profile'),
+          avatarUrl: personaOverrides.avatarUrl !== undefined ? personaOverrides.avatarUrl : (matchedCandidate?.avatarUrl || ''),
           // Strict module confinement: applicants can ONLY see Admission Overview, Profile, and Help Support
           allowedModules: ['/', '/profile', '/support'],
         }
       : matchedCandidate && (activeRole === 'STU' || activeRole === 'SPON')
       ? {
-          fullName: matchedCandidate.fullName,
+          fullName: personaOverrides.fullName || matchedCandidate.fullName,
           email: matchedCandidate.email,
-          phone: matchedCandidate.phone,
+          phone: personaOverrides.phone || matchedCandidate.phone,
           department: matchedCandidate.department || matchedCandidate.programme,
-          matricNumber: matchedCandidate.matricNumber || matchedCandidate.applicationNumber,
+          matricNumber: matchedCandidate.matricNumber,
+          applicationNumber: matchedCandidate.applicationNumber,
           scopeBadge: 'Enrolled Student',
-          bio: `${matchedCandidate.programme} • Matric: ${matchedCandidate.matricNumber}`,
-          avatarUrl: matchedCandidate.avatarUrl || basePersona.avatarUrl,
+          bio: personaOverrides.bio || `${matchedCandidate.programme} • Matric: ${matchedCandidate.matricNumber}`,
+          avatarUrl: personaOverrides.avatarUrl !== undefined ? personaOverrides.avatarUrl : (matchedCandidate.avatarUrl || basePersona.avatarUrl),
         }
       : {}),
     ...(impersonatedUserMeta
@@ -1429,7 +1437,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.setItem('campusone_audit_logs', JSON.stringify(nextLogs.slice(0, 50)));
     } catch (e) {}
 
-    try {
+    // Only sync audit_logs to Supabase when an authenticated JWT session exists (prevents 401 console errors)
+    supabase.auth.getSession().then(({ data }) => {
+      if (!data?.session?.access_token) return;
       Promise.resolve(
         supabase.from('audit_logs').insert({
           id: newLog.id,
@@ -1448,7 +1458,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           timestamp: newLog.timestamp,
         })
       ).catch(() => {});
-    } catch (e) {}
+    }).catch(() => {});
   };
 
   const updateSchoolProfile = async (updates: Partial<SchoolProfile>) => {
@@ -1833,8 +1843,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (updates.avatarUrl !== undefined) {
       registerPersonAvatar(
-        [persona.email, persona.matricNumber, updates.fullName || persona.fullName],
+        [persona.email, persona.matricNumber, persona.applicationNumber, updates.fullName || persona.fullName],
         updates.avatarUrl
+      );
+    }
+
+    // One-Brain sync: keep matching candidate record in sync when an applicant updates their profile
+    if (matchedCandidate) {
+      setCandidates((prev) =>
+        prev.map((c) =>
+          c.id === matchedCandidate.id
+            ? {
+                ...c,
+                ...(updates.fullName !== undefined ? { fullName: updates.fullName } : {}),
+                ...(updates.phone !== undefined ? { phone: updates.phone } : {}),
+                ...(updates.avatarUrl !== undefined ? { avatarUrl: updates.avatarUrl || undefined } : {}),
+              }
+            : c
+        )
       );
     }
 
@@ -1852,7 +1878,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updated_at: new Date().toISOString(),
     };
 
-    // Write to the signed-in user's own profile row (matched by auth id, then email).
+    // Write to the signed-in user's own profile row only if an authenticated Supabase session exists
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData?.session?.access_token) {
+      return;
+    }
     const { data: authData } = await supabase.auth.getUser();
     const authUser = authData?.user;
     const { id: _ignoredId, college_id: _c, role: _r, email: _e, ...editable } = profilePayload;

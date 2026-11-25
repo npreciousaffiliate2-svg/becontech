@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams, useParams } from 'react-router-dom';
 import { useApp, SupportTicketItem } from '../context/AppContext.tsx';
 import { useSharedRecords } from '../lib/sharedRecords.ts';
 import {
@@ -61,8 +62,21 @@ export const SupportView: React.FC = () => {
     isDense,
   } = useApp();
   const { showToast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { tab: routeTab } = useParams<{ tab?: string }>();
 
-  const [activeTab, setActiveTab] = useState<'tickets' | 'faq' | 'directory'>('tickets');
+  const resolveSupportTab = (val?: string | null): 'tickets' | 'faq' | 'directory' => {
+    if (val === 'faq' || val === 'directory' || val === 'tickets') return val;
+    return 'tickets';
+  };
+
+  const [activeTab, setActiveTab] = useState<'tickets' | 'faq' | 'directory'>(() =>
+    resolveSupportTab(searchParams.get('tab') || routeTab)
+  );
+
+  useEffect(() => {
+    setActiveTab(resolveSupportTab(searchParams.get('tab') || routeTab));
+  }, [searchParams, routeTab]);
   const [ticketSearch, setTicketSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
@@ -489,7 +503,10 @@ export const SupportView: React.FC = () => {
           { id: 'directory', label: 'Departmental Contact Directory' },
         ]}
         activeTab={activeTab}
-        onChange={(id: any) => setActiveTab(id)}
+        onChange={(id: any) => {
+          setActiveTab(id);
+          setSearchParams({ tab: id }, { replace: true });
+        }}
       />
 
       {/* ─── TAB 1: SUPPORT TICKETS ─── */}

@@ -323,6 +323,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
           name: 'My Profile',
           path: '/profile',
           icon: <User size={19} />,
+          subItems: [
+            { name: 'Contact Details', path: '/profile/details' },
+            { name: 'Password & Security', path: '/profile/security' },
+            { name: 'Notification Alerts', path: '/profile/notifications' },
+          ],
         },
       ],
     },
