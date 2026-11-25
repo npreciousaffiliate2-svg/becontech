@@ -88,7 +88,7 @@ export const DashboardView: React.FC = () => {
                 <Button
                   variant="primary"
                   className="bg-[#0F7640] hover:bg-[#093322] text-xs font-bold"
-                  onClick={() => navigate('/login?tab=register')}
+                  onClick={() => navigate('/apply')}
                 >
                   Start New Admission Application
                 </Button>

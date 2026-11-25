@@ -22,6 +22,7 @@ export const PortalShell: React.FC<PortalShellProps> = ({ children, onOpenNotice
   const isHome = location.pathname === '/' || location.pathname === '/portal';
   const isCheckStatus =
     location.pathname === '/check-admission' || location.pathname === '/prospective-students';
+  const isApply = location.pathname === '/apply' || location.pathname === '/register';
 
   return (
     <div className="min-h-screen bg-white font-sans text-slate-800 flex flex-col">
@@ -53,7 +54,10 @@ export const PortalShell: React.FC<PortalShellProps> = ({ children, onOpenNotice
               >
                 Check Admission Status
               </Link>
-              <Link to="/apply" className="hover:text-slate-900 transition-colors">
+              <Link
+                to="/apply"
+                className={isApply ? 'text-[#0F7640] font-semibold' : 'hover:text-slate-900 transition-colors'}
+              >
                 Online Application
               </Link>
               {onOpenNotices && (

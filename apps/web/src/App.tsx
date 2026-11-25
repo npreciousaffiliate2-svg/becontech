@@ -29,6 +29,7 @@ import { TermsView } from './views/TermsView.tsx';
 import { PrivacyView } from './views/PrivacyView.tsx';
 import { AdmissionStatusView } from './views/AdmissionStatusView.tsx';
 import { PortalHomeView } from './views/PortalHomeView.tsx';
+import { ApplyView } from './views/ApplyView.tsx';
 
 export const App: React.FC = () => {
   return (
@@ -39,8 +40,8 @@ export const App: React.FC = () => {
             {/* Public Portal, Auth & Legal Routes */}
             <Route path="/portal" element={<PortalHomeView />} />
             <Route path="/login" element={<LoginView />} />
-            <Route path="/register" element={<LoginView />} />
-            <Route path="/apply" element={<LoginView />} />
+            <Route path="/register" element={<ApplyView />} />
+            <Route path="/apply" element={<ApplyView />} />
             <Route path="/forgot-password" element={<ForgotPasswordView />} />
             <Route path="/check-admission" element={<AdmissionStatusView />} />
             <Route path="/prospective-students" element={<AdmissionStatusView />} />
