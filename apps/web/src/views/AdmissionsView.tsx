@@ -778,23 +778,13 @@ export const AdmissionsView: React.FC = () => {
           <div className="bg-emerald-50 border border-emerald-200 rounded-[4px] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h3 className="font-bold text-emerald-900 text-sm">
-                2026/2027 Statutory Admission Entrance CBT Benchmark: {schoolProfile?.minimumCutoffScore || 50}% Cut-Off
+                {(schoolProfile?.activeSession || '2026/2027').replace(/\s*Academic Session\s*/i, '').trim()} Entrance CBT Screening Benchmark: {schoolProfile?.minimumCutoffScore || 50}% Cut-Off
               </h3>
               <p className="text-xs text-emerald-700 mt-0.5">
-                Applicants sit the college Entrance Screening CBT (English, Biology, Chemistry, Physics &amp; Health Aptitude) and present 5 O&apos;Level credit passes.
+                Applicants take the Online Entrance CBT inside their own Applicant Portal (when enabled in School Settings), or sit the physical CBT on-campus for Admissions Officers to record scores here.
               </p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => {
-                  const firstApplicant = candidates.find((c) => c.status === 'APPLIED') || candidates[0];
-                  if (firstApplicant) startAdmissionCbtForCandidate(firstApplicant);
-                }}
-              >
-                Launch Entrance CBT Simulator
-              </Button>
               <Button
                 size="sm"
                 leftIcon={<UserCheck className="w-3.5 h-3.5" />}
@@ -877,9 +867,9 @@ export const AdmissionsView: React.FC = () => {
                       <Button
                         size="sm"
                         variant="secondary"
-                        onClick={() => startAdmissionCbtForCandidate(c)}
+                        onClick={() => handleOpenEditCandidate(c)}
                       >
-                        Take CBT
+                        Record Score
                       </Button>
                       {c.status === 'APPLIED' && (
                         <Button

@@ -78,7 +78,7 @@ export const LoginView: React.FC = () => {
   return (
     <AuthFrame>
       {/* Mobile Crest Logo */}
-      <div className="flex lg:hidden items-center gap-2 mb-6">
+      <Link to="/" className="flex lg:hidden items-center gap-2 mb-6 hover:opacity-90 transition-opacity">
         <img
           src={schoolProfile?.logoUrl || '/BeonTech-Logo.png'}
           alt="College Crest"
@@ -87,7 +87,7 @@ export const LoginView: React.FC = () => {
         <span className="text-sm font-extrabold uppercase tracking-wider text-[#093322] font-sans">
           {schoolProfile?.institutionAcronym || 'CampusOne'}
         </span>
-      </div>
+      </Link>
 
       {/* Header */}
       <div className="mb-6">

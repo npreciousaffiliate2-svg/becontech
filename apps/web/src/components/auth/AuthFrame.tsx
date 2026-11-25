@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { ShieldCheck, FileCheck, LockKeyhole } from 'lucide-react';
 import { useApp } from '../../context/AppContext.tsx';
 
@@ -16,7 +17,7 @@ export const AuthFrame: React.FC<{ children: React.ReactNode }> = ({ children })
         className="hidden lg:flex w-1/2 relative items-center justify-center p-12 overflow-hidden select-none"
       >
         <div className="max-w-md flex flex-col justify-between h-full relative z-10 py-8">
-          <div className="flex items-center gap-3">
+          <Link to="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
             <img
               src={schoolProfile?.logoUrl || '/BeonTech-Logo.png'}
               alt="School crest"
@@ -30,7 +31,7 @@ export const AuthFrame: React.FC<{ children: React.ReactNode }> = ({ children })
                 {schoolProfile?.institutionName?.replace(' Ltd', '') || 'Bethsaida College of Health Technology'}
               </span>
             </div>
-          </div>
+          </Link>
 
           <div className="flex flex-col gap-6 my-auto">
             <div className="flex flex-col gap-2.5">
