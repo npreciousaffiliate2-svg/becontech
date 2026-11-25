@@ -549,42 +549,41 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
                   className="w-full h-full object-contain"
                 />
               </div>
-              <div>
-                <Badge variant="success" size="sm">Anti-Impersonation Gate</Badge>
-                <h2 className="text-lg font-bold text-slate-900 mt-1">
-                  Verify Identity with UseOneID to Begin Exam
-                </h2>
-              </div>
+              <h2 className="text-lg font-bold text-slate-900 leading-snug">
+                Verify Identity with UseOneID to Begin Exam
+              </h2>
             </div>
 
-            <div className="p-4 bg-slate-50 border border-slate-200 rounded-[4px] space-y-2 text-xs text-slate-700">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">Registered Candidate:</span>
-                <span className="font-bold text-slate-900">{candidateName}</span>
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-[4px] space-y-2.5 text-xs text-slate-700">
+              <div className="flex items-start justify-between gap-4">
+                <span className="text-slate-500 shrink-0">Registered Candidate:</span>
+                <span className="font-bold text-slate-900 text-right">{candidateName}</span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">Application Number:</span>
-                <span className="font-bold text-[#0F7640]">{applicationNumber}</span>
+              <div className="flex items-start justify-between gap-4">
+                <span className="text-slate-500 shrink-0">Application Number:</span>
+                <span className="font-bold text-[#0F7640] text-right">{applicationNumber}</span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">Examination Suite:</span>
-                <span className="font-semibold text-slate-800">{activeSuite.examTitle}</span>
+              <div className="flex items-start justify-between gap-4">
+                <span className="text-slate-500 shrink-0">Examination:</span>
+                <span className="font-semibold text-slate-800 text-right max-w-[260px] leading-snug">
+                  {activeSuite.examTitle}
+                </span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">Duration &amp; Questions:</span>
-                <span className="font-semibold text-slate-800">
+              <div className="flex items-start justify-between gap-4">
+                <span className="text-slate-500 shrink-0">Duration &amp; Questions:</span>
+                <span className="font-semibold text-slate-800 text-right">
                   {activeSuite.durationMinutes} mins &bull; {examQuestions.length} Questions
                 </span>
               </div>
             </div>
 
-            <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-[4px] text-xs text-amber-950 space-y-1">
-              <p className="font-bold">Mandatory Anti-Fraud Proctoring Rules:</p>
-              <p className="text-amber-900 leading-relaxed">
-                1. Your UseOneID identity must match your registered applicant email before the exam unlocks.<br />
-                2. Switching browser tabs or leaving the window triggers a strike — <strong>3 strikes auto-submits</strong> your exam.<br />
-                3. Copy, paste, print, DevTools, and page-refresh timer resets are disabled.
-              </p>
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-[4px] text-xs text-amber-950 space-y-1.5">
+              <p className="font-bold">Important Exam Rules:</p>
+              <ol className="list-decimal list-inside space-y-1 text-amber-900 leading-relaxed">
+                <li>Use the same UseOneID account linked to your application email to unlock your exam.</li>
+                <li>Stay on this exam screen until you finish. Leaving or switching tabs 3 times will automatically submit your exam.</li>
+                <li>Copying questions, printing, or refreshing the page is not allowed and will not pause your timer.</li>
+              </ol>
             </div>
 
             {identityError && (
@@ -598,8 +597,8 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
               <UseOneIDButton
                 lookupEmail={candidateEmail}
                 lookupPhone={candidatePhone}
-                reuseText="Verify & Unlock Exam with 1-Click UseOneID"
-                firstTimeText="Verify Identity with UseOneID to Start Exam"
+                reuseText="Verify with 1-Click UseOneID"
+                firstTimeText="Verify Identity with UseOneID"
                 theme="brand"
                 onSuccess={handleUseOneIdExamAuthorized}
                 onError={(err) => setIdentityError(err || 'UseOneID verification was cancelled or failed.')}
@@ -608,8 +607,7 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
               <Button
                 type="button"
                 variant="secondary"
-                size="sm"
-                className="w-full"
+                className="w-full h-[46px] text-xs font-semibold"
                 onClick={onClose}
               >
                 Cancel &amp; Return to Applicant Portal

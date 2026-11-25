@@ -2339,29 +2339,37 @@ export const LearningView: React.FC = () => {
                         className="w-full h-full object-contain"
                       />
                     </div>
-                    <div>
-                      <Badge variant="success" size="sm">Anti-Impersonation Gate</Badge>
-                      <h2 className="text-lg font-bold text-slate-900 mt-1">
-                        Verify Identity with UseOneID to Begin Exam
-                      </h2>
-                    </div>
+                    <h2 className="text-lg font-bold text-slate-900 leading-snug">
+                      Verify Identity with UseOneID to Begin Exam
+                    </h2>
                   </div>
 
-                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-[4px] space-y-2 text-xs text-slate-700">
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-500">Registered Student:</span>
-                      <span className="font-bold text-slate-900">{persona?.fullName || session.fullName}</span>
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-[4px] space-y-2.5 text-xs text-slate-700">
+                    <div className="flex items-start justify-between gap-4">
+                      <span className="text-slate-500 shrink-0">Registered Student:</span>
+                      <span className="font-bold text-slate-900 text-right">{persona?.fullName || session.fullName}</span>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-500">Examination:</span>
-                      <span className="font-semibold text-slate-800">{activeTest?.title}</span>
+                    <div className="flex items-start justify-between gap-4">
+                      <span className="text-slate-500 shrink-0">Examination:</span>
+                      <span className="font-semibold text-slate-800 text-right max-w-[260px] leading-snug">
+                        {activeTest?.title}
+                      </span>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-500">Course &amp; Duration:</span>
-                      <span className="font-semibold text-[#0F7640]">
+                    <div className="flex items-start justify-between gap-4">
+                      <span className="text-slate-500 shrink-0">Course &amp; Duration:</span>
+                      <span className="font-semibold text-[#0F7640] text-right">
                         {activeTest?.courseCode} &bull; {activeTest?.durationMinutes || 30} mins ({examPool.length} Questions)
                       </span>
                     </div>
+                  </div>
+
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-[4px] text-xs text-amber-950 space-y-1.5">
+                    <p className="font-bold">Important Exam Rules:</p>
+                    <ol className="list-decimal list-inside space-y-1 text-amber-900 leading-relaxed">
+                      <li>Confirm your identity using the UseOneID account linked to your student email.</li>
+                      <li>Stay on this exam screen until you finish. Leaving or switching tabs 3 times will automatically submit your exam.</li>
+                      <li>Copying questions or printing is not allowed during the exam.</li>
+                    </ol>
                   </div>
 
                   {cbtIdentityError && (
@@ -2374,15 +2382,15 @@ export const LearningView: React.FC = () => {
                     <UseOneIDButton
                       lookupEmail={persona?.email || ''}
                       lookupPhone={persona?.phone || ''}
-                      reuseText="Verify & Unlock Exam with 1-Click UseOneID"
-                      firstTimeText="Verify Identity with UseOneID to Start Exam"
+                      reuseText="Verify with 1-Click UseOneID"
+                      firstTimeText="Verify Identity with UseOneID"
                       theme="brand"
                       onSuccess={(payload: any) => {
                         const returnedEmail = String(payload?.email || '').trim().toLowerCase();
                         const expectedEmail = String(persona?.email || '').trim().toLowerCase();
                         if (returnedEmail && expectedEmail && returnedEmail !== expectedEmail) {
                           setCbtIdentityError(
-                            `Impersonation Alert: UseOneID account (${returnedEmail}) does not match your student account (${expectedEmail}).`
+                            `Identity mismatch: The UseOneID account (${returnedEmail}) does not match your student account (${expectedEmail}).`
                           );
                           return;
                         }
@@ -2392,7 +2400,7 @@ export const LearningView: React.FC = () => {
                         showToast({
                           type: 'success',
                           title: 'Identity Verified via UseOneID',
-                          message: 'Proctored CBT examination unlocked.',
+                          message: 'Your CBT examination is now unlocked.',
                         });
                       }}
                       onError={(err) => setCbtIdentityError(err || 'UseOneID verification cancelled or failed.')}
@@ -2401,8 +2409,7 @@ export const LearningView: React.FC = () => {
                     <Button
                       type="button"
                       variant="secondary"
-                      size="sm"
-                      className="w-full"
+                      className="w-full h-[46px] text-xs font-semibold"
                       onClick={() => setIsCbtModalOpen(false)}
                     >
                       Cancel &amp; Return
