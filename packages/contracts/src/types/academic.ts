@@ -187,3 +187,32 @@ export const ACCREDITED_HEALTH_PROGRAMMES: HealthProgrammeItem[] = [
     credentialAwarded: 'Diploma in Medical Laboratory Technology',
   },
 ];
+
+export const OLEVEL_EXAM_BODIES: { value: string; label: string }[] = [
+  { value: 'WAEC (SSCE)', label: 'WAEC (SSCE)' },
+  { value: 'WAEC (GCE / Private)', label: 'WAEC (GCE / Private)' },
+  { value: 'NECO (SSCE)', label: 'NECO (SSCE)' },
+  { value: 'NECO (GCE / Private)', label: 'NECO (GCE / Private)' },
+  { value: 'NABTEB', label: 'NABTEB' },
+  { value: 'NBAIS', label: 'NBAIS' },
+  { value: 'IGCSE / Cambridge', label: 'IGCSE / Cambridge' },
+  { value: 'WAEC + NECO (Combined)', label: 'WAEC + NECO (Combined Sittings)' },
+];
+
+export const OLEVEL_GRADES: { value: string; label: string }[] = [
+  'A1', 'B2', 'B3', 'C4', 'C5', 'C6', 'D7', 'E8', 'F9',
+].map((g) => ({ value: g, label: g }));
+
+export function getOlevelExamYears(spanYears = 26): { value: string; label: string }[] {
+  const currentYear = new Date().getFullYear();
+  return Array.from({ length: spanYears }, (_, i) => {
+    const yr = String(currentYear - i);
+    return { value: yr, label: yr };
+  });
+}
+
+export function normalizeOlevelExamBody(val?: string): string {
+  if (!val || val === 'WAEC') return 'WAEC (SSCE)';
+  if (val === 'NECO') return 'NECO (SSCE)';
+  return val;
+}

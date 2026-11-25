@@ -30,14 +30,26 @@ import { Button, Badge, Card } from '@campusone/ui';
 import { useNavigate } from 'react-router-dom';
 import { PersonAvatar } from '../components/common/PersonAvatar.tsx';
 import { printInstitutionalDocument } from '../utils/documentExport.ts';
+import { OnlineEntranceCbtModal } from '../components/admissions/OnlineEntranceCbtModal.tsx';
 
 export const DashboardView: React.FC = () => {
-  const { session, persona, receipts, ledgerEntries, schoolProfile, departments, candidates } = useApp();
+  const {
+    session,
+    persona,
+    receipts,
+    ledgerEntries,
+    schoolProfile,
+    departments,
+    candidates,
+    updateCandidate,
+    recordAudit,
+  } = useApp();
   const navigate = useNavigate();
 
   const [timeframe, setTimeframe] = useState<'30D' | '90D' | 'Session'>('30D');
   const [hoveredBarIndex, setHoveredBarIndex] = useState<number | null>(null);
   const [hoveredDeptIndex, setHoveredDeptIndex] = useState<number | null>(null);
+  const [isOnlineCbtOpen, setIsOnlineCbtOpen] = useState(false);
 
   const activeRole = session?.activeRole || 'PROVOST';
   const currentPersona = persona || PERSONA_PROFILES[activeRole] || PERSONA_PROFILES.PROVOST;
@@ -213,7 +225,11 @@ export const DashboardView: React.FC = () => {
                 )}
               </div>
               <p className="text-[11px] text-slate-500 mt-1 font-sans">
-                {candidateData.cbtScore > 0 ? 'Recorded CBT entrance score' : 'Not yet taken / awaiting CBT date'}
+                {candidateData.cbtScore > 0
+                  ? 'Recorded CBT entrance score'
+                  : schoolProfile?.onlineCbtEnabled !== false
+                  ? 'Online CBT available below'
+                  : 'Scheduled at College CBT Centre'}
               </p>
             </Card>
 
@@ -237,6 +253,34 @@ export const DashboardView: React.FC = () => {
               </p>
             </Card>
           </div>
+
+          {/* Configurable Entrance CBT Action Banner (Online CBT vs Physical CBT Centre) */}
+          {candidateData.cbtScore === 0 && candidateData.status === 'APPLIED' && (
+            <div className="p-4 sm:p-5 bg-white border border-emerald-200 rounded-[4px] shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <span className="text-xs font-bold text-[#0F7640] uppercase tracking-wider block">
+                  {schoolProfile?.onlineCbtEnabled !== false
+                    ? 'Online Entrance CBT Screening Ready'
+                    : 'Physical College CBT Centre Screening'}
+                </span>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  {schoolProfile?.onlineCbtEnabled !== false
+                    ? `You can take your timed ${schoolProfile?.activeSession?.replace(/\s*Academic Session\s*/i, '').trim() || '2026/2027'} Entrance CBT online right now. Minimum pass cut-off is ${schoolProfile?.minimumCutoffScore || 50}%.`
+                    : `Online entrance CBT is currently disabled by the institution. Please print your Application Slip and report to the College CBT Centre for your physical screening exam.`}
+                </p>
+              </div>
+              {schoolProfile?.onlineCbtEnabled !== false && (
+                <Button
+                  size="sm"
+                  variant="primary"
+                  className="bg-[#0F7640] hover:bg-[#093322] text-xs font-bold rounded-[4px] shrink-0"
+                  onClick={() => setIsOnlineCbtOpen(true)}
+                >
+                  Start Online Entrance CBT
+                </Button>
+              )}
+            </div>
+          )}
 
           {/* Admission Progress Stepper */}
           <Card
@@ -347,6 +391,27 @@ export const DashboardView: React.FC = () => {
               Upon Academic Board review and provisional offer ratification, your official Admission Letter and Bursary Acceptance Fee portal will unlock here.
             </p>
           </div>
+
+          <OnlineEntranceCbtModal
+            isOpen={isOnlineCbtOpen}
+            onClose={() => setIsOnlineCbtOpen(false)}
+            applicationNumber={candidateData.applicationNumber}
+            candidateId={candidateData.id}
+            candidateName={candidateData.fullName}
+            candidateEmail={candidateData.email}
+            cutoffScore={schoolProfile?.minimumCutoffScore || 50}
+            onCompleted={(score) => {
+              updateCandidate(candidateData.id, {
+                cbtScore: score,
+                cbtDate: new Date().toISOString().split('T')[0],
+                status: candidateData.status === 'APPLIED' ? 'SCREENED' : candidateData.status,
+              });
+              recordAudit('APPLICANT_ONLINE_CBT_COMPLETED', 'ADMISSION_CANDIDATE', candidateData.applicationNumber, {
+                score,
+                mode: 'ONLINE',
+              });
+            }}
+          />
         </div>
       );
     }

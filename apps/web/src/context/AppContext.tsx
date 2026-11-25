@@ -50,6 +50,8 @@ export interface SchoolProfile {
   applicationFeeKobo: number;
   acceptanceFeeKobo: number;
   minimumCutoffScore: number;
+  onlineCbtEnabled: boolean;
+  physicalCbtEnabled: boolean;
   // Maintenance System Configuration
   maintenanceMode?: boolean;
   maintenanceTitle?: string;
@@ -342,6 +344,8 @@ const DEFAULT_SCHOOL_PROFILE: SchoolProfile = {
   applicationFeeKobo: 1000000, // N10,000
   acceptanceFeeKobo: 3500000, // N35,000
   minimumCutoffScore: 50,
+  onlineCbtEnabled: true,
+  physicalCbtEnabled: true,
   maintenanceMode: false,
   maintenanceTitle: 'Scheduled System Maintenance',
   maintenanceMessage:
@@ -1153,6 +1157,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         applicationFeeKobo: Number(t.application_fee_kobo || prev.applicationFeeKobo),
         acceptanceFeeKobo: Number(t.acceptance_fee_kobo || prev.acceptanceFeeKobo),
         minimumCutoffScore: t.minimum_cutoff_score ?? prev.minimumCutoffScore,
+        onlineCbtEnabled: t.online_cbt_enabled ?? prev.onlineCbtEnabled,
+        physicalCbtEnabled: t.physical_cbt_enabled ?? prev.physicalCbtEnabled,
         logoUrl: t.logo_url || prev.logoUrl,
         maintenanceMode: t.maintenance_mode ?? prev.maintenanceMode ?? false,
         maintenanceTitle: t.maintenance_title || prev.maintenanceTitle || 'Scheduled System Maintenance',
@@ -1494,6 +1500,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (updates.applicationFeeKobo !== undefined) payload.application_fee_kobo = updates.applicationFeeKobo;
       if (updates.acceptanceFeeKobo !== undefined) payload.acceptance_fee_kobo = updates.acceptanceFeeKobo;
       if (updates.minimumCutoffScore !== undefined) payload.minimum_cutoff_score = updates.minimumCutoffScore;
+      if (updates.onlineCbtEnabled !== undefined) payload.online_cbt_enabled = updates.onlineCbtEnabled;
+      if (updates.physicalCbtEnabled !== undefined) payload.physical_cbt_enabled = updates.physicalCbtEnabled;
       if (updates.logoUrl !== undefined) payload.logo_url = updates.logoUrl;
       if (updates.maintenanceMode !== undefined) payload.maintenance_mode = updates.maintenanceMode;
       if (updates.maintenanceTitle !== undefined) payload.maintenance_title = updates.maintenanceTitle;

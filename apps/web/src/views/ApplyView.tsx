@@ -2,7 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Printer, CheckCircle2, ShieldCheck, Eye, EyeOff, Upload, FileText, Trash2, ExternalLink } from 'lucide-react';
 import { Button, Input, Select, Modal, Badge, useToast } from '@campusone/ui';
-import { ACCREDITED_HEALTH_PROGRAMMES, ACCREDITED_COLLEGE_DEPARTMENTS } from '@campusone/contracts';
+import {
+  ACCREDITED_HEALTH_PROGRAMMES,
+  ACCREDITED_COLLEGE_DEPARTMENTS,
+  OLEVEL_EXAM_BODIES,
+  OLEVEL_GRADES,
+  getOlevelExamYears,
+  normalizeOlevelExamBody,
+} from '@campusone/contracts';
 import { useApp, type AdmissionCandidateItem } from '../context/AppContext.tsx';
 import { supabase } from '../lib/supabase.ts';
 import { PhotoUploadControl } from '../components/common/PersonAvatar.tsx';
@@ -12,32 +19,7 @@ import { optimizeImage } from '../utils/imageOptimizer.ts';
 import { UseOneIDLookup } from '../components/ui/index.ts';
 import { PortalShell } from '../components/layout/PortalShell.tsx';
 
-const OLEVEL_EXAM_BODIES = [
-  { value: 'WAEC (SSCE)', label: 'WAEC (SSCE)' },
-  { value: 'WAEC (GCE / Private)', label: 'WAEC (GCE / Private)' },
-  { value: 'NECO (SSCE)', label: 'NECO (SSCE)' },
-  { value: 'NECO (GCE / Private)', label: 'NECO (GCE / Private)' },
-  { value: 'NABTEB', label: 'NABTEB' },
-  { value: 'NBAIS', label: 'NBAIS' },
-  { value: 'IGCSE / Cambridge', label: 'IGCSE / Cambridge' },
-  { value: 'WAEC + NECO (Combined)', label: 'WAEC + NECO (Combined Sittings)' },
-];
-
-const OLEVEL_GRADES = ['A1', 'B2', 'B3', 'C4', 'C5', 'C6', 'D7', 'E8', 'F9'].map((g) => ({
-  value: g,
-  label: g,
-}));
-
-const OLEVEL_YEARS = Array.from({ length: 26 }, (_, i) => {
-  const yr = String(new Date().getFullYear() - i);
-  return { value: yr, label: yr };
-});
-
-function normalizeExamBody(val?: string): string {
-  if (!val || val === 'WAEC') return 'WAEC (SSCE)';
-  if (val === 'NECO') return 'NECO (SSCE)';
-  return val;
-}
+const OLEVEL_YEARS = getOlevelExamYears(26);
 
 export const ApplyView: React.FC = () => {
   const navigate = useNavigate();
@@ -74,7 +56,7 @@ export const ApplyView: React.FC = () => {
   const [lga, setLga] = useState<string>(initialDraft.lga || 'Ibadan North');
   const [selectedDeptCode, setSelectedDeptCode] = useState<string>(initialDraft.selectedDeptCode || 'CHD');
   const [programme, setProgramme] = useState<string>(initialDraft.programme || 'CHEW');
-  const [olevelBody, setOlevelBody] = useState<string>(normalizeExamBody(initialDraft.olevelBody));
+  const [olevelBody, setOlevelBody] = useState<string>(normalizeOlevelExamBody(initialDraft.olevelBody));
   const [olevelYear, setOlevelYear] = useState<string>(
     initialDraft.olevelYear || String(new Date().getFullYear() - 1)
   );
@@ -326,6 +308,14 @@ export const ApplyView: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!verifiedOneId) {
+      showToast({
+        type: 'danger',
+        title: 'UseOneID Verification Required',
+        message: 'Identity verification via UseOneID is mandatory before submitting an admission application.',
+      });
+      return;
+    }
     if (regPassword.length < 8) {
       showToast({
         type: 'danger',
@@ -503,9 +493,9 @@ export const ApplyView: React.FC = () => {
 
       <main className="flex-1 bg-slate-50 py-10 px-4 sm:px-6">
         <form onSubmit={handleSubmit} className="max-w-3xl mx-auto space-y-5">
-          {/* UseOneID Fast-Track Banner (hides cleanly once verified) */}
+          {/* Mandatory UseOneID Identity Verification (hides cleanly once verified) */}
           {!verifiedOneId ? (
-            <div className="bg-white border border-emerald-200 rounded-[4px] p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="bg-white border border-emerald-300 rounded-[4px] p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-9 h-9 rounded-[4px] bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0 p-1.5">
                   <img
@@ -515,13 +505,16 @@ export const ApplyView: React.FC = () => {
                   />
                 </div>
                 <div className="min-w-0">
-                  <span className="text-xs font-bold text-slate-900 block">
-                    {hasOneIdWallet ? 'UseOneID Wallet Found' : 'Fast-Track with UseOneID'}
-                  </span>
-                  <span className="text-[11px] text-slate-600 block">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-900">
+                      {hasOneIdWallet ? 'UseOneID Wallet Found' : 'Required Identity Verification (UseOneID)'}
+                    </span>
+                    <Badge variant="warning" size="sm">REQUIRED</Badge>
+                  </div>
+                  <span className="text-[11px] text-slate-600 block mt-0.5">
                     {hasOneIdWallet
-                      ? 'Authorize in 1 click to auto-fill your verified details'
-                      : 'Enter your email or phone below to check for a wallet, or verify now'}
+                      ? 'Authorize in 1 click to verify your identity and auto-fill your details'
+                      : 'All applicants must verify their identity with UseOneID before submitting'}
                   </span>
                 </div>
               </div>
@@ -851,12 +844,14 @@ export const ApplyView: React.FC = () => {
 
               <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <p className="text-[11px] text-slate-500">
-                  By submitting, you confirm that all credentials entered are genuine and accurate.
+                  {!verifiedOneId
+                    ? 'Complete mandatory UseOneID verification at the top of this page to enable submission.'
+                    : 'By submitting, you confirm that all credentials entered are genuine and accurate.'}
                 </p>
                 <Button
                   type="submit"
                   isLoading={isLoading}
-                  disabled={Boolean(existingAccountNotice)}
+                  disabled={Boolean(existingAccountNotice) || !verifiedOneId}
                   className="w-full sm:w-auto px-7 h-10 text-xs font-bold bg-[#0F7640] hover:bg-[#093322] rounded-[4px] shrink-0"
                 >
                   Submit Online Application

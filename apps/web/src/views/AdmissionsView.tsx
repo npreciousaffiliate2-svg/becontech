@@ -39,7 +39,14 @@ import { escapeHtml, exportToCsv, printInstitutionalDocument } from '../utils/do
 import { PersonAvatar, PhotoUploadControl, pluralize } from '../components/common/PersonAvatar.tsx';
 import { StateLgaSelect } from '../components/common/StateLgaSelect.tsx';
 import { UseOneIDLookup, UseOneIDButton } from '../components/ui/index.ts';
-import { NIGERIAN_STATES, ACCREDITED_HEALTH_PROGRAMMES, ACCREDITED_COLLEGE_DEPARTMENTS } from '@campusone/contracts';
+import {
+  NIGERIAN_STATES,
+  ACCREDITED_HEALTH_PROGRAMMES,
+  ACCREDITED_COLLEGE_DEPARTMENTS,
+  OLEVEL_EXAM_BODIES,
+  getOlevelExamYears,
+  normalizeOlevelExamBody,
+} from '@campusone/contracts';
 
 const ADMISSION_ENTRANCE_QUESTIONS = [
   {
@@ -1933,18 +1940,15 @@ export const AdmissionsView: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <Select
                   label="Exam Body"
-                  options={[
-                    { value: 'WAEC', label: 'WAEC' },
-                    { value: 'NECO', label: 'NECO' },
-                    { value: 'NABTEB', label: 'NABTEB' },
-                  ]}
-                  value={editingCandidate.olevelExamBody || 'WAEC'}
+                  options={OLEVEL_EXAM_BODIES}
+                  value={normalizeOlevelExamBody(editingCandidate.olevelExamBody)}
                   onChange={(val: any) => setEditingCandidate({ ...editingCandidate, olevelExamBody: val })}
                 />
-                <Input
+                <Select
                   label="Exam Year"
-                  value={editingCandidate.olevelExamYear || '2025'}
-                  onChange={(e) => setEditingCandidate({ ...editingCandidate, olevelExamYear: e.target.value })}
+                  options={getOlevelExamYears(26)}
+                  value={editingCandidate.olevelExamYear || String(new Date().getFullYear() - 1)}
+                  onChange={(val: any) => setEditingCandidate({ ...editingCandidate, olevelExamYear: val })}
                 />
                 <Select
                   label="Verification Status"

@@ -41,7 +41,7 @@ export const PrivacyView: React.FC = () => {
             <section className="space-y-2">
               <h2 className="text-base font-bold text-slate-900">2. Identity Verification (UseOneID)</h2>
               <p>
-                Applicants may optionally use UseOneID during registration to auto-fill verified bio-data and complete national identity clearance. Data shared through UseOneID is transmitted over encrypted HTTPS connections and is used strictly for candidate identity verification.
+                All applicants verify their identity through UseOneID during registration to auto-fill verified bio-data and complete mandatory national identity clearance. Data shared through UseOneID is transmitted over encrypted HTTPS connections and is used strictly for candidate identity verification.
               </p>
             </section>
 

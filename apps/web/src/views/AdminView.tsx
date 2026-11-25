@@ -1364,6 +1364,63 @@ export const AdminView: React.FC = () => {
                   </div>
                   <span className="font-bold text-slate-900 text-sm">{schoolProfile.minimumCutoffScore}%</span>
                 </div>
+
+                {/* Configurable Screening Modes: Online CBT & Physical CBT */}
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-[4px] space-y-2.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <span className="font-bold text-slate-900 block">Online Entrance CBT Screening</span>
+                      <span className="text-[11px] text-slate-500">
+                        Allow applicants to take the timed entrance CBT directly inside their Applicant Portal
+                      </span>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant={schoolProfile.onlineCbtEnabled !== false ? 'primary' : 'secondary'}
+                      className="text-xs rounded-[4px] shrink-0"
+                      onClick={() => {
+                        const next = !(schoolProfile.onlineCbtEnabled !== false);
+                        updateSchoolProfile({ onlineCbtEnabled: next });
+                        showToast({
+                          type: 'success',
+                          title: next ? 'Online CBT Enabled' : 'Online CBT Disabled',
+                          message: next
+                            ? 'Applicants can now take the timed entrance CBT inside their portal.'
+                            : 'Online CBT has been turned off for applicants.',
+                        });
+                      }}
+                    >
+                      {schoolProfile.onlineCbtEnabled !== false ? 'Enabled' : 'Disabled'}
+                    </Button>
+                  </div>
+
+                  <div className="pt-2.5 border-t border-slate-200 flex items-center justify-between gap-3">
+                    <div>
+                      <span className="font-bold text-slate-900 block">Physical College CBT Centre</span>
+                      <span className="text-[11px] text-slate-500">
+                        Allow candidates to sit entrance screening on-campus with manual score entry
+                      </span>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant={schoolProfile.physicalCbtEnabled !== false ? 'primary' : 'secondary'}
+                      className="text-xs rounded-[4px] shrink-0"
+                      onClick={() => {
+                        const next = !(schoolProfile.physicalCbtEnabled !== false);
+                        updateSchoolProfile({ physicalCbtEnabled: next });
+                        showToast({
+                          type: 'success',
+                          title: next ? 'Physical CBT Enabled' : 'Physical CBT Disabled',
+                          message: next
+                            ? 'On-campus CBT screening instructions are active for applicants.'
+                            : 'Physical CBT screening mode has been disabled.',
+                        });
+                      }}
+                    >
+                      {schoolProfile.physicalCbtEnabled !== false ? 'Enabled' : 'Disabled'}
+                    </Button>
+                  </div>
+                </div>
               </div>
             </Card>
 
