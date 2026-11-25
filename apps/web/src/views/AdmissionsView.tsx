@@ -1249,22 +1249,74 @@ export const AdmissionsView: React.FC = () => {
 
             {/* O'Level Results Breakdown */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="font-bold text-slate-900 text-xs uppercase tracking-wider block">
-                  Verified O'Level Subjects ({selectedCandidate.olevelExamBody} {selectedCandidate.olevelExamYear})
+                  O&apos;Level Subjects ({selectedCandidate.olevelExamBody} {selectedCandidate.olevelExamYear})
                 </span>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  leftIcon={<Edit2 className="w-3 h-3" />}
-                  onClick={() => {
-                    handleOpenEditCandidate(selectedCandidate);
-                    setSelectedCandidate(null);
-                  }}
-                >
-                  Upload / Edit Results
-                </Button>
+                <div className="flex items-center gap-2">
+                  {selectedCandidate.olevelStatus !== 'VERIFIED' && (
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      className="bg-[#0F7640] hover:bg-[#093322]"
+                      leftIcon={<CheckCircle2 className="w-3 h-3" />}
+                      onClick={() => {
+                        updateCandidate(selectedCandidate.id, { olevelStatus: 'VERIFIED' });
+                        setSelectedCandidate({ ...selectedCandidate, olevelStatus: 'VERIFIED' });
+                        showToast({
+                          type: 'success',
+                          title: "O'Level Verified",
+                          message: `${selectedCandidate.fullName}'s ${selectedCandidate.olevelExamBody} (${selectedCandidate.olevelExamYear}) credentials have been verified.`,
+                        });
+                      }}
+                    >
+                      Verify O&apos;Level
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    leftIcon={<Edit2 className="w-3 h-3" />}
+                    onClick={() => {
+                      handleOpenEditCandidate(selectedCandidate);
+                      setSelectedCandidate(null);
+                    }}
+                  >
+                    Upload / Edit Results
+                  </Button>
+                </div>
               </div>
+
+              {/* Attached O'Level Result Slip (PDF / Image) */}
+              {selectedCandidate.olevelDocumentUrl ? (
+                <div className="p-3 bg-emerald-50/60 border border-emerald-200 rounded-[4px] flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <FileText className="w-4 h-4 text-[#0F7640] shrink-0" />
+                    <div className="min-w-0">
+                      <span className="text-xs font-bold text-slate-900 block truncate">
+                        {selectedCandidate.olevelDocumentName || `${selectedCandidate.olevelExamBody} Result Slip`}
+                      </span>
+                      <span className="text-[11px] text-slate-600 block">
+                        Uploaded by applicant for Admissions Office review
+                      </span>
+                    </div>
+                  </div>
+                  <a
+                    href={selectedCandidate.olevelDocumentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    download={selectedCandidate.olevelDocumentName || 'olevel-result'}
+                    className="px-3 py-1.5 bg-white border border-emerald-300 text-[#0F7640] text-xs font-bold rounded-[4px] hover:bg-emerald-50 shrink-0"
+                  >
+                    View / Download Slip
+                  </a>
+                </div>
+              ) : (
+                <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-[4px] text-[11px] text-amber-900">
+                  No O&apos;Level PDF/image slip uploaded yet. Request original result slip during physical screening.
+                </div>
+              )}
+
               <div className="border border-slate-200 rounded-[4px] overflow-hidden">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold">

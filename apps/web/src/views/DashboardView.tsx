@@ -288,13 +288,25 @@ export const DashboardView: React.FC = () => {
           {/* O'Level Breakdown Table */}
           <Card
             header={
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="font-bold text-slate-900 uppercase tracking-wider text-xs">
-                  Submitted O'Level Science Subjects ({candidateData.olevelExamBody} {candidateData.olevelExamYear})
+                  Submitted O&apos;Level Science Subjects ({candidateData.olevelExamBody} {candidateData.olevelExamYear})
                 </span>
-                <Badge variant={candidateData.olevelStatus === 'VERIFIED' ? 'success' : 'warning'} size="sm">
-                  {candidateData.olevelStatus === 'VERIFIED' ? 'CREDITS VERIFIED' : 'PENDING VERIFICATION'}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  {candidateData.olevelDocumentUrl && (
+                    <a
+                      href={candidateData.olevelDocumentUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] font-semibold text-[#0F7640] hover:underline"
+                    >
+                      View Uploaded Slip
+                    </a>
+                  )}
+                  <Badge variant={candidateData.olevelStatus === 'VERIFIED' ? 'success' : 'warning'} size="sm">
+                    {candidateData.olevelStatus === 'VERIFIED' ? 'CREDITS VERIFIED' : 'PENDING VERIFICATION'}
+                  </Badge>
+                </div>
               </div>
             }
           >

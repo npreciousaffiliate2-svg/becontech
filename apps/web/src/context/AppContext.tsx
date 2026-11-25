@@ -110,6 +110,8 @@ export interface AdmissionCandidateItem {
   olevelExamYear: string;
   olevelStatus: 'VERIFIED' | 'PENDING' | 'DEFICIENT';
   olevelSubjects: { subject: string; grade: string }[];
+  olevelDocumentUrl?: string;
+  olevelDocumentName?: string;
   cbtScore: number;
   utmeScore?: number;
   cbtDate: string;

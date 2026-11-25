@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Printer, CheckCircle2, ShieldCheck, Eye, EyeOff } from 'lucide-react';
+import { Printer, CheckCircle2, ShieldCheck, Eye, EyeOff, Upload, FileText, Trash2, ExternalLink } from 'lucide-react';
 import { Button, Input, Select, Modal, Badge, useToast } from '@campusone/ui';
 import { ACCREDITED_HEALTH_PROGRAMMES, ACCREDITED_COLLEGE_DEPARTMENTS } from '@campusone/contracts';
 import { useApp, type AdmissionCandidateItem } from '../context/AppContext.tsx';
@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabase.ts';
 import { PhotoUploadControl } from '../components/common/PersonAvatar.tsx';
 import { StateLgaSelect } from '../components/common/StateLgaSelect.tsx';
 import { printInstitutionalDocument } from '../utils/documentExport.ts';
+import { optimizeImage } from '../utils/imageOptimizer.ts';
 import { UseOneIDLookup } from '../components/ui/index.ts';
 import { PortalShell } from '../components/layout/PortalShell.tsx';
 
@@ -82,6 +83,10 @@ export const ApplyView: React.FC = () => {
   const [biologyGrade, setBiologyGrade] = useState<string>(initialDraft.biologyGrade || 'B2');
   const [chemistryGrade, setChemistryGrade] = useState<string>(initialDraft.chemistryGrade || 'C4');
   const [physicsGrade, setPhysicsGrade] = useState<string>(initialDraft.physicsGrade || 'C5');
+  const [olevelDocumentUrl, setOlevelDocumentUrl] = useState<string>(initialDraft.olevelDocumentUrl || '');
+  const [olevelDocumentName, setOlevelDocumentName] = useState<string>(initialDraft.olevelDocumentName || '');
+  const [isUploadingResult, setIsUploadingResult] = useState(false);
+  const resultFileInputRef = useRef<HTMLInputElement>(null);
   const [avatarUrl, setAvatarUrl] = useState<string>(initialDraft.avatarUrl || '');
   const [regPassword, setRegPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -117,6 +122,8 @@ export const ApplyView: React.FC = () => {
           biologyGrade,
           chemistryGrade,
           physicsGrade,
+          olevelDocumentUrl,
+          olevelDocumentName,
           avatarUrl,
           verifiedOneId,
         })
@@ -138,9 +145,69 @@ export const ApplyView: React.FC = () => {
     biologyGrade,
     chemistryGrade,
     physicsGrade,
+    olevelDocumentUrl,
+    olevelDocumentName,
     avatarUrl,
     verifiedOneId,
   ]);
+
+  const handleResultFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+    const isImage = file.type.startsWith('image/');
+    if (!isPdf && !isImage) {
+      showToast({
+        type: 'danger',
+        title: 'Unsupported File',
+        message: 'Upload your O\'Level result slip as a PDF, JPG, PNG, or WebP file.',
+      });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      showToast({
+        type: 'danger',
+        title: 'File Too Large',
+        message: 'Maximum allowed file size is 5MB.',
+      });
+      return;
+    }
+
+    setIsUploadingResult(true);
+    try {
+      let dataUrl = '';
+      if (isImage) {
+        const optimized = await optimizeImage(file, { maxWidth: 1400, maxHeight: 1400, quality: 0.85 });
+        dataUrl = optimized.dataUrl;
+      } else {
+        dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result || ''));
+          reader.onerror = () => reject(new Error('Could not read PDF file.'));
+          reader.readAsDataURL(file);
+        });
+      }
+
+      setOlevelDocumentUrl(dataUrl);
+      setOlevelDocumentName(file.name);
+      showToast({
+        type: 'success',
+        title: 'Result Slip Attached',
+        message: `${file.name} attached to your ${olevelBody} (${olevelYear}) record.`,
+      });
+    } catch (err: any) {
+      showToast({
+        type: 'danger',
+        title: 'Upload Failed',
+        message: err?.message || 'Could not process the result file.',
+      });
+    } finally {
+      setIsUploadingResult(false);
+    }
+  };
 
   const handleUseOneIdFill = (data: {
     fullName: string;
@@ -219,6 +286,8 @@ export const ApplyView: React.FC = () => {
         p_avatar_url: avatarUrl || null,
         p_one_id_number: verifiedOneId?.id || null,
         p_one_id_verified: Boolean(verifiedOneId),
+        p_olevel_document_url: olevelDocumentUrl || null,
+        p_olevel_document_name: olevelDocumentName || null,
       });
       if (rpcRow?.applicationNumber) {
         finalAppNumber = rpcRow.applicationNumber;
@@ -246,6 +315,8 @@ export const ApplyView: React.FC = () => {
       olevelExamYear: olevelYear,
       olevelStatus: 'PENDING',
       olevelSubjects: olevelSubjectsPayload,
+      olevelDocumentUrl: olevelDocumentUrl || undefined,
+      olevelDocumentName: olevelDocumentName || undefined,
       cbtScore: 0,
       status: 'APPLIED',
       applicationFeePaid: false,
@@ -540,6 +611,71 @@ export const ApplyView: React.FC = () => {
                   <Select label="Biology" value={biologyGrade} onChange={setBiologyGrade} options={OLEVEL_GRADES} />
                   <Select label="Chemistry" value={chemistryGrade} onChange={setChemistryGrade} options={OLEVEL_GRADES} />
                   <Select label="Physics" value={physicsGrade} onChange={setPhysicsGrade} options={OLEVEL_GRADES} />
+                </div>
+              </div>
+
+              {/* O'Level Result Slip PDF / Image Upload */}
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-[4px] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-[4px] bg-white border border-slate-200 flex items-center justify-center shrink-0 text-[#0F7640]">
+                    <FileText className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-xs font-bold text-slate-900 block">
+                      Upload {olevelBody} Result Slip (PDF or Image)
+                    </span>
+                    <span className="text-[11px] text-slate-500 block truncate">
+                      {olevelDocumentName
+                        ? `Attached: ${olevelDocumentName}`
+                        : 'Attach a clear scan or PDF of your O\'Level statement of result (Max 5MB)'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <input
+                    ref={resultFileInputRef}
+                    type="file"
+                    accept="application/pdf,image/png,image/jpeg,image/webp"
+                    className="hidden"
+                    onChange={handleResultFileChange}
+                  />
+                  {olevelDocumentUrl && (
+                    <a
+                      href={olevelDocumentUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold text-[#0F7640] bg-emerald-50 border border-emerald-200 rounded-[4px] hover:bg-emerald-100"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      Preview
+                    </a>
+                  )}
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    isLoading={isUploadingResult}
+                    leftIcon={<Upload className="w-3.5 h-3.5" />}
+                    onClick={() => resultFileInputRef.current?.click()}
+                  >
+                    {olevelDocumentUrl ? 'Replace File' : 'Upload Result'}
+                  </Button>
+                  {olevelDocumentUrl && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="text-rose-600 hover:bg-rose-50"
+                      onClick={() => {
+                        setOlevelDocumentUrl('');
+                        setOlevelDocumentName('');
+                      }}
+                      title="Remove attached result"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
