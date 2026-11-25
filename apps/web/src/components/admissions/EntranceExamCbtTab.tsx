@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { Card, Button, Badge, Modal, Input, Select, useToast } from '@campusone/ui';
 import { useApp } from '../../context/AppContext.tsx';
-import { useSharedRecords } from '../../lib/sharedRecords.ts';
+import { loadRecords, persistRecords, useSharedRecords } from '../../lib/sharedRecords.ts';
 import {
   DEFAULT_ENTRANCE_EXAM_SUITES,
   ENTRANCE_CBT_SUBJECTS,
@@ -24,6 +24,8 @@ import {
   parseImportedEntranceQuestions,
 } from '../../lib/entranceCbt.ts';
 
+const SEEDED_FLAG_KEY = 'campusone_entrance_cbt_seeded_v1';
+
 export const EntranceExamCbtTab: React.FC = () => {
   const { schoolProfile, updateSchoolProfile, departments, recordAudit } = useApp();
   const { showToast } = useToast();
@@ -32,6 +34,38 @@ export const EntranceExamCbtTab: React.FC = () => {
     'admissions.cbt_suites',
     DEFAULT_ENTRANCE_EXAM_SUITES
   );
+
+  // Auto-seed the 15-question Entrance Exam Suite once if none exists yet in DB/local (stays deleted if user deletes it)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const existing = await loadRecords<EntranceExamSuite>('admissions.cbt_suites');
+      if (cancelled) return;
+      if (existing && existing.length > 0) {
+        try {
+          localStorage.setItem(SEEDED_FLAG_KEY, '1');
+        } catch {}
+        return;
+      }
+      let alreadySeeded = false;
+      try {
+        alreadySeeded = localStorage.getItem(SEEDED_FLAG_KEY) === '1';
+      } catch {}
+      if (!alreadySeeded) {
+        try {
+          localStorage.setItem(SEEDED_FLAG_KEY, '1');
+        } catch {}
+        await persistRecords('admissions.cbt_suites', DEFAULT_ENTRANCE_EXAM_SUITES);
+        if (!cancelled) {
+          setSuites(DEFAULT_ENTRANCE_EXAM_SUITES);
+          setSelectedSuiteId(DEFAULT_ENTRANCE_EXAM_SUITES[0].id);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const activeSchoolSession = normalizeSessionLabel(schoolProfile?.activeSession || '2026/2027');
 
@@ -458,18 +492,18 @@ export const EntranceExamCbtTab: React.FC = () => {
   }, [selectedSuite, questionSearch, subjectFilter]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* ─── TOP CONTROL BAR ─── */}
-      <div className="bg-emerald-50 border border-emerald-200 rounded-[4px] p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-        <div>
+      <div className="bg-emerald-50 border border-emerald-200 rounded-[4px] p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="space-y-1">
           <h3 className="font-bold text-emerald-950 text-sm">
             Entrance Exam CBT Manager (By Admission Session &amp; Department)
           </h3>
-          <p className="text-xs text-emerald-800 mt-0.5">
+          <p className="text-xs text-emerald-800 leading-relaxed">
             Create one general exam for <strong>All Departments</strong> or dedicated department-specific exams per admission session. Applicants automatically receive the active exam matching their session and department.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
           <Button
             size="sm"
             variant={schoolProfile?.onlineCbtEnabled !== false ? 'primary' : 'secondary'}
@@ -511,9 +545,9 @@ export const EntranceExamCbtTab: React.FC = () => {
       </div>
 
       {/* ─── SESSION & DEPARTMENT FILTER BAR ─── */}
-      <div className="bg-white border border-slate-200 rounded-[4px] p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="w-48">
+      <div className="bg-white border border-slate-200 rounded-[4px] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="w-56">
             <Select
               value={sessionFilter}
               onChange={(val) => setSessionFilter(val)}
@@ -523,7 +557,7 @@ export const EntranceExamCbtTab: React.FC = () => {
               ]}
             />
           </div>
-          <div className="w-56">
+          <div className="w-60">
             <Select
               value={deptFilter}
               onChange={(val) => setDeptFilter(val)}
@@ -538,15 +572,44 @@ export const EntranceExamCbtTab: React.FC = () => {
 
       {/* ─── EXAM SUITES SELECTOR GRID ─── */}
       {filteredSuites.length === 0 ? (
-        <Card className="p-8 text-center space-y-3">
-          <p className="text-sm font-bold text-slate-900">No Entrance Exam Suites for This Filter</p>
-          <p className="text-xs text-slate-500">
-            Create a new Entrance Exam for this admission session or switch your session filter.
-          </p>
-          <div>
-            <Button size="sm" leftIcon={<Plus className="w-3.5 h-3.5" />} onClick={() => setIsCreateModalOpen(true)}>
-              Create New Exam
-            </Button>
+        <Card className="bg-white border border-slate-200 rounded-[4px]">
+          <div className="py-14 px-6 flex flex-col items-center justify-center text-center gap-4">
+            <div className="w-12 h-12 rounded-[4px] bg-emerald-50 border border-emerald-200 text-[#0F7640] flex items-center justify-center">
+              <Layers className="w-6 h-6" />
+            </div>
+            <div className="space-y-1.5 max-w-md">
+              <p className="text-sm font-bold text-slate-900">No Entrance Exam Suites for This Filter</p>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Create a new Entrance Exam for this admission session, switch your session filter, or load the seeded 15-question Health Technology entrance exam.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-2.5 pt-1">
+              <Button
+                size="sm"
+                leftIcon={<Plus className="w-3.5 h-3.5" />}
+                onClick={() => setIsCreateModalOpen(true)}
+              >
+                Create New Exam
+              </Button>
+              {suites.length === 0 && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={async () => {
+                    await persistRecords('admissions.cbt_suites', DEFAULT_ENTRANCE_EXAM_SUITES);
+                    setSuites(DEFAULT_ENTRANCE_EXAM_SUITES);
+                    setSelectedSuiteId(DEFAULT_ENTRANCE_EXAM_SUITES[0].id);
+                    showToast({
+                      type: 'success',
+                      title: 'Seeded Exam Loaded',
+                      message: 'Loaded 2026/2027 General Entrance CBT with 15 questions.',
+                    });
+                  }}
+                >
+                  Load Seeded Exam (15 Questions)
+                </Button>
+              )}
+            </div>
           </div>
         </Card>
       ) : (
