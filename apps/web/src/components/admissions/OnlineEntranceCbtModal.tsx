@@ -13,92 +13,13 @@ import {
 } from 'lucide-react';
 import { Button, Badge, useToast } from '@campusone/ui';
 import { supabase } from '../../lib/supabase.ts';
-
-interface CbtQuestion {
-  id: number;
-  subject: string;
-  question: string;
-  options: string[];
-  correctIndex: number;
-}
-
-const ENTRANCE_CBT_QUESTIONS: CbtQuestion[] = [
-  {
-    id: 1,
-    subject: 'Biology',
-    question: 'Which blood cells are primarily responsible for defending the body against infectious pathogens?',
-    options: ['Erythrocytes', 'Leukocytes', 'Thrombocytes', 'Plasma cells only'],
-    correctIndex: 1,
-  },
-  {
-    id: 2,
-    subject: 'Biology',
-    question: 'The functional structural unit of the human kidney responsible for filtering blood is the:',
-    options: ['Neuron', 'Alveolus', 'Nephron', 'Villus'],
-    correctIndex: 2,
-  },
-  {
-    id: 3,
-    subject: 'Health Science',
-    question: 'Which vector is responsible for transmitting the Plasmodium parasite that causes malaria?',
-    options: ['Aedes aegypti mosquito', 'Female Anopheles mosquito', 'Tsetse fly', 'Housefly'],
-    correctIndex: 1,
-  },
-  {
-    id: 4,
-    subject: 'Health Science',
-    question: 'Oral Rehydration Solution (ORS) is primarily administered in community healthcare to treat:',
-    options: ['Hypertension', 'Dehydration from acute diarrhoea', 'Fractures', 'Tuberculosis'],
-    correctIndex: 1,
-  },
-  {
-    id: 5,
-    subject: 'Chemistry',
-    question: 'What is the approximate normal pH range of human arterial blood?',
-    options: ['5.0 – 5.5', '6.0 – 6.5', '7.35 – 7.45', '8.2 – 8.8'],
-    correctIndex: 2,
-  },
-  {
-    id: 6,
-    subject: 'Chemistry',
-    question: 'Which chemical element has the symbol "Na" and is essential for nerve impulse transmission?',
-    options: ['Nitrogen', 'Sodium', 'Neon', 'Nickel'],
-    correctIndex: 1,
-  },
-  {
-    id: 7,
-    subject: 'English Language',
-    question: 'Choose the word most nearly opposite in meaning to "CONCISE" in a clinical report:',
-    options: ['Brief', 'Verbose', 'Accurate', 'Clear'],
-    correctIndex: 1,
-  },
-  {
-    id: 8,
-    subject: 'English Language',
-    question: 'Identify the correctly punctuated institutional sentence:',
-    options: [
-      'The patients vitals were recorded, promptly.',
-      "The patient's vitals were recorded promptly.",
-      'The patients’ vital was recorded promptly.',
-      'The patient vitals were record promptly.',
-    ],
-    correctIndex: 1,
-  },
-  {
-    id: 9,
-    subject: 'Mathematics',
-    question: 'A clinic prescribes 250 mg of a suspension twice daily for 5 days. What is the total dosage administered?',
-    options: ['1,250 mg', '2,000 mg', '2,500 mg', '5,000 mg'],
-    correctIndex: 2,
-  },
-  {
-    id: 10,
-    subject: 'Mathematics',
-    question: 'If 18 out of 24 trainees passed a practical immunization assessment, what percentage passed?',
-    options: ['65%', '70%', '75%', '80%'],
-    correctIndex: 2,
-  },
-];
+import { useSharedRecords } from '../../lib/sharedRecords.ts';
+import {
+  DEFAULT_ENTRANCE_CBT_CONFIG,
+  DEFAULT_ENTRANCE_CBT_QUESTIONS,
+  EntranceCbtConfig,
+  EntranceCbtQuestion,
+} from '../../lib/entranceCbt.ts';
 
 export interface OnlineEntranceCbtModalProps {
   isOpen: boolean;
@@ -121,13 +42,42 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
   onCompleted,
 }) => {
   const { showToast } = useToast();
+  const [storedQuestions] = useSharedRecords<EntranceCbtQuestion>(
+    'admissions.cbt_questions',
+    DEFAULT_ENTRANCE_CBT_QUESTIONS
+  );
+  const [storedConfigs] = useSharedRecords<EntranceCbtConfig>(
+    'admissions.cbt_config',
+    [DEFAULT_ENTRANCE_CBT_CONFIG]
+  );
+
+  const examConfig = storedConfigs[0] || DEFAULT_ENTRANCE_CBT_CONFIG;
+  const [examQuestions, setExamQuestions] = useState<EntranceCbtQuestion[]>(DEFAULT_ENTRANCE_CBT_QUESTIONS);
   const [currentIdx, setCurrentIdx] = useState(0);
-  const [answers, setAnswers] = useState<Record<number, number>>({});
-  const [secondsLeft, setSecondsLeft] = useState(10 * 60);
+  const [answers, setAnswers] = useState<Record<string, number>>({});
+  const [secondsLeft, setSecondsLeft] = useState((examConfig.durationMinutes || 15) * 60);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [finalScore, setFinalScore] = useState<number | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [confirmSubmit, setConfirmSubmit] = useState(false);
+
+  // Snapshot configured questions & duration whenever the exam workspace opens
+  useEffect(() => {
+    if (!isOpen) return;
+    const validPool = (storedQuestions.length > 0 ? storedQuestions : DEFAULT_ENTRANCE_CBT_QUESTIONS).filter(
+      (q) => Boolean(q && q.question && Array.isArray(q.options) && q.options.length > 0)
+    );
+    const ordered = examConfig.randomizeQuestions
+      ? [...validPool].sort(() => Math.random() - 0.5)
+      : validPool;
+    setExamQuestions(ordered);
+    setCurrentIdx(0);
+    setAnswers({});
+    setSecondsLeft(Math.max(1, Number(examConfig.durationMinutes) || 15) * 60);
+    setFinalScore(null);
+    setConfirmSubmit(false);
+    setIsSubmitting(false);
+  }, [isOpen]);
 
   // Lock background page scroll & track native browser fullscreen state
   useEffect(() => {
@@ -177,17 +127,17 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
 
   // Keyboard navigation (ArrowLeft / ArrowRight / A-D / 1-4)
   useEffect(() => {
-    if (!isOpen || finalScore !== null) return;
+    if (!isOpen || finalScore !== null || examQuestions.length === 0) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowRight') {
-        setCurrentIdx((i) => Math.min(ENTRANCE_CBT_QUESTIONS.length - 1, i + 1));
+        setCurrentIdx((i) => Math.min(examQuestions.length - 1, i + 1));
       } else if (e.key === 'ArrowLeft') {
         setCurrentIdx((i) => Math.max(0, i - 1));
       } else {
         const keyMap: Record<string, number> = { a: 0, b: 1, c: 2, d: 3, '1': 0, '2': 1, '3': 2, '4': 3 };
         const idx = keyMap[e.key.toLowerCase()];
         if (idx !== undefined) {
-          const q = ENTRANCE_CBT_QUESTIONS[currentIdx];
+          const q = examQuestions[currentIdx];
           if (q && idx < q.options.length) {
             setAnswers((prev) => ({ ...prev, [q.id]: idx }));
           }
@@ -196,7 +146,7 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, finalScore, currentIdx]);
+  }, [isOpen, finalScore, currentIdx, examQuestions]);
 
   const handleSubmitCbt = async () => {
     if (isSubmitting || finalScore !== null) return;
@@ -204,12 +154,12 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
     setConfirmSubmit(false);
 
     let correct = 0;
-    for (const q of ENTRANCE_CBT_QUESTIONS) {
+    for (const q of examQuestions) {
       if (answers[q.id] === q.correctIndex) {
         correct += 1;
       }
     }
-    const pct = Math.round((correct / ENTRANCE_CBT_QUESTIONS.length) * 100);
+    const pct = examQuestions.length > 0 ? Math.round((correct / examQuestions.length) * 100) : 0;
 
     try {
       const { error } = await supabase.rpc('submit_online_cbt_score', {
@@ -257,9 +207,9 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
 
   const mins = Math.floor(secondsLeft / 60);
   const secs = secondsLeft % 60;
-  const activeQ = ENTRANCE_CBT_QUESTIONS[currentIdx];
+  const activeQ = examQuestions[currentIdx];
   const answeredCount = Object.keys(answers).length;
-  const progressPct = Math.round((answeredCount / ENTRANCE_CBT_QUESTIONS.length) * 100);
+  const progressPct = examQuestions.length > 0 ? Math.round((answeredCount / examQuestions.length) * 100) : 0;
 
   return (
     <div
@@ -279,7 +229,7 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <h1 className="text-sm sm:text-base font-bold tracking-tight truncate">
-                Online Entrance CBT Screening
+                {examConfig.examTitle || 'Online Entrance CBT Screening'}
               </h1>
               <span className="hidden md:inline-block px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-white/10 text-emerald-200 rounded-[4px]">
                 Single Official Attempt
@@ -380,7 +330,14 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
           <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
             {/* LEFT / CENTER: QUESTION CANVAS */}
             <main className="flex-1 overflow-y-auto p-4 sm:p-8 lg:p-10">
-              <div className="max-w-3xl mx-auto space-y-6">
+              <div className="max-w-3xl mx-auto space-y-5">
+                {examConfig.instructions && (
+                  <div className="px-4 py-2.5 bg-emerald-50/70 border border-emerald-200/80 rounded-[4px] text-xs text-emerald-950">
+                    <span className="font-bold text-[#0F7640]">Instructions: </span>
+                    <span>{examConfig.instructions}</span>
+                  </div>
+                )}
+
                 {confirmSubmit && (
                   <div className="p-4 bg-amber-50 border border-amber-200 rounded-[4px] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="flex items-start gap-2.5 text-xs text-amber-950">
@@ -388,7 +345,7 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
                       <div>
                         <p className="font-bold">Submit Entrance CBT Examination?</p>
                         <p className="text-amber-800 mt-0.5">
-                          You have answered {answeredCount} of {ENTRANCE_CBT_QUESTIONS.length} questions. Once submitted, this single official attempt cannot be reopened.
+                          You have answered {answeredCount} of {examQuestions.length} questions. Once submitted, this single official attempt cannot be reopened.
                         </p>
                       </div>
                     </div>
@@ -410,52 +367,54 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
                 )}
 
                 {/* Question Card */}
-                <div className="bg-white border border-slate-200 rounded-[4px] shadow-sm p-5 sm:p-8 space-y-6">
-                  <div className="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-slate-100">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="neutral" size="sm">{activeQ.subject}</Badge>
-                      <span className="text-xs font-bold text-slate-600">
-                        Question {currentIdx + 1} of {ENTRANCE_CBT_QUESTIONS.length}
+                {activeQ && (
+                  <div className="bg-white border border-slate-200 rounded-[4px] shadow-sm p-5 sm:p-8 space-y-6">
+                    <div className="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-slate-100">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="neutral" size="sm">{activeQ.subject}</Badge>
+                        <span className="text-xs font-bold text-slate-600">
+                          Question {currentIdx + 1} of {examQuestions.length}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-400 hidden sm:inline">
+                        Tip: Press A–D to answer, Left/Right arrows to navigate
                       </span>
                     </div>
-                    <span className="text-[11px] text-slate-400 hidden sm:inline">
-                      Tip: Press A–D to answer, Left/Right arrows to navigate
-                    </span>
-                  </div>
 
-                  <p className="text-base sm:text-lg font-bold text-slate-900 leading-relaxed">
-                    {currentIdx + 1}. {activeQ.question}
-                  </p>
+                    <p className="text-base sm:text-lg font-bold text-slate-900 leading-relaxed">
+                      {currentIdx + 1}. {activeQ.question}
+                    </p>
 
-                  <div className="space-y-3 pt-1">
-                    {activeQ.options.map((opt, idx) => {
-                      const selected = answers[activeQ.id] === idx;
-                      return (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => setAnswers((prev) => ({ ...prev, [activeQ.id]: idx }))}
-                          className={`w-full min-h-[52px] text-left px-4 py-3.5 rounded-[4px] border transition-colors flex items-center gap-3.5 ${
-                            selected
-                              ? 'bg-emerald-50 border-[#0F7640] text-emerald-950 font-semibold ring-1 ring-[#0F7640]'
-                              : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
-                          }`}
-                        >
-                          <span
-                            className={`w-7 h-7 rounded-[4px] border flex items-center justify-center text-xs font-bold shrink-0 ${
+                    <div className="space-y-3 pt-1">
+                      {activeQ.options.map((opt, idx) => {
+                        const selected = answers[activeQ.id] === idx;
+                        return (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setAnswers((prev) => ({ ...prev, [activeQ.id]: idx }))}
+                            className={`w-full min-h-[52px] text-left px-4 py-3.5 rounded-[4px] border transition-colors flex items-center gap-3.5 ${
                               selected
-                                ? 'bg-[#0F7640] border-[#0F7640] text-white'
-                                : 'border-slate-300 text-slate-600 bg-slate-50'
+                                ? 'bg-emerald-50 border-[#0F7640] text-emerald-950 font-semibold ring-1 ring-[#0F7640]'
+                                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
                             }`}
                           >
-                            {String.fromCharCode(65 + idx)}
-                          </span>
-                          <span className="text-sm leading-snug">{opt}</span>
-                        </button>
-                      );
-                    })}
+                            <span
+                              className={`w-7 h-7 rounded-[4px] border flex items-center justify-center text-xs font-bold shrink-0 ${
+                                selected
+                                  ? 'bg-[#0F7640] border-[#0F7640] text-white'
+                                  : 'border-slate-300 text-slate-600 bg-slate-50'
+                              }`}
+                            >
+                              {String.fromCharCode(65 + idx)}
+                            </span>
+                            <span className="text-sm leading-snug">{opt}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </main>
 
@@ -465,7 +424,7 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-bold text-slate-900 uppercase tracking-wider">Question Palette</span>
                   <span className="font-semibold text-[#0F7640]">
-                    {answeredCount}/{ENTRANCE_CBT_QUESTIONS.length} Answered
+                    {answeredCount}/{examQuestions.length} Answered
                   </span>
                 </div>
                 <div className="w-full h-2 bg-slate-100 rounded-[4px] overflow-hidden">
@@ -489,7 +448,7 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
 
               <div className="flex-1 overflow-y-auto p-4 sm:p-5">
                 <div className="grid grid-cols-5 sm:grid-cols-10 lg:grid-cols-5 gap-2">
-                  {ENTRANCE_CBT_QUESTIONS.map((q, idx) => {
+                  {examQuestions.map((q, idx) => {
                     const isAnswered = answers[q.id] !== undefined;
                     const isCurrent = idx === currentIdx;
                     return (
@@ -540,17 +499,17 @@ export const OnlineEntranceCbtModal: React.FC<OnlineEntranceCbtModalProps> = ({
             </Button>
 
             <span className="text-xs font-semibold text-slate-500 hidden sm:inline">
-              Question {currentIdx + 1} of {ENTRANCE_CBT_QUESTIONS.length}
+              Question {currentIdx + 1} of {examQuestions.length}
             </span>
 
             <div className="flex items-center gap-2">
-              {currentIdx < ENTRANCE_CBT_QUESTIONS.length - 1 ? (
+              {currentIdx < examQuestions.length - 1 ? (
                 <Button
                   type="button"
                   variant="primary"
                   rightIcon={<ChevronRight className="w-4 h-4" />}
                   className="bg-[#0F7640] hover:bg-[#093322]"
-                  onClick={() => setCurrentIdx((i) => Math.min(ENTRANCE_CBT_QUESTIONS.length - 1, i + 1))}
+                  onClick={() => setCurrentIdx((i) => Math.min(examQuestions.length - 1, i + 1))}
                 >
                   Next Question
                 </Button>
