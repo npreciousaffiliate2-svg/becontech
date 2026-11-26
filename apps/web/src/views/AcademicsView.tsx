@@ -32,7 +32,7 @@ import {
   computeCourseResult,
   DEFAULT_GRADING_SCALE,
 } from '@campusone/contracts';
-import { exportToCsv, printInstitutionalDocument } from '../utils/documentExport.ts';
+import { exportToCsv, printInstitutionalDocument, requestDocumentDigitalSeal } from '../utils/documentExport.ts';
 import { PersonAvatar, pluralize } from '../components/common/PersonAvatar.tsx';
 
 interface StudentScoreRecord {
@@ -1162,14 +1162,22 @@ export const AcademicsView: React.FC = () => {
               <Button
                 size="sm"
                 leftIcon={<Printer className="w-3.5 h-3.5" />}
-                onClick={() => {
+                onClick={async () => {
                   const matchedRow =
                     broadsheetData.find((b) => b.matricNumber === transcriptMatric) || broadsheetData[0];
+                  const refNo = `BCHT/TRN/${new Date().getFullYear()}/${transcriptMatric.replace(/\//g, '-')}`;
+                  const digitalSeal = await requestDocumentDigitalSeal({
+                    documentTitle: `Official Academic Transcript — ${transcriptMatric}`,
+                    referenceNo: refNo,
+                    recipientName: matchedRow?.studentName || transcriptMatric,
+                    documentContent: `${transcriptMatric}|CGPA:${(matchedRow?.cgpa || 3.85).toFixed(2)}`,
+                  });
                   printInstitutionalDocument({
                     title: `Official Academic Transcript — ${transcriptMatric}`,
                     badgeText: 'OFFICIAL ACADEMIC TRANSCRIPT & STATEMENT OF RESULT',
-                    referenceNo: `BCHT/TRN/2026/${transcriptMatric.replace(/\//g, '-')}`,
+                    referenceNo: refNo,
                     schoolProfile,
+                    digitalSeal,
                     officeSubtitle: 'Office of the Academic Registrar • Transcripts & Records Division',
                     metaItems: [
                       { label: 'Candidate Full Name', value: matchedRow?.studentName || 'Blessing Adeyemi', highlight: true },

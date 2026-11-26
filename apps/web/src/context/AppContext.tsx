@@ -127,6 +127,8 @@ export interface AdmissionCandidateItem {
   matricNumber?: string;
   oneIdNumber?: string;
   oneIdVerified?: boolean;
+  identityFrozen?: boolean;
+  identityRiskFlagged?: boolean;
   nin?: string;
   applicationFeePaid?: boolean;
   applicationFeeRef?: string;

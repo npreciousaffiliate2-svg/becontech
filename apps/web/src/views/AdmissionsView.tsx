@@ -35,7 +35,7 @@ import {
   ShieldAlert,
   Fingerprint,
 } from 'lucide-react';
-import { escapeHtml, exportToCsv, printInstitutionalDocument } from '../utils/documentExport.ts';
+import { escapeHtml, exportToCsv, printInstitutionalDocument, requestDocumentDigitalSeal } from '../utils/documentExport.ts';
 import { PersonAvatar, PhotoUploadControl, pluralize } from '../components/common/PersonAvatar.tsx';
 import { StateLgaSelect } from '../components/common/StateLgaSelect.tsx';
 import { UseOneIDLookup, UseOneIDButton } from '../components/ui/index.ts';
@@ -1664,15 +1664,23 @@ export const AdmissionsView: React.FC = () => {
               <Button
                 size="sm"
                 leftIcon={<Printer className="w-3.5 h-3.5" />}
-                onClick={() => {
+                onClick={async () => {
                   if (!letterCandidate) return;
                   const refNo = `${schoolProfile?.institutionAcronym || 'BCHT'}/ADM/${schoolProfile?.activeSession?.split('/')[0] || '2026'}/${letterCandidate.applicationNumber.replace('APP/2026/', '')}`;
+                  const digitalSeal = await requestDocumentDigitalSeal({
+                    documentTitle: `Provisional Admission Letter — ${letterCandidate.fullName}`,
+                    referenceNo: refNo,
+                    recipientName: letterCandidate.fullName,
+                    recipientEmail: letterCandidate.email,
+                    documentContent: `${letterCandidate.applicationNumber}|${letterCandidate.programme}|${letterCandidate.cbtScore}%`,
+                  });
                   printInstitutionalDocument({
                     title: `Provisional Admission Letter — ${letterCandidate.fullName}`,
                     badgeText: 'OFFICE OF THE REGISTRAR • PROVISIONAL ADMISSION OFFER',
                     referenceNo: refNo,
-                    issuedDate: '02 November 2026',
+                    issuedDate: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }),
                     schoolProfile,
+                    digitalSeal,
                     officeSubtitle: 'Office of the Registrar & Admissions Board',
                     metaItems: [
                       { label: 'Candidate Full Name', value: letterCandidate.fullName, highlight: true },

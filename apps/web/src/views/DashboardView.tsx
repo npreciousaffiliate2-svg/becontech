@@ -113,6 +113,7 @@ export const DashboardView: React.FC = () => {
       const candidateData = matchingCandidate;
       const isAdmitted = candidateData.status === 'ADMITTED';
       const isScreened = candidateData.status === 'SCREENED' || isAdmitted;
+      const isIdentityFrozen = Boolean(candidateData.identityFrozen);
       const numericCbtScore = Number(candidateData.cbtScore) || 0;
       const hasTakenCbt =
         numericCbtScore > 0 ||
@@ -140,7 +141,7 @@ export const DashboardView: React.FC = () => {
             </div>
 
             <div className="flex flex-wrap items-center gap-2 shrink-0">
-              {!hasTakenCbt && !isAdmitted && schoolProfile?.onlineCbtEnabled !== false && (
+              {!hasTakenCbt && !isAdmitted && !isIdentityFrozen && schoolProfile?.onlineCbtEnabled !== false && (
                 <Button
                   variant="secondary"
                   size="sm"
@@ -269,8 +270,24 @@ export const DashboardView: React.FC = () => {
             </Card>
           </div>
 
+          {/* Real-Time UseOneID Security Freeze Notice (triggered by identity.frozen webhook) */}
+          {isIdentityFrozen && (
+            <div className="p-4 sm:p-5 bg-red-50 border border-red-200 rounded-[4px] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-1">
+                <span className="text-xs font-bold text-red-800 uppercase tracking-wider block">
+                  Identity Temporarily Frozen via UseOneID
+                </span>
+                <p className="text-xs text-red-700 leading-relaxed">
+                  Your UseOneID wallet is currently frozen for security protection. High-risk actions (including Online Entrance CBT) are paused until you unfreeze your wallet in UseOneID.
+                </p>
+              </div>
+              <Badge variant="danger" size="sm">SECURITY HOLD</Badge>
+            </div>
+          )}
+
           {/* Configurable Entrance CBT Action Banner (Online CBT vs Physical CBT Centre vs Completed) */}
           {(() => {
+            if (isIdentityFrozen) return null;
             const cutoff = schoolProfile?.minimumCutoffScore || 50;
             const sessionLabel =
               schoolProfile?.activeSession?.replace(/\s*Academic Session\s*/i, '').trim() || '2026/2027';

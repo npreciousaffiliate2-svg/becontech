@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@campusone/ui';
 import { useApp } from '../../context/AppContext.tsx';
+import { UseOneIDTrustSeal } from '../ui/index.ts';
 
 interface PortalShellProps {
   children: React.ReactNode;
@@ -95,7 +96,8 @@ export const PortalShell: React.FC<PortalShellProps> = ({ children, onOpenNotice
             <span>{officialEmail}</span>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+            <UseOneIDTrustSeal />
             <span>
               &copy; {new Date().getFullYear()} {institutionName}
             </span>
